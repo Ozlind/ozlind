@@ -2,393 +2,255 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
-
-  <meta
-    name="description"
-    content="OZLIND — Your All-in-One AI Productivity Platform"
-  />
-
-  <meta name="theme-color" content="#050507" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>OZLIND — AI Productivity Platform</title>
+  <meta
+    name="description"
+    content="OZLIND — your all-in-one AI productivity platform."
+  />
 
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-
   <div class="app">
 
-    <!-- =========================
-         SIDEBAR
-    ========================== -->
-
+    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
 
       <div class="brand">
-
-        <div class="brand-logo">
-          O
-        </div>
-
-        <div class="brand-text">
-          <strong>OZLIND</strong>
-          <span>AI</span>
-        </div>
-
+        <div class="brand-logo">O</div>
+        <div class="brand-name">OZLIND</div>
       </div>
 
-
-      <button
-        class="new-chat-btn"
-        id="newChatBtn"
-        type="button"
-      >
-        <span class="plus">＋</span>
+      <button class="new-chat-btn" id="newChatBtn">
+        <span>＋</span>
         <span>New Chat</span>
       </button>
 
+      <nav class="sidebar-nav">
 
-      <nav class="navigation">
+        <div class="nav-section">
+          <div class="nav-label">WORKSPACE</div>
 
-        <div class="nav-title">
-          WORKSPACE
+          <button class="nav-item active" data-nav="home">
+            <span>⌂</span>
+            <span>Home</span>
+          </button>
+
+          <button class="nav-item" data-nav="chat">
+            <span>✦</span>
+            <span>AI Chat</span>
+          </button>
         </div>
 
+        <div class="nav-section">
+          <div class="nav-label">AI TOOLS</div>
 
-        <button
-          class="nav-item active"
-          data-section="chat"
-          type="button"
-        >
-          <span class="nav-icon">⌁</span>
-          <span>AI Chat</span>
-        </button>
+          <button class="nav-item" data-nav="image">
+            <span>◈</span>
+            <span>Image Generator</span>
+            <span class="soon">NEXT</span>
+          </button>
 
+          <button class="nav-item" data-nav="photo">
+            <span>◉</span>
+            <span>Photo Editor</span>
+            <span class="soon">NEXT</span>
+          </button>
 
-        <button
-          class="nav-item"
-          data-section="image"
-          type="button"
-        >
-          <span class="nav-icon">◈</span>
-          <span>Image Generator</span>
-          <small>AI</small>
-        </button>
+          <button class="nav-item" data-nav="code">
+            <span>&lt;/&gt;</span>
+            <span>Code Assistant</span>
+            <span class="soon">NEXT</span>
+          </button>
 
+          <button class="nav-item" data-nav="documents">
+            <span>▤</span>
+            <span>Documents</span>
+            <span class="soon">NEXT</span>
+          </button>
 
-        <button
-          class="nav-item"
-          data-section="photo"
-          type="button"
-        >
-          <span class="nav-icon">▧</span>
-          <span>Photo Editor</span>
-          <small>AI</small>
-        </button>
+          <button class="nav-item" data-nav="voice">
+            <span>◌</span>
+            <span>Voice AI</span>
+            <span class="soon">NEXT</span>
+          </button>
 
-
-        <button
-          class="nav-item"
-          data-section="code"
-          type="button"
-        >
-          <span class="nav-icon">&lt;/&gt;</span>
-          <span>Code Assistant</span>
-          <small>AI</small>
-        </button>
-
-
-        <button
-          class="nav-item"
-          data-section="github"
-          type="button"
-        >
-          <span class="nav-icon">◉</span>
-          <span>GitHub Assistant</span>
-        </button>
-
-
-        <button
-          class="nav-item"
-          data-section="vercel"
-          type="button"
-        >
-          <span class="nav-icon">▲</span>
-          <span>Vercel Agent</span>
-        </button>
-
-
-        <div class="nav-title tools-title">
-          TOOLS
+          <button class="nav-item" data-nav="research">
+            <span>⌕</span>
+            <span>Web Research</span>
+            <span class="live">LIVE</span>
+          </button>
         </div>
 
+        <div class="nav-section">
+          <div class="nav-label">PERSONAL</div>
 
-        <button
-          class="nav-item"
-          data-section="documents"
-          type="button"
-        >
-          <span class="nav-icon">▤</span>
-          <span>Documents</span>
-        </button>
+          <button class="nav-item" data-nav="history">
+            <span>◷</span>
+            <span>History</span>
+          </button>
 
-
-        <button
-          class="nav-item"
-          data-section="voice"
-          type="button"
-        >
-          <span class="nav-icon">◉</span>
-          <span>Voice</span>
-        </button>
-
-
-        <button
-          class="nav-item"
-          data-section="research"
-          type="button"
-        >
-          <span class="nav-icon">⌕</span>
-          <span>Web Research</span>
-        </button>
-
-
-        <button
-          class="nav-item"
-          data-section="history"
-          type="button"
-        >
-          <span class="nav-icon">◷</span>
-          <span>History</span>
-        </button>
-
-
-        <button
-          class="nav-item"
-          data-section="settings"
-          type="button"
-        >
-          <span class="nav-icon">⚙</span>
-          <span>Settings</span>
-        </button>
+          <button class="nav-item" data-nav="settings">
+            <span>⚙</span>
+            <span>Settings</span>
+          </button>
+        </div>
 
       </nav>
 
-
       <div class="sidebar-bottom">
-
-        <div class="profile-card">
-
-          <div class="avatar">
-            AK
-          </div>
-
+        <div class="profile">
+          <div class="profile-avatar">A</div>
           <div class="profile-info">
             <strong>Athul</strong>
-            <span>OZLIND Workspace</span>
+            <span>OZLIND User</span>
           </div>
-
-          <button
-            class="profile-more"
-            type="button"
-          >
-            •••
-          </button>
-
         </div>
-
       </div>
 
     </aside>
 
-
-    <!-- =========================
-         MAIN APPLICATION
-    ========================== -->
-
+    <!-- MAIN -->
     <main class="main">
 
-      <!-- TOP BAR -->
-
+      <!-- TOPBAR -->
       <header class="topbar">
 
-        <button
-          class="mobile-menu"
-          id="mobileMenu"
-          type="button"
-          aria-label="Open menu"
-        >
-          ☰
-        </button>
-
+        <button class="menu-btn" id="menuBtn">☰</button>
 
         <div class="search-box">
-
-          <span class="search-icon">
-            ⌕
-          </span>
-
+          <span>⌕</span>
           <input
-            id="searchInput"
-            type="search"
+            type="text"
+            id="featureSearch"
             placeholder="Search OZLIND..."
             autocomplete="off"
           />
-
         </div>
 
-
-        <div class="topbar-actions">
-
-          <div class="online-status">
-            <span></span>
-            AI Online
+        <div class="topbar-right">
+          <div class="status">
+            <span class="status-dot"></span>
+            <span>AI Online</span>
           </div>
 
-          <button
-            class="top-icon"
-            type="button"
-            aria-label="Notifications"
-          >
-            ♢
-          </button>
-
-          <button
-            class="top-avatar"
-            type="button"
-          >
-            AK
-          </button>
-
+          <div class="top-avatar">A</div>
         </div>
 
       </header>
 
-
       <!-- CONTENT -->
-
-      <div class="content">
+      <section class="content">
 
         <!-- HERO -->
-
-        <section class="hero">
+        <section class="hero" id="hero">
 
           <div class="hero-badge">
             <span></span>
-            OZLIND AI IS READY
+            OZLIND AI
           </div>
-
 
           <h1>
             Your All-in-One
-            <span>AI Productivity Platform</span>
+            <span>AI Companion</span>
           </h1>
 
-
           <p>
-            Chat, create, edit, code and automate from one
-            powerful AI workspace.
+            Chat, research, create, code and more — all inside one
+            intelligent workspace.
           </p>
 
         </section>
 
-
         <!-- CHAT -->
-
-        <section
-          class="chat-container"
-          id="chatSection"
-        >
+        <section class="chat-panel" id="chatPanel">
 
           <div class="chat-header">
-
-            <div class="ai-avatar">
-              ✦
-            </div>
-
-
-            <div class="chat-title">
-
-              <strong>
+            <div>
+              <div class="chat-title">
+                <span class="ai-icon">✦</span>
                 OZLIND AI
-              </strong>
-
-              <span>
-                Intelligent AI Assistant
-              </span>
-
+              </div>
+              <div class="chat-subtitle">
+                Intelligent assistant with live web research
+              </div>
             </div>
 
-
-            <button
-              class="clear-chat"
-              id="clearChat"
-              type="button"
-            >
+            <button class="clear-btn" id="clearChatBtn">
               Clear
             </button>
-
           </div>
 
+          <div class="messages" id="messages">
 
-          <!-- MESSAGE AREA -->
+            <div class="welcome-message">
+              <div class="welcome-icon">✦</div>
 
-          <div
-            class="messages"
-            id="messages"
-            aria-live="polite"
-          >
+              <h2>How can I help you?</h2>
 
-            <div
-              class="empty-state"
-              id="emptyState"
-            >
+              <p>
+                Ask me anything. For current information, OZLIND can
+                research the web before answering.
+              </p>
 
-              <div class="empty-icon">
-                ✦
+              <div class="suggestions">
+                <button data-prompt="Explain artificial intelligence simply">
+                  Explain AI simply
+                </button>
+
+                <button data-prompt="Write a Python program to sort a list">
+                  Write Python code
+                </button>
+
+                <button data-prompt="What are the latest AI news today?">
+                  Latest AI news
+                </button>
+
+                <button data-prompt="What is the current price of Bitcoin?">
+                  Current Bitcoin price
+                </button>
               </div>
-
-              <strong>
-                How can I help you today?
-              </strong>
-
-              <span>
-                Ask OZLIND anything and start a conversation.
-              </span>
-
             </div>
 
           </div>
 
+          <div class="research-indicator" id="researchIndicator">
+            <span class="research-spinner"></span>
+            <span>Researching the web...</span>
+          </div>
 
-          <!-- COMPOSER -->
+          <form class="composer" id="chatForm">
 
-          <form
-            class="composer"
-            id="chatForm"
-          >
+            <textarea
+              id="messageInput"
+              rows="1"
+              maxlength="8000"
+              placeholder="Message OZLIND..."
+              autocomplete="off"
+            ></textarea>
 
-            <div class="composer-box">
+            <div class="composer-bottom">
 
-              <textarea
-                id="messageInput"
-                rows="1"
-                maxlength="8000"
-                placeholder="Message OZLIND AI..."
-                aria-label="Message OZLIND AI"
-              ></textarea>
-
+              <div class="composer-hint">
+                <span>Enter to send</span>
+                <span>•</span>
+                <span>Shift + Enter for new line</span>
+              </div>
 
               <button
-                class="send-button"
-                id="sendButton"
                 type="submit"
+                class="send-btn"
+                id="sendBtn"
                 aria-label="Send message"
               >
                 ↑
@@ -396,189 +258,110 @@
 
             </div>
 
-
-            <div class="composer-footer">
-
-              <span>
-                Enter to send · Shift + Enter for new line
-              </span>
-
-              <span id="charCount">
-                0 / 8000
-              </span>
-
-            </div>
-
           </form>
 
         </section>
 
-
-        <!-- FEATURE SECTION -->
-
-        <section class="features-section">
+        <!-- FEATURES -->
+        <section class="features" id="features">
 
           <div class="section-heading">
-
             <div>
-              <h2>
-                One workspace. Every AI tool.
-              </h2>
-
-              <p>
-                OZLIND is designed to bring your entire AI workflow
-                into one place.
-              </p>
+              <span class="eyebrow">EXPLORE</span>
+              <h2>Powerful AI tools</h2>
             </div>
-
           </div>
-
 
           <div class="feature-grid">
 
-            <article class="feature-card">
-
-              <div class="feature-icon">
-                ⌁
+            <article class="feature-card live-card" data-feature="chat">
+              <div class="feature-icon">✦</div>
+              <div class="feature-content">
+                <div class="feature-top">
+                  <h3>AI Chat</h3>
+                  <span class="live">LIVE</span>
+                </div>
+                <p>
+                  Talk with OZLIND AI and get intelligent answers.
+                </p>
               </div>
-
-              <h3>
-                AI Chat
-              </h3>
-
-              <p>
-                Intelligent conversations powered by a secure
-                server-side AI connection.
-              </p>
-
-              <span class="feature-status live">
-                LIVE
-              </span>
-
             </article>
 
-
-            <article class="feature-card">
-
-              <div class="feature-icon">
-                ◈
+            <article class="feature-card live-card" data-feature="research">
+              <div class="feature-icon">⌕</div>
+              <div class="feature-content">
+                <div class="feature-top">
+                  <h3>Web Research</h3>
+                  <span class="live">LIVE</span>
+                </div>
+                <p>
+                  Search the live web for current information.
+                </p>
               </div>
-
-              <h3>
-                Image Generator
-              </h3>
-
-              <p>
-                Create stunning AI visuals from natural language
-                prompts.
-              </p>
-
-              <span class="feature-status">
-                MODULE
-              </span>
-
             </article>
 
-
-            <article class="feature-card">
-
-              <div class="feature-icon">
-                ▧
+            <article class="feature-card" data-feature="image">
+              <div class="feature-icon">◈</div>
+              <div class="feature-content">
+                <div class="feature-top">
+                  <h3>Image Generator</h3>
+                  <span class="soon">NEXT</span>
+                </div>
+                <p>
+                  Create beautiful AI-generated images.
+                </p>
               </div>
-
-              <h3>
-                Photo Editor
-              </h3>
-
-              <p>
-                Professional AI-powered image editing and
-                enhancement workflows.
-              </p>
-
-              <span class="feature-status">
-                MODULE
-              </span>
-
             </article>
 
-
-            <article class="feature-card">
-
-              <div class="feature-icon">
-                &lt;/&gt;
+            <article class="feature-card" data-feature="photo">
+              <div class="feature-icon">◉</div>
+              <div class="feature-content">
+                <div class="feature-top">
+                  <h3>Photo Editor</h3>
+                  <span class="soon">NEXT</span>
+                </div>
+                <p>
+                  Enhance and transform your photos with AI.
+                </p>
               </div>
-
-              <h3>
-                Code Assistant
-              </h3>
-
-              <p>
-                Build, debug, refactor and understand production
-                code faster.
-              </p>
-
-              <span class="feature-status">
-                MODULE
-              </span>
-
             </article>
 
-
-            <article class="feature-card">
-
-              <div class="feature-icon">
-                ◉
+            <article class="feature-card" data-feature="code">
+              <div class="feature-icon">&lt;/&gt;</div>
+              <div class="feature-content">
+                <div class="feature-top">
+                  <h3>Code Assistant</h3>
+                  <span class="soon">NEXT</span>
+                </div>
+                <p>
+                  Build, debug and improve your code.
+                </p>
               </div>
-
-              <h3>
-                GitHub Assistant
-              </h3>
-
-              <p>
-                Repository-aware AI automation for your development
-                workflow.
-              </p>
-
-              <span class="feature-status">
-                AGENT
-              </span>
-
             </article>
 
-
-            <article class="feature-card">
-
-              <div class="feature-icon">
-                ▲
+            <article class="feature-card" data-feature="documents">
+              <div class="feature-icon">▤</div>
+              <div class="feature-content">
+                <div class="feature-top">
+                  <h3>Documents</h3>
+                  <span class="soon">NEXT</span>
+                </div>
+                <p>
+                  Work with PDFs and documents using AI.
+                </p>
               </div>
-
-              <h3>
-                Vercel Agent
-              </h3>
-
-              <p>
-                Deployment and project automation inside the OZLIND
-                ecosystem.
-              </p>
-
-              <span class="feature-status">
-                AGENT
-              </span>
-
             </article>
 
           </div>
 
         </section>
 
-      </div>
+      </section>
 
     </main>
 
   </div>
 
-
-  <script src="/chatbot.js" defer></script>
-
+  <script src="chatbot.js"></script>
 </body>
   </html>
