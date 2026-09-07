@@ -1,624 +1,353 @@
 (() => {
   "use strict";
 
-  const form =
-    document.getElementById("chatForm");
-
-  const input =
-    document.getElementById("messageInput");
-
-  const sendButton =
-    document.getElementById("sendButton");
-
-  const messagesContainer =
-    document.getElementById("messages");
-
-  const clearButton =
-    document.getElementById("clearChat");
-
-  const newChatButton =
-    document.getElementById("newChatBtn");
-
-  const charCount =
-    document.getElementById("charCount");
-
-  const mobileMenu =
-    document.getElementById("mobileMenu");
-
-  const sidebar =
-    document.getElementById("sidebar");
-
-  const searchInput =
-    document.getElementById("searchInput");
-
-  const navItems =
-    [...document.querySelectorAll(".nav-item")];
-
-  const featureCards =
-    [...document.querySelectorAll(".feature-card")];
-
-
   const state = {
     messages: [],
     loading: false
   };
 
-
-  /* =========================
-     SECURITY
-  ========================== */
+  const messagesEl = document.getElementById("messages");
+  const form = document.getElementById("chatForm");
+  const input = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const clearBtn = document.getElementById("clearChatBtn");
+  const newChatBtn = document.getElementById("newChatBtn");
+  const researchIndicator = document.getElementById("researchIndicator");
+  const menuBtn = document.getElementById("menuBtn");
+  const sidebar = document.getElementById("sidebar");
+  const searchInput = document.getElementById("featureSearch");
 
   function escapeHTML(value) {
-
-    const element =
-      document.createElement("div");
-
-    element.textContent = value;
-
-    return element.innerHTML;
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
   }
 
+  function showWelcome() {
+    messagesEl.innerHTML = `
+      <div class="welcome-message">
+        <div class="welcome-icon">✦</div>
 
-  /* =========================
-     UI HELPERS
-  ========================== */
+        <h2>How can I help you?</h2>
 
-  function scrollMessages() {
+        <p>
+          Ask me anything. For current information, OZLIND can
+          research the web before answering.
+        </p>
 
-    messagesContainer.scrollTop =
-      messagesContainer.scrollHeight;
+        <div class="suggestions">
+          <button data-prompt="Explain artificial intelligence simply">
+            Explain AI simply
+          </button>
+
+          <button data-prompt="Write a Python program to sort a list">
+            Write Python code
+          </button>
+
+          <button data-prompt="What are the latest AI news today?">
+            Latest AI news
+          </button>
+
+          <button data-prompt="What is the current price of Bitcoin?">
+            Current Bitcoin price
+          </button>
+        </div>
+      </div>
+    `;
   }
 
-
-  function updateCharacterCount() {
-
-    charCount.textContent =
-      `${input.value.length} / 8000`;
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  function addMessage(role, content, sources = []) {
+    const wrapper = document.createElement("div");
+    wrapper.className = `message ${role}`;
 
-  function removeEmptyState() {
+    const avatar = role === "user" ? "A" : "✦";
 
-    const empty =
-      document.getElementById("emptyState");
+    let sourcesHTML = "";
 
-    if (empty) {
-      empty.remove();
+    if (
+      role === "assistant" &&
+      Array.isArray(sources) &&
+      sources.length > 0
+    ) {
+      sourcesHTML = `
+        <div class="message-sources">
+          <div class="sources-title">WEB SOURCES</div>
+          ${sources
+            .slice(0, 5)
+            .map(
+              (source) => `
+                <a
+                  href="${escapeHTML(source.url || "#")}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="${escapeHTML(source.title || "Source")}"
+                >
+                  ${escapeHTML(source.title || source.url || "Source")}
+                </a>
+              `
+            )
+            .join("")}
+        </div>
+      `;
     }
-  }
 
+    wrapper.innerHTML = `
+      <div class="message-avatar">${avatar}</div>
 
-  function addMessage(
-    role,
-    content,
-    error = false
-  ) {
-
-    removeEmptyState();
-
-    const message =
-      document.createElement("div");
-
-    message.className =
-      `message ${role}`;
-
-
-    const avatar =
-      document.createElement("div");
-
-    avatar.className =
-      "message-avatar";
-
-    avatar.textContent =
-      role === "user"
-        ? "AK"
-        : "O";
-
-
-    const bubble =
-      document.createElement("div");
-
-    bubble.className =
-      `message-bubble ${
-        error ? "error-bubble" : ""
-      }`;
-
-    bubble.innerHTML =
-      escapeHTML(content);
-
-
-    message.appendChild(avatar);
-    message.appendChild(bubble);
-
-    messagesContainer.appendChild(message);
-
-    scrollMessages();
-
-    return message;
-  }
-
-
-  function showTyping() {
-
-    removeEmptyState();
-
-    const message =
-      document.createElement("div");
-
-    message.className =
-      "message assistant";
-
-    message.id =
-      "typingMessage";
-
-
-    const avatar =
-      document.createElement("div");
-
-    avatar.className =
-      "message-avatar";
-
-    avatar.textContent =
-      "O";
-
-
-    const bubble =
-      document.createElement("div");
-
-    bubble.className =
-      "message-bubble";
-
-    bubble.innerHTML = `
-      <span class="typing">
-        <i></i>
-        <i></i>
-        <i></i>
-      </span>
+      <div class="message-body">
+        <div class="message-content">${escapeHTML(content)}</div>
+        ${sourcesHTML}
+      </div>
     `;
 
-
-    message.appendChild(avatar);
-    message.appendChild(bubble);
-
-    messagesContainer.appendChild(message);
-
-    scrollMessages();
+    messagesEl.appendChild(wrapper);
+    scrollToBottom();
   }
 
+  function showTyping() {
+    const typing = document.createElement("div");
 
-  function hideTyping() {
+    typing.className = "message assistant";
+    typing.id = "typingMessage";
 
-    const typing =
-      document.getElementById(
-        "typingMessage"
-      );
+    typing.innerHTML = `
+      <div class="message-avatar">✦</div>
+      <div class="message-body">
+        <div class="typing">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    `;
 
-    if (typing) {
-      typing.remove();
-    }
+    messagesEl.appendChild(typing);
+    scrollToBottom();
   }
 
+  function removeTyping() {
+    document.getElementById("typingMessage")?.remove();
+  }
 
   function setLoading(value) {
+    state.loading = value;
 
-    state.loading =
-      value;
+    sendBtn.disabled = value;
+    input.disabled = value;
 
-    sendButton.disabled =
-      value;
-
-    input.disabled =
-      value;
-
-    sendButton.textContent =
-      value
-        ? "…"
-        : "↑";
+    if (value) {
+      researchIndicator.classList.add("show");
+    } else {
+      researchIndicator.classList.remove("show");
+    }
   }
 
+  async function sendMessage(text) {
+    const message = text.trim();
 
-  /* =========================
-     SEND MESSAGE
-  ========================== */
-
-  async function sendMessage() {
-
-    const content =
-      input.value.trim();
-
-
-    if (!content) {
+    if (!message || state.loading) {
       return;
     }
 
-
-    if (state.loading) {
-      return;
-    }
-
-
-    if (content.length > 8000) {
+    if (message.length > 8000) {
       addMessage(
         "assistant",
-        "Your message is too long. Please keep it under 8000 characters.",
-        true
+        "Your message is too long. Please keep it under 8000 characters."
       );
-
       return;
     }
-
 
     state.messages.push({
       role: "user",
-      content
+      content: message
     });
 
+    if (messagesEl.querySelector(".welcome-message")) {
+      messagesEl.innerHTML = "";
+    }
 
-    addMessage(
-      "user",
-      content
-    );
-
+    addMessage("user", message);
 
     input.value = "";
-
-    updateCharacterCount();
-
-    setLoading(true);
+    input.style.height = "auto";
 
     showTyping();
-
+    setLoading(true);
 
     try {
-
-      const response =
-        await fetch(
-          "/api/chat",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body: JSON.stringify({
-              messages:
-                state.messages
-            })
-          }
-        );
-
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messages: state.messages
+        })
+      });
 
       let data;
 
       try {
-
-        data =
-          await response.json();
-
+        data = await response.json();
       } catch {
-
-        throw new Error(
-          "The server returned an invalid response."
-        );
-
+        throw new Error("Invalid server response.");
       }
-
 
       if (!response.ok) {
-
         throw new Error(
-          data?.error ||
-          `Request failed (${response.status}).`
+          data?.error || "OZLIND could not process your request."
         );
-
       }
-
 
       const reply =
-        typeof data?.reply === "string"
+        typeof data.reply === "string" && data.reply.trim()
           ? data.reply.trim()
-          : "";
-
-
-      if (!reply) {
-
-        throw new Error(
-          "The AI returned an empty response."
-        );
-
-      }
-
-
-      hideTyping();
-
+          : "I couldn't generate a response.";
 
       state.messages.push({
         role: "assistant",
         content: reply
       });
 
+      removeTyping();
 
       addMessage(
         "assistant",
-        reply
+        reply,
+        Array.isArray(data.sources) ? data.sources : []
       );
-
-
     } catch (error) {
+      removeTyping();
 
-      hideTyping();
-
-
-      addMessage(
-        "assistant",
+      const safeMessage =
         error?.message ||
-          "Something went wrong. Please try again.",
-        true
-      );
+        "Something went wrong. Please try again.";
 
+      addMessage("assistant", safeMessage);
     } finally {
-
       setLoading(false);
-
       input.focus();
-
     }
   }
 
-
-  /* =========================
-     CLEAR CHAT
-  ========================== */
-
-  function clearConversation() {
-
-    if (state.loading) {
-      return;
-    }
-
-
+  function clearChat() {
     state.messages = [];
-
-
-    messagesContainer.innerHTML = `
-      <div
-        class="empty-state"
-        id="emptyState"
-      >
-        <div class="empty-icon">
-          ✦
-        </div>
-
-        <strong>
-          How can I help you today?
-        </strong>
-
-        <span>
-          Ask OZLIND anything and start a conversation.
-        </span>
-      </div>
-    `;
-
-
+    showWelcome();
     input.value = "";
-
-    updateCharacterCount();
-
+    input.style.height = "auto";
     input.focus();
   }
 
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendMessage(input.value);
+  });
 
-  /* =========================
-     FORM
-  ========================== */
-
-  form.addEventListener(
-    "submit",
-    (event) => {
-
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-
-      sendMessage();
-
+      form.requestSubmit();
     }
-  );
+  });
 
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 130)}px`;
+  });
 
-  /* =========================
-     ENTER TO SEND
-  ========================== */
+  clearBtn.addEventListener("click", clearChat);
+  newChatBtn.addEventListener("click", clearChat);
 
-  input.addEventListener(
-    "keydown",
-    (event) => {
+  messagesEl.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-prompt]");
 
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
+    if (!button) {
+      return;
+    }
 
-        event.preventDefault();
+    const prompt = button.getAttribute("data-prompt");
 
-        sendMessage();
+    if (prompt) {
+      sendMessage(prompt);
+    }
+  });
 
+  menuBtn?.addEventListener("click", () => {
+    sidebar.classList.toggle("open");
+  });
+
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      document.querySelectorAll(".nav-item").forEach((nav) => {
+        nav.classList.remove("active");
+      });
+
+      item.classList.add("active");
+
+      const nav = item.dataset.nav;
+
+      if (nav === "chat" || nav === "home") {
+        document.getElementById("chatPanel")?.scrollIntoView({
+          behavior: "smooth"
+        });
       }
 
-    }
-  );
+      if (nav === "research") {
+        input.focus();
+        input.value = "Search the web for ";
+      }
 
+      if (window.innerWidth <= 950) {
+        sidebar.classList.remove("open");
+      }
+    });
+  });
 
-  /* =========================
-     AUTO RESIZE
-  ========================== */
+  document.querySelectorAll(".feature-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const feature = card.dataset.feature;
 
-  input.addEventListener(
-    "input",
-    () => {
+      if (feature === "chat") {
+        document.getElementById("chatPanel")?.scrollIntoView({
+          behavior: "smooth"
+        });
+        input.focus();
+        return;
+      }
 
-      updateCharacterCount();
+      if (feature === "research") {
+        document.getElementById("chatPanel")?.scrollIntoView({
+          behavior: "smooth"
+        });
 
-      input.style.height =
-        "auto";
+        input.focus();
+        input.value = "Search the web for ";
+        return;
+      }
 
-      input.style.height =
-        `${Math.min(
-          input.scrollHeight,
-          150
-        )}px`;
-
-    }
-  );
-
-
-  /* =========================
-     CLEAR BUTTON
-  ========================== */
-
-  clearButton.addEventListener(
-    "click",
-    clearConversation
-  );
-
-
-  newChatButton.addEventListener(
-    "click",
-    () => {
-
-      clearConversation();
-
-      sidebar.classList.remove(
-        "open"
+      addMessage(
+        "assistant",
+        `${card.querySelector("h3")?.textContent || "This feature"} is coming next in OZLIND.`
       );
+    });
+  });
 
-    }
-  );
+  searchInput?.addEventListener("input", () => {
+    const query = searchInput.value.trim().toLowerCase();
 
+    document.querySelectorAll(".feature-card").forEach((card) => {
+      const text = card.textContent.toLowerCase();
 
-  /* =========================
-     MOBILE SIDEBAR
-  ========================== */
+      card.style.display =
+        !query || text.includes(query)
+          ? ""
+          : "none";
+    });
+  });
 
-  mobileMenu.addEventListener(
-    "click",
-    () => {
-
-      sidebar.classList.toggle(
-        "open"
-      );
-
-    }
-  );
-
-
-  /* =========================
-     NAVIGATION
-  ========================== */
-
-  navItems.forEach(
-    (item) => {
-
-      item.addEventListener(
-        "click",
-        () => {
-
-          navItems.forEach(
-            (nav) =>
-              nav.classList.remove(
-                "active"
-              )
-          );
-
-
-          item.classList.add(
-            "active"
-          );
-
-
-          const section =
-            item.dataset.section;
-
-
-          if (
-            section === "chat"
-          ) {
-
-            document
-              .getElementById(
-                "chatSection"
-              )
-              .scrollIntoView({
-                behavior:
-                  "smooth"
-              });
-
-          } else {
-
-            document
-              .querySelector(
-                ".features-section"
-              )
-              .scrollIntoView({
-                behavior:
-                  "smooth"
-              });
-
-          }
-
-
-          sidebar.classList.remove(
-            "open"
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-  /* =========================
-     SEARCH
-  ========================== */
-
-  searchInput.addEventListener(
-    "input",
-    () => {
-
-      const query =
-        searchInput.value
-          .toLowerCase()
-          .trim();
-
-
-      featureCards.forEach(
-        (card) => {
-
-          const text =
-            card.textContent
-              .toLowerCase();
-
-
-          card.style.display =
-            !query ||
-            text.includes(query)
-              ? ""
-              : "none";
-
-        }
-      );
-
-    }
-  );
-
-
-  /* =========================
-     INITIAL STATE
-  ========================== */
-
-  updateCharacterCount();
-
-  input.focus();
-
+  showWelcome();
 })();
