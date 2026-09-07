@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <meta
+    name="description"
+    content="OZLIND — Your All-in-One AI Productivity Platform"
+  />
+
+  <meta name="theme-color" content="#050507" />
+
+  <title>OZLIND — AI Productivity Platform</title>
+
+  <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body>
+
+  <div class="app">
+
+    <!-- =========================
+         SIDEBAR
+    ========================== -->
+
+    <aside class="sidebar" id="sidebar">
+
+      <div class="brand">
+
+        <div class="brand-logo">
+          O
+        </div>
+
+        <div class="brand-text">
+          <strong>OZLIND</strong>
+          <span>AI</span>
+        </div>
+
+      </div>
+
+
+      <button
+        class="new-chat-btn"
+        id="newChatBtn"
+        type="button"
+      >
+        <span class="plus">＋</span>
+        <span>New Chat</span>
+      </button>
+
+
+      <nav class="navigation">
+
+        <div class="nav-title">
+          WORKSPACE
+        </div>
+
+
+        <button
+          class="nav-item active"
+          data-section="chat"
+          type="button"
+        >
+          <span class="nav-icon">⌁</span>
+          <span>AI Chat</span>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="image"
+          type="button"
+        >
+          <span class="nav-icon">◈</span>
+          <span>Image Generator</span>
+          <small>AI</small>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="photo"
+          type="button"
+        >
+          <span class="nav-icon">▧</span>
+          <span>Photo Editor</span>
+          <small>AI</small>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="code"
+          type="button"
+        >
+          <span class="nav-icon">&lt;/&gt;</span>
+          <span>Code Assistant</span>
+          <small>AI</small>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="github"
+          type="button"
+        >
+          <span class="nav-icon">◉</span>
+          <span>GitHub Assistant</span>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="vercel"
+          type="button"
+        >
+          <span class="nav-icon">▲</span>
+          <span>Vercel Agent</span>
+        </button>
+
+
+        <div class="nav-title tools-title">
+          TOOLS
+        </div>
+
+
+        <button
+          class="nav-item"
+          data-section="documents"
+          type="button"
+        >
+          <span class="nav-icon">▤</span>
+          <span>Documents</span>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="voice"
+          type="button"
+        >
+          <span class="nav-icon">◉</span>
+          <span>Voice</span>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="research"
+          type="button"
+        >
+          <span class="nav-icon">⌕</span>
+          <span>Web Research</span>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="history"
+          type="button"
+        >
+          <span class="nav-icon">◷</span>
+          <span>History</span>
+        </button>
+
+
+        <button
+          class="nav-item"
+          data-section="settings"
+          type="button"
+        >
+          <span class="nav-icon">⚙</span>
+          <span>Settings</span>
+        </button>
+
+      </nav>
+
+
+      <div class="sidebar-bottom">
+
+        <div class="profile-card">
+
+          <div class="avatar">
+            AK
+          </div>
+
+          <div class="profile-info">
+            <strong>Athul</strong>
+            <span>OZLIND Workspace</span>
+          </div>
+
+          <button
+            class="profile-more"
+            type="button"
+          >
+            •••
+          </button>
+
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN APPLICATION
+    ========================== -->
+
+    <main class="main">
+
+      <!-- TOP BAR -->
+
+      <header class="topbar">
+
+        <button
+          class="mobile-menu"
+          id="mobileMenu"
+          type="button"
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+
+
+        <div class="search-box">
+
+          <span class="search-icon">
+            ⌕
+          </span>
+
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Search OZLIND..."
+            autocomplete="off"
+          />
+
+        </div>
+
+
+        <div class="topbar-actions">
+
+          <div class="online-status">
+            <span></span>
+            AI Online
+          </div>
+
+          <button
+            class="top-icon"
+            type="button"
+            aria-label="Notifications"
+          >
+            ♢
+          </button>
+
+          <button
+            class="top-avatar"
+            type="button"
+          >
+            AK
+          </button>
+
+        </div>
+
+      </header>
+
+
+      <!-- CONTENT -->
+
+      <div class="content">
+
+        <!-- HERO -->
+
+        <section class="hero">
+
+          <div class="hero-badge">
+            <span></span>
+            OZLIND AI IS READY
+          </div>
+
+
+          <h1>
+            Your All-in-One
+            <span>AI Productivity Platform</span>
+          </h1>
+
+
+          <p>
+            Chat, create, edit, code and automate from one
+            powerful AI workspace.
+          </p>
+
+        </section>
+
+
+        <!-- CHAT -->
+
+        <section
+          class="chat-container"
+          id="chatSection"
+        >
+
+          <div class="chat-header">
+
+            <div class="ai-avatar">
+              ✦
+            </div>
+
+
+            <div class="chat-title">
+
+              <strong>
+                OZLIND AI
+              </strong>
+
+              <span>
+                Intelligent AI Assistant
+              </span>
+
+            </div>
+
+
+            <button
+              class="clear-chat"
+              id="clearChat"
+              type="button"
+            >
+              Clear
+            </button>
+
+          </div>
+
+
+          <!-- MESSAGE AREA -->
+
+          <div
+            class="messages"
+            id="messages"
+            aria-live="polite"
+          >
+
+            <div
+              class="empty-state"
+              id="emptyState"
+            >
+
+              <div class="empty-icon">
+                ✦
+              </div>
+
+              <strong>
+                How can I help you today?
+              </strong>
+
+              <span>
+                Ask OZLIND anything and start a conversation.
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <!-- COMPOSER -->
+
+          <form
+            class="composer"
+            id="chatForm"
+          >
+
+            <div class="composer-box">
+
+              <textarea
+                id="messageInput"
+                rows="1"
+                maxlength="8000"
+                placeholder="Message OZLIND AI..."
+                aria-label="Message OZLIND AI"
+              ></textarea>
+
+
+              <button
+                class="send-button"
+                id="sendButton"
+                type="submit"
+                aria-label="Send message"
+              >
+                ↑
+              </button>
+
+            </div>
+
+
+            <div class="composer-footer">
+
+              <span>
+                Enter to send · Shift + Enter for new line
+              </span>
+
+              <span id="charCount">
+                0 / 8000
+              </span>
+
+            </div>
+
+          </form>
+
+        </section>
+
+
+        <!-- FEATURE SECTION -->
+
+        <section class="features-section">
+
+          <div class="section-heading">
+
+            <div>
+              <h2>
+                One workspace. Every AI tool.
+              </h2>
+
+              <p>
+                OZLIND is designed to bring your entire AI workflow
+                into one place.
+              </p>
+            </div>
+
+          </div>
+
+
+          <div class="feature-grid">
+
+            <article class="feature-card">
+
+              <div class="feature-icon">
+                ⌁
+              </div>
+
+              <h3>
+                AI Chat
+              </h3>
+
+              <p>
+                Intelligent conversations powered by a secure
+                server-side AI connection.
+              </p>
+
+              <span class="feature-status live">
+                LIVE
+              </span>
+
+            </article>
+
+
+            <article class="feature-card">
+
+              <div class="feature-icon">
+                ◈
+              </div>
+
+              <h3>
+                Image Generator
+              </h3>
+
+              <p>
+                Create stunning AI visuals from natural language
+                prompts.
+              </p>
+
+              <span class="feature-status">
+                MODULE
+              </span>
+
+            </article>
+
+
+            <article class="feature-card">
+
+              <div class="feature-icon">
+                ▧
+              </div>
+
+              <h3>
+                Photo Editor
+              </h3>
+
+              <p>
+                Professional AI-powered image editing and
+                enhancement workflows.
+              </p>
+
+              <span class="feature-status">
+                MODULE
+              </span>
+
+            </article>
+
+
+            <article class="feature-card">
+
+              <div class="feature-icon">
+                &lt;/&gt;
+              </div>
+
+              <h3>
+                Code Assistant
+              </h3>
+
+              <p>
+                Build, debug, refactor and understand production
+                code faster.
+              </p>
+
+              <span class="feature-status">
+                MODULE
+              </span>
+
+            </article>
+
+
+            <article class="feature-card">
+
+              <div class="feature-icon">
+                ◉
+              </div>
+
+              <h3>
+                GitHub Assistant
+              </h3>
+
+              <p>
+                Repository-aware AI automation for your development
+                workflow.
+              </p>
+
+              <span class="feature-status">
+                AGENT
+              </span>
+
+            </article>
+
+
+            <article class="feature-card">
+
+              <div class="feature-icon">
+                ▲
+              </div>
+
+              <h3>
+                Vercel Agent
+              </h3>
+
+              <p>
+                Deployment and project automation inside the OZLIND
+                ecosystem.
+              </p>
+
+              <span class="feature-status">
+                AGENT
+              </span>
+
+            </article>
+
+          </div>
+
+        </section>
+
+      </div>
+
+    </main>
+
+  </div>
+
+
+  <script src="/chatbot.js" defer></script>
+
+</body>
+  </html>
