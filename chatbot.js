@@ -1,1472 +1,1357 @@
+/* =========================================================
+   OZLIND — AI CHATBOT FRONTEND
+   Full synchronized replacement
+   ========================================================= */
+
 "use strict";
 
-/*
-  OZLIND AI — chatbot.js
-  Frontend controller for:
-  - Chat UI
-  - Local conversation history
-  - Streaming AI responses
-  - Image attachments
-  - Web research toggle
-  - Voice input
-  - Read aloud
-  - Copy / edit / delete / regenerate
-  - Theme switching
-  - Settings
-*/
+/* ---------------------------------------------------------
+   STORAGE
+--------------------------------------------------------- */
 
-const OZLIND = {
-  state: {
-    conversations: [],
-    currentConversationId: null,
-    messages: [],
-    attachments: [],
-    generating: false,
-    abortController: null,
-    theme: "dark",
-    memoryEnabled: true,
-    responseStyle: "balanced",
-    responseLength: "medium",
-    researchEnabled: false,
-    recognition: null,
-    listening: false,
-    customInstructions: "",
-  },
-
-  els: {},
+const STORAGE = {
+  conversations: "ozlind_conversations",
+  currentConversation: "ozlind_current_conversation",
+  theme: "ozlind_theme",
+  memory: "ozlind_memory",
+  responseStyle: "ozlind_response_style",
+  responseLength: "ozlind_response_length",
+  customInstructions: "ozlind_custom_instructions",
+  favorites: "ozlind_favorites"
 };
 
-/* =========================================================
+/* ---------------------------------------------------------
+   APP STATE
+--------------------------------------------------------- */
+
+const state = {
+  conversations: loadJSON(STORAGE.conversations, []),
+  currentConversationId:
+    localStorage.getItem(STORAGE.currentConversation) || null,
+
+  attachments: [],
+  generating: false,
+  abortController: null,
+
+  theme: localStorage.getItem(STORAGE.theme) || "system",
+  memory:
+    localStorage.getItem(STORAGE.memory) !== "false",
+
+  responseStyle:
+    localStorage.getItem(STORAGE.responseStyle) || "balanced",
+
+  responseLength:
+    localStorage.getItem(STORAGE.responseLength) || "auto",
+
+  customInstructions:
+    localStorage.getItem(STORAGE.customInstructions) || "",
+
+  favorites: loadJSON(STORAGE.favorites, []),
+
+  recognition: null,
+  listening: false,
+
+  research: false,
+  editingMessageId: null,
+
+  searchQuery: ""
+};
+
+/* ---------------------------------------------------------
+   ELEMENTS
+--------------------------------------------------------- */
+
+const els = {
+  body: document.body,
+
+  sidebar: document.querySelector("#sidebar"),
+  sidebarOverlay: document.querySelector("#sidebarOverlay"),
+  closeSidebar: document.querySelector("#closeSidebar"),
+  openSidebar: document.querySelector("#openSidebar"),
+
+  newChatBtn: document.querySelector("#newChatBtn"),
+
+  navItems: document.querySelectorAll(".nav-item"),
+  featureCards: document.querySelectorAll(".feature-card"),
+  pages: document.querySelectorAll("[data-page]"),
+
+  globalSearch: document.querySelector("#globalSearch"),
+
+  themeButton: document.querySelector('[data-action="theme"]'),
+  clearButton: document.querySelector('[data-action="clear"]'),
+
+  startCreating: document.querySelector("#startCreating"),
+  heroChatBtn: document.querySelector("#heroChatBtn"),
+
+  quickPrompt: document.querySelector("#quickPrompt"),
+  quickSend: document.querySelector("#quickSend"),
+  suggestions: document.querySelectorAll(".suggestion"),
+
+  chatTitle: document.querySelector("#chatTitle"),
+  exportChatBtn: document.querySelector("#exportChatBtn"),
+  favoriteChatBtn: document.querySelector("#favoriteChatBtn"),
+
+  chatMessages: document.querySelector("#chatMessages"),
+  typingIndicator: document.querySelector("#typingIndicator"),
+
+  attachmentPreview: document.querySelector("#attachmentPreview"),
+  fileInput: document.querySelector("#fileInput"),
+
+  messageInput: document.querySelector("#messageInput"),
+  sendBtn: document.querySelector("#sendBtn"),
+
+  voiceInputBtn: document.querySelector("#voiceInputBtn"),
+  researchBtn: document.querySelector("#researchBtn"),
+
+  responseLength: document.querySelector("#responseLength"),
+  responseStyle: document.querySelector("#responseStyle"),
+  memoryToggle: document.querySelector("#memoryToggle"),
+
+  contextProgress: document.querySelector("#contextProgress"),
+  contextText: document.querySelector("#contextText"),
+
+  historySearch: document.querySelector(".history-search input"),
+  historyList: document.querySelector("#historyList"),
+
+  customInstructions: document.querySelector("#customInstructions"),
+
+  toast: document.querySelector("#toast")
+};
+
+/* ---------------------------------------------------------
    INITIALIZATION
-========================================================= */
+--------------------------------------------------------- */
 
-document.addEventListener("DOMContentLoaded", () => {
-  cacheElements();
-  loadLocalData();
-  bindEvents();
-  applyTheme(OZLIND.state.theme);
-  renderHistory();
-  updateContextMeter();
-  showPage("home");
-});
+document.addEventListener("DOMContentLoaded", init);
 
-/* =========================================================
-   DOM CACHE
-========================================================= */
+function init() {
+  applyTheme(state.theme);
+  syncControls();
+  setupNavigation();
+  setupSidebar();
+  setupHome();
+  setupChat();
+  setupAttachments();
+  setupVoiceInput();
+  setupHistory();
+  setupSettings();
+  setupKeyboardShortcuts();
 
-function cacheElements() {
-  const $ = (selector) => document.querySelector(selector);
+  ensureConversation();
 
-  OZLIND.els = {
-    body: document.body,
+  renderCurrentConversation();
+  updateContextIndicator();
+}
 
-    sidebar: $(".sidebar"),
-    sidebarOverlay: $(".sidebar-overlay"),
-    mobileMenu: $(".mobile-menu"),
-    mobileClose: $(".mobile-close"),
+/* ---------------------------------------------------------
+   SAFE STORAGE HELPERS
+--------------------------------------------------------- */
 
-    navItems: document.querySelectorAll(".nav-item"),
+function loadJSON(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
 
-    newChat: $(".new-chat-btn"),
+    if (!value) {
+      return fallback;
+    }
 
-    pages: document.querySelectorAll(".page"),
+    const parsed = JSON.parse(value);
 
-    searchInput: $(".search-box input"),
+    return parsed ?? fallback;
+  } catch (error) {
+    console.warn("OZLIND storage read error:", error);
+    return fallback;
+  }
+}
 
-    themeButton: document.querySelector(
-      '[data-action="theme"]'
-    ),
+function saveJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn("OZLIND storage write error:", error);
+    showToast("Storage limit reached.");
+  }
+}
 
-    clearButton: document.querySelector(
-      '[data-action="clear"]'
-    ),
+/* ---------------------------------------------------------
+   ID HELPERS
+--------------------------------------------------------- */
 
-    homeChatInput: $(".quick-input textarea"),
-    homeSendButton: $(".quick-input .send-btn"),
-    suggestions: document.querySelectorAll(".suggestion"),
+function createId(prefix = "id") {
+  return `${prefix}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 9)}`;
+}
 
-    chatMessages: $(".chat-messages"),
-    chatInput: $(".composer-box > textarea"),
-    chatSendButton: $(".composer-box .send-btn"),
+/* ---------------------------------------------------------
+   CONVERSATIONS
+--------------------------------------------------------- */
 
-    attachmentInput: document.querySelector(
-      "#attachmentInput"
-    ),
+function ensureConversation() {
+  if (!Array.isArray(state.conversations)) {
+    state.conversations = [];
+  }
 
-    attachmentPreview: $(".attachment-preview"),
+  if (
+    state.currentConversationId &&
+    getConversation(state.currentConversationId)
+  ) {
+    return;
+  }
 
-    responseLength: document.querySelector(
-      "#responseLength"
-    ),
+  const conversation = createConversation();
 
-    responseStyle: document.querySelector(
-      "#responseStyle"
-    ),
+  state.conversations.unshift(conversation);
+  state.currentConversationId = conversation.id;
 
-    memoryToggle: document.querySelector(
-      "#memoryToggle"
-    ),
+  persistConversations();
+}
 
-    researchButton: document.querySelector(
-      '[data-action="research"]'
-    ),
-
-    voiceButton: document.querySelector(
-      '[data-action="voice"]'
-    ),
-
-    readAloudButton: document.querySelector(
-      '[data-action="read-aloud"]'
-    ),
-
-    contextProgress: $(".context-progress"),
-    contextCount: $(".context-info strong"),
-
-    historyList: $(".history-list"),
-    historySearch: $(".history-search input"),
-
-    customInstructions: document.querySelector(
-      "#customInstructions"
-    ),
-
-    saveInstructions: document.querySelector(
-      '[data-action="save-instructions"]'
-    ),
-
-    deleteDataButton: document.querySelector(
-      '[data-action="delete-data"]'
-    ),
-
-    themeOptions: document.querySelectorAll(
-      ".theme-option"
-    ),
-
-    toast: $(".toast"),
-
-    chatTitle: document.querySelector(
-      ".chat-header h2"
-    ),
-
-    typingIndicator: $(".typing-indicator"),
+function createConversation() {
+  return {
+    id: createId("chat"),
+    title: "New conversation",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    favorite: false,
+    messages: []
   };
 }
 
-/* =========================================================
-   EVENTS
-========================================================= */
-
-function bindEvents() {
-  /* Navigation */
-  OZLIND.els.navItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      const page = item.dataset.page;
-
-      if (!page) return;
-
-      showPage(page);
-      closeSidebar();
-    });
-  });
-
-  /* New chat */
-  if (OZLIND.els.newChat) {
-    OZLIND.els.newChat.addEventListener(
-      "click",
-      startNewChat
-    );
-  }
-
-  /* Mobile sidebar */
-  if (OZLIND.els.mobileMenu) {
-    OZLIND.els.mobileMenu.addEventListener(
-      "click",
-      openSidebar
-    );
-  }
-
-  if (OZLIND.els.mobileClose) {
-    OZLIND.els.mobileClose.addEventListener(
-      "click",
-      closeSidebar
-    );
-  }
-
-  if (OZLIND.els.sidebarOverlay) {
-    OZLIND.els.sidebarOverlay.addEventListener(
-      "click",
-      closeSidebar
-    );
-  }
-
-  /* Home quick chat */
-  if (OZLIND.els.homeSendButton) {
-    OZLIND.els.homeSendButton.addEventListener(
-      "click",
-      () => {
-        const value =
-          OZLIND.els.homeChatInput?.value.trim();
-
-        if (!value) return;
-
-        OZLIND.els.homeChatInput.value = "";
-
-        showPage("chat");
-
-        setTimeout(() => {
-          sendMessage(value);
-        }, 50);
-      }
-    );
-  }
-
-  if (OZLIND.els.homeChatInput) {
-    OZLIND.els.homeChatInput.addEventListener(
-      "keydown",
-      (event) => {
-        if (
-          event.key === "Enter" &&
-          !event.shiftKey
-        ) {
-          event.preventDefault();
-
-          OZLIND.els.homeSendButton?.click();
-        }
-      }
-    );
-
-    autoResizeTextarea(
-      OZLIND.els.homeChatInput
-    );
-  }
-
-  /* Suggestions */
-  OZLIND.els.suggestions?.forEach((button) => {
-    button.addEventListener("click", () => {
-      const text =
-        button.dataset.prompt ||
-        button.textContent.trim();
-
-      showPage("chat");
-
-      setTimeout(() => {
-        sendMessage(text);
-      }, 50);
-    });
-  });
-
-  /* Chat input */
-  if (OZLIND.els.chatInput) {
-    OZLIND.els.chatInput.addEventListener(
-      "input",
-      () => {
-        autoResizeTextarea(
-          OZLIND.els.chatInput
-        );
-      }
-    );
-
-    OZLIND.els.chatInput.addEventListener(
-      "keydown",
-      (event) => {
-        if (
-          event.key === "Enter" &&
-          !event.shiftKey
-        ) {
-          event.preventDefault();
-
-          OZLIND.els.chatSendButton?.click();
-        }
-      }
-    );
-  }
-
-  /* Chat send */
-  if (OZLIND.els.chatSendButton) {
-    OZLIND.els.chatSendButton.addEventListener(
-      "click",
-      () => {
-        if (OZLIND.state.generating) {
-          stopGeneration();
-          return;
-        }
-
-        const text =
-          OZLIND.els.chatInput?.value.trim();
-
-        if (!text && !OZLIND.state.attachments.length) {
-          return;
-        }
-
-        sendMessage(text);
-      }
-    );
-  }
-
-  /* Attachments */
-  if (OZLIND.els.attachmentInput) {
-    OZLIND.els.attachmentInput.addEventListener(
-      "change",
-      handleAttachments
-    );
-  }
-
-  /* Research */
-  if (OZLIND.els.researchButton) {
-    OZLIND.els.researchButton.addEventListener(
-      "click",
-      toggleResearch
-    );
-  }
-
-  /* Voice */
-  if (OZLIND.els.voiceButton) {
-    OZLIND.els.voiceButton.addEventListener(
-      "click",
-      toggleVoiceInput
-    );
-  }
-
-  /* Read aloud */
-  if (OZLIND.els.readAloudButton) {
-    OZLIND.els.readAloudButton.addEventListener(
-      "click",
-      readLatestResponse
-    );
-  }
-
-  /* Settings */
-  if (OZLIND.els.responseLength) {
-    OZLIND.els.responseLength.addEventListener(
-      "change",
-      () => {
-        OZLIND.state.responseLength =
-          OZLIND.els.responseLength.value;
-
-        saveLocalData();
-      }
-    );
-  }
-
-  if (OZLIND.els.responseStyle) {
-    OZLIND.els.responseStyle.addEventListener(
-      "change",
-      () => {
-        OZLIND.state.responseStyle =
-          OZLIND.els.responseStyle.value;
-
-        saveLocalData();
-      }
-    );
-  }
-
-  if (OZLIND.els.memoryToggle) {
-    OZLIND.els.memoryToggle.addEventListener(
-      "change",
-      () => {
-        OZLIND.state.memoryEnabled =
-          OZLIND.els.memoryToggle.checked;
-
-        saveLocalData();
-      }
-    );
-  }
-
-  /* History search */
-  if (OZLIND.els.historySearch) {
-    OZLIND.els.historySearch.addEventListener(
-      "input",
-      renderHistory
-    );
-  }
-
-  /* Theme */
-  OZLIND.els.themeOptions?.forEach((button) => {
-    button.addEventListener("click", () => {
-      const theme = button.dataset.theme;
-
-      if (!theme) return;
-
-      applyTheme(theme);
-    });
-  });
-
-  /* Save instructions */
-  if (OZLIND.els.saveInstructions) {
-    OZLIND.els.saveInstructions.addEventListener(
-      "click",
-      saveInstructions
-    );
-  }
-
-  /* Delete data */
-  if (OZLIND.els.deleteDataButton) {
-    OZLIND.els.deleteDataButton.addEventListener(
-      "click",
-      deleteLocalData
-    );
-  }
-
-  /* Top theme button */
-  if (OZLIND.els.themeButton) {
-    OZLIND.els.themeButton.addEventListener(
-      "click",
-      cycleTheme
-    );
-  }
-
-  /* Clear current chat */
-  if (OZLIND.els.clearButton) {
-    OZLIND.els.clearButton.addEventListener(
-      "click",
-      clearCurrentChat
-    );
-  }
-
-  /* Message actions */
-  document.addEventListener(
-    "click",
-    handleDynamicActions
-  );
-
-  /* Keyboard shortcuts */
-  document.addEventListener(
-    "keydown",
-    handleKeyboardShortcuts
+function getConversation(id) {
+  return state.conversations.find(
+    (conversation) => conversation.id === id
   );
 }
 
-/* =========================================================
-   PAGE NAVIGATION
-========================================================= */
+function getCurrentConversation() {
+  return getConversation(state.currentConversationId);
+}
+
+function persistConversations() {
+  saveJSON(STORAGE.conversations, state.conversations);
+
+  if (state.currentConversationId) {
+    localStorage.setItem(
+      STORAGE.currentConversation,
+      state.currentConversationId
+    );
+  }
+}
+
+function newConversation() {
+  if (state.generating) {
+    stopGeneration();
+  }
+
+  const conversation = createConversation();
+
+  state.conversations.unshift(conversation);
+  state.currentConversationId = conversation.id;
+  state.attachments = [];
+  state.editingMessageId = null;
+
+  persistConversations();
+
+  clearAttachments();
+  renderCurrentConversation();
+  updateContextIndicator();
+
+  showPage("chat");
+  closeSidebar();
+
+  if (els.messageInput) {
+    els.messageInput.focus();
+  }
+}
+
+/* ---------------------------------------------------------
+   NAVIGATION
+--------------------------------------------------------- */
+
+function setupNavigation() {
+  els.navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const page = item.dataset.page;
+
+      if (page) {
+        showPage(page);
+      }
+    });
+  });
+
+  els.featureCards.forEach((card) => {
+    card.addEventListener("click", () => {
+      const page = card.dataset.page;
+
+      if (page) {
+        showPage(page);
+      }
+    });
+  });
+}
 
 function showPage(pageName) {
-  OZLIND.els.pages?.forEach((page) => {
+  if (!pageName) return;
+
+  els.pages.forEach((page) => {
     page.classList.toggle(
       "active",
       page.dataset.page === pageName
     );
   });
 
-  OZLIND.els.navItems?.forEach((item) => {
+  els.navItems.forEach((item) => {
     item.classList.toggle(
       "active",
       item.dataset.page === pageName
     );
   });
 
-  if (pageName === "chat") {
-    if (!OZLIND.state.currentConversationId) {
-      createConversation();
-    }
+  closeSidebar();
 
-    renderMessages();
+  if (pageName === "history") {
+    renderHistory();
   }
+
+  if (pageName === "favorites") {
+    renderFavorites();
+  }
+
+  if (pageName === "settings") {
+    syncSettingsUI();
+  }
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 }
 
-/* =========================================================
+/* ---------------------------------------------------------
    SIDEBAR
-========================================================= */
+--------------------------------------------------------- */
+
+function setupSidebar() {
+  els.openSidebar?.addEventListener("click", openSidebar);
+  els.closeSidebar?.addEventListener("click", closeSidebar);
+
+  els.sidebarOverlay?.addEventListener("click", closeSidebar);
+
+  els.newChatBtn?.addEventListener("click", newConversation);
+}
 
 function openSidebar() {
-  OZLIND.els.sidebar?.classList.add("open");
-  OZLIND.els.sidebarOverlay?.classList.add(
-    "active"
-  );
+  els.sidebar?.classList.add("open");
+  els.sidebarOverlay?.classList.add("active");
+  document.body.classList.add("sidebar-open");
 }
 
 function closeSidebar() {
-  OZLIND.els.sidebar?.classList.remove("open");
-  OZLIND.els.sidebarOverlay?.classList.remove(
-    "active"
-  );
+  els.sidebar?.classList.remove("open");
+  els.sidebarOverlay?.classList.remove("active");
+  document.body.classList.remove("sidebar-open");
 }
 
-/* =========================================================
-   CONVERSATIONS
-========================================================= */
+/* ---------------------------------------------------------
+   HOME
+--------------------------------------------------------- */
 
-function createConversation() {
-  const id =
-    "chat_" +
-    Date.now() +
-    "_" +
-    Math.random()
-      .toString(36)
-      .slice(2, 8);
+function setupHome() {
+  els.startCreating?.addEventListener("click", () => {
+    showPage("chat");
 
-  const conversation = {
-    id,
-    title: "New conversation",
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    messages: [],
-  };
+    setTimeout(() => {
+      els.messageInput?.focus();
+    }, 100);
+  });
 
-  OZLIND.state.conversations.unshift(
-    conversation
-  );
+  els.heroChatBtn?.addEventListener("click", () => {
+    showPage("chat");
 
-  OZLIND.state.currentConversationId = id;
-  OZLIND.state.messages = [];
+    setTimeout(() => {
+      els.messageInput?.focus();
+    }, 100);
+  });
 
-  saveLocalData();
-  renderHistory();
+  els.quickSend?.addEventListener("click", () => {
+    const prompt = els.quickPrompt?.value.trim();
+
+    if (!prompt) {
+      showToast("Enter a message first.");
+      els.quickPrompt?.focus();
+      return;
+    }
+
+    showPage("chat");
+
+    if (els.messageInput) {
+      els.messageInput.value = prompt;
+      autoResizeTextarea();
+      sendMessage();
+    }
+  });
+
+  els.quickPrompt?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      els.quickSend?.click();
+    }
+  });
+
+  els.suggestions.forEach((suggestion) => {
+    suggestion.addEventListener("click", () => {
+      const prompt = suggestion.dataset.prompt || "";
+
+      showPage("chat");
+
+      if (els.messageInput) {
+        els.messageInput.value = prompt;
+        autoResizeTextarea();
+        els.messageInput.focus();
+      }
+    });
+  });
 }
 
-function startNewChat() {
-  OZLIND.state.currentConversationId = null;
-  OZLIND.state.messages = [];
-  OZLIND.state.attachments = [];
+/* ---------------------------------------------------------
+   CHAT SETUP
+--------------------------------------------------------- */
 
-  createConversation();
-  clearChatUI();
-  showPage("chat");
+function setupChat() {
+  els.sendBtn?.addEventListener("click", () => {
+    if (state.generating) {
+      stopGeneration();
+      return;
+    }
 
-  if (OZLIND.els.chatInput) {
-    OZLIND.els.chatInput.value = "";
-    autoResizeTextarea(
-      OZLIND.els.chatInput
+    sendMessage();
+  });
+
+  els.messageInput?.addEventListener("input", () => {
+    autoResizeTextarea();
+    updateSendButton();
+    updateContextIndicator();
+  });
+
+  els.messageInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+
+      if (!state.generating) {
+        sendMessage();
+      }
+    }
+  });
+
+  els.responseLength?.addEventListener("change", () => {
+    state.responseLength = els.responseLength.value;
+
+    localStorage.setItem(
+      STORAGE.responseLength,
+      state.responseLength
     );
+  });
+
+  els.responseStyle?.addEventListener("change", () => {
+    state.responseStyle = els.responseStyle.value;
+
+    localStorage.setItem(
+      STORAGE.responseStyle,
+      state.responseStyle
+    );
+  });
+
+  els.memoryToggle?.addEventListener("change", () => {
+    state.memory = Boolean(els.memoryToggle.checked);
+
+    localStorage.setItem(
+      STORAGE.memory,
+      String(state.memory)
+    );
+  });
+
+  els.researchBtn?.addEventListener("click", toggleResearch);
+
+  els.favoriteChatBtn?.addEventListener(
+    "click",
+    toggleCurrentFavorite
+  );
+
+  els.exportChatBtn?.addEventListener(
+    "click",
+    exportCurrentConversation
+  );
+}
+
+/* ---------------------------------------------------------
+   CONTROL SYNC
+--------------------------------------------------------- */
+
+function syncControls() {
+  if (els.responseLength) {
+    els.responseLength.value = state.responseLength;
   }
 
-  renderAttachments();
-  updateContextMeter();
+  if (els.responseStyle) {
+    els.responseStyle.value = state.responseStyle;
+  }
 
-  showToast("New chat started");
+  if (els.memoryToggle) {
+    els.memoryToggle.checked = state.memory;
+  }
+
+  syncSettingsUI();
 }
 
-function getCurrentConversation() {
-  return OZLIND.state.conversations.find(
-    (conversation) =>
-      conversation.id ===
-      OZLIND.state.currentConversationId
-  );
-}
-
-function saveCurrentConversation() {
-  const conversation =
-    getCurrentConversation();
-
-  if (!conversation) return;
-
-  conversation.messages = [
-    ...OZLIND.state.messages,
-  ];
-
-  conversation.updatedAt = Date.now();
-
-  saveLocalData();
-  renderHistory();
-}
-
-/* =========================================================
+/* ---------------------------------------------------------
    SEND MESSAGE
-========================================================= */
+--------------------------------------------------------- */
 
-async function sendMessage(text) {
-  if (OZLIND.state.generating) return;
+async function sendMessage() {
+  if (state.generating) return;
 
-  const cleanText = String(text || "").trim();
+  const conversation = getCurrentConversation();
 
-  if (
-    !cleanText &&
-    !OZLIND.state.attachments.length
-  ) {
+  if (!conversation) {
+    ensureConversation();
+    return sendMessage();
+  }
+
+  const text = els.messageInput?.value.trim() || "";
+
+  if (!text && state.attachments.length === 0) {
+    showToast("Write a message or attach a file.");
     return;
   }
 
-  if (!OZLIND.state.currentConversationId) {
-    createConversation();
-  }
-
-  showPage("chat");
-
   const userMessage = {
-    id: createMessageId(),
+    id: createId("msg"),
     role: "user",
-    content: cleanText,
-    attachments:
-      OZLIND.state.attachments.map((file) => ({
-        name: file.name,
-        type: file.type,
-        dataUrl: file.dataUrl,
-      })),
+    content: text,
     createdAt: Date.now(),
+    attachments: state.attachments.map((file) => ({
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      dataUrl: file.dataUrl
+    }))
   };
 
-  OZLIND.state.messages.push(userMessage);
+  conversation.messages.push(userMessage);
 
-  updateConversationTitle(cleanText);
+  conversation.updatedAt = Date.now();
 
-  OZLIND.state.attachments = [];
-
-  if (OZLIND.els.chatInput) {
-    OZLIND.els.chatInput.value = "";
-
-    autoResizeTextarea(
-      OZLIND.els.chatInput
-    );
+  if (
+    conversation.title === "New conversation" ||
+    !conversation.title
+  ) {
+    conversation.title = generateTitle(text);
   }
 
-  renderAttachments();
-  renderMessages();
-  updateContextMeter();
-  saveCurrentConversation();
+  els.messageInput.value = "";
+  autoResizeTextarea();
 
-  await requestAssistantResponse();
+  clearAttachments();
+
+  persistConversations();
+  renderCurrentConversation();
+
+  await generateAssistantResponse();
 }
 
-/* =========================================================
-   AI REQUEST
-========================================================= */
+/* ---------------------------------------------------------
+   ASSISTANT RESPONSE
+--------------------------------------------------------- */
 
-async function requestAssistantResponse() {
-  if (OZLIND.state.generating) return;
+async function generateAssistantResponse() {
+  const conversation = getCurrentConversation();
 
-  OZLIND.state.generating = true;
+  if (!conversation) return;
 
-  setGeneratingUI(true);
+  state.generating = true;
+  state.abortController = new AbortController();
+
+  updateSendButton();
+  showTyping(true);
 
   const assistantMessage = {
-    id: createMessageId(),
+    id: createId("msg"),
     role: "assistant",
     content: "",
     createdAt: Date.now(),
+    streaming: true
   };
 
-  OZLIND.state.messages.push(
-    assistantMessage
-  );
+  conversation.messages.push(assistantMessage);
+  conversation.updatedAt = Date.now();
 
-  renderMessages();
-
-  const messageElement =
-    document.querySelector(
-      `[data-message-id="${assistantMessage.id}"]`
-    );
-
-  const contentElement =
-    messageElement?.querySelector(
-      ".message-content"
-    );
-
-  OZLIND.state.abortController =
-    new AbortController();
+  renderCurrentConversation();
+  scrollChatToBottom();
 
   try {
-    const payloadMessages =
-      buildApiMessages();
-
-    const response = await fetch(
-      "/api/chat",
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-          messages: payloadMessages,
-
-          research:
-            OZLIND.state.researchEnabled,
-
-          responseLength:
-            OZLIND.state.responseLength,
-
-          responseStyle:
-            OZLIND.state.responseStyle,
-
-          memory:
-            OZLIND.state.memoryEnabled,
-
-          customInstructions:
-            OZLIND.state.customInstructions,
-        }),
-
-        signal:
-          OZLIND.state.abortController.signal,
-      }
+    const payloadMessages = buildApiMessages(
+      conversation.messages
     );
 
+    const response = await fetch("/api/chat", {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+        messages: payloadMessages,
+
+        research: state.research,
+
+        responseLength: state.responseLength,
+
+        responseStyle: state.responseStyle,
+
+        memory: state.memory,
+
+        customInstructions:
+          state.customInstructions
+      }),
+
+      signal: state.abortController.signal
+    });
+
     if (!response.ok) {
-      let errorMessage =
-        "Unable to get a response.";
+      let errorMessage = "Something went wrong.";
 
       try {
-        const errorData =
-          await response.json();
+        const errorData = await response.json();
 
         if (errorData?.error) {
-          errorMessage =
-            errorData.error;
+          errorMessage = errorData.error;
         }
-      } catch {
-        /* Ignore invalid JSON */
+      } catch (_) {
+        // Ignore invalid JSON error response.
       }
 
       throw new Error(errorMessage);
     }
 
-    const contentType =
-      response.headers.get(
-        "content-type"
-      ) || "";
-
-    if (
-      contentType.includes(
-        "text/event-stream"
-      )
-    ) {
-      await consumeStream(
-        response,
-        assistantMessage,
-        contentElement
-      );
-    } else {
-      const data =
-        await response.json();
-
-      const reply =
-        typeof data.reply === "string"
-          ? data.reply
-          : "I couldn't generate a response.";
-
-      assistantMessage.content = reply;
-
-      if (contentElement) {
-        contentElement.innerHTML =
-          renderMarkdown(reply);
-      }
-    }
-
-    assistantMessage.content =
-      assistantMessage.content.trim();
-
-    if (!assistantMessage.content) {
-      assistantMessage.content =
-        "I couldn't generate a response. Please try again.";
-    }
-
-    saveCurrentConversation();
-    updateContextMeter();
-  } catch (error) {
-    if (
-      error?.name ===
-      "AbortError"
-    ) {
-      assistantMessage.content =
-        assistantMessage.content ||
-        "Generation stopped.";
-    } else {
-      assistantMessage.content =
-        "Sorry, something went wrong while generating the response.\n\n" +
-        escapeHtml(
-          error?.message ||
-            "Please try again."
-        );
-    }
-
-    renderMessages();
-    saveCurrentConversation();
-
-    showToast(
-      error?.name === "AbortError"
-        ? "Generation stopped"
-        : "AI request failed"
+    await readStreamingResponse(
+      response,
+      assistantMessage
     );
-  } finally {
-    OZLIND.state.generating = false;
-    OZLIND.state.abortController = null;
 
-    setGeneratingUI(false);
-    updateContextMeter();
+    assistantMessage.streaming = false;
+
+    conversation.updatedAt = Date.now();
+
+    persistConversations();
+
+    renderCurrentConversation();
+    updateContextIndicator();
+
+  } catch (error) {
+    if (error.name === "AbortError") {
+      if (!assistantMessage.content.trim()) {
+        conversation.messages =
+          conversation.messages.filter(
+            (message) =>
+              message.id !== assistantMessage.id
+          );
+      } else {
+        assistantMessage.streaming = false;
+        assistantMessage.content +=
+          "\n\n*Generation stopped.*";
+      }
+
+      renderCurrentConversation();
+    } else {
+      console.error("OZLIND AI error:", error);
+
+      assistantMessage.streaming = false;
+
+      if (!assistantMessage.content.trim()) {
+        conversation.messages =
+          conversation.messages.filter(
+            (message) =>
+              message.id !== assistantMessage.id
+          );
+      }
+
+      renderCurrentConversation();
+
+      showToast(
+        error.message ||
+          "Unable to generate a response."
+      );
+    }
+
+    persistConversations();
+
+  } finally {
+    state.generating = false;
+    state.abortController = null;
+
+    showTyping(false);
+    updateSendButton();
+    updateContextIndicator();
+
+    scrollChatToBottom();
   }
 }
 
-/* =========================================================
+/* ---------------------------------------------------------
    API MESSAGE BUILDER
-========================================================= */
+--------------------------------------------------------- */
 
-function buildApiMessages() {
-  const source =
-    OZLIND.state.memoryEnabled
-      ? OZLIND.state.messages
-      : OZLIND.state.messages.slice(-6);
+function buildApiMessages(messages) {
+  const result = [];
 
-  return source.map((message) => {
-    const content =
-      message.content || "";
+  for (const message of messages) {
+    if (!message || !message.role) continue;
+
+    if (
+      message.role !== "user" &&
+      message.role !== "assistant"
+    ) {
+      continue;
+    }
+
+    const text =
+      typeof message.content === "string"
+        ? message.content
+        : "";
 
     if (
       message.role === "user" &&
       Array.isArray(message.attachments) &&
       message.attachments.length
     ) {
-      const parts = [];
+      const content = [];
 
-      if (content) {
-        parts.push({
+      if (text) {
+        content.push({
           type: "text",
-          text: content,
+          text
         });
       }
 
-      message.attachments.forEach(
-        (attachment) => {
-          if (
-            attachment.dataUrl &&
-            attachment.type?.startsWith(
-              "image/"
-            )
-          ) {
-            parts.push({
-              type: "image_url",
-              image_url: {
-                url: attachment.dataUrl,
-              },
-            });
-          }
+      for (const attachment of message.attachments) {
+        if (
+          attachment.type?.startsWith("image/") &&
+          attachment.dataUrl
+        ) {
+          content.push({
+            type: "image_url",
+            image_url: {
+              url: attachment.dataUrl
+            }
+          });
         }
-      );
+      }
 
-      return {
-        role: "user",
-        content: parts,
-      };
+      if (content.length > 0) {
+        result.push({
+          role: "user",
+          content
+        });
+
+        continue;
+      }
     }
 
-    return {
+    result.push({
       role: message.role,
-      content,
-    };
-  });
+      content: text
+    });
+  }
+
+  return result;
 }
 
-/* =========================================================
-   STREAM READER
-========================================================= */
+/* ---------------------------------------------------------
+   STREAMING RESPONSE
+--------------------------------------------------------- */
 
-async function consumeStream(
+async function readStreamingResponse(
   response,
-  assistantMessage,
-  contentElement
+  assistantMessage
 ) {
-  if (!response.body) {
-    throw new Error(
-      "Streaming is not supported by this connection."
-    );
-  }
-
-  const reader =
-    response.body.getReader();
-
-  const decoder =
-    new TextDecoder("utf-8");
-
-  let buffer = "";
-
-  while (true) {
-    const { value, done } =
-      await reader.read();
-
-    if (done) break;
-
-    buffer += decoder.decode(
-      value,
-      {
-        stream: true,
-      }
-    );
-
-    const lines =
-      buffer.split("\n");
-
-    buffer =
-      lines.pop() || "";
-
-    for (const rawLine of lines) {
-      const line =
-        rawLine.trim();
-
-      if (!line) continue;
-
-      if (line === "data: [DONE]") {
-        continue;
-      }
-
-      if (
-        !line.startsWith("data:")
-      ) {
-        continue;
-      }
-
-      const rawData =
-        line.slice(5).trim();
-
-      if (!rawData) continue;
-
-      let data;
-
-      try {
-        data = JSON.parse(rawData);
-      } catch {
-        continue;
-      }
-
-      const delta =
-        data.delta ||
-        data.content ||
-        data.text ||
-        data.reply ||
-        "";
-
-      if (
-        typeof delta === "string" &&
-        delta
-      ) {
-        assistantMessage.content +=
-          delta;
-
-        if (contentElement) {
-          contentElement.innerHTML =
-            renderMarkdown(
-              assistantMessage.content
-            );
-
-          scrollChatToBottom();
-        }
-      }
-
-      if (data.error) {
-        throw new Error(
-          data.error
-        );
-      }
-    }
-  }
-
-  buffer += decoder.decode();
-
-  if (buffer.trim()) {
-    processStreamLine(
-      buffer,
-      assistantMessage,
-      contentElement
-    );
-  }
-}
-
-function processStreamLine(
-  line,
-  assistantMessage,
-  contentElement
-) {
-  const clean =
-    line.trim();
+  const contentType =
+    response.headers.get("content-type") || "";
 
   if (
-    !clean.startsWith("data:")
+    contentType.includes("text/event-stream") &&
+    response.body
   ) {
-    return;
-  }
+    const reader =
+      response.body.getReader();
 
-  const raw =
-    clean.slice(5).trim();
+    const decoder =
+      new TextDecoder("utf-8");
 
-  if (!raw || raw === "[DONE]") {
-    return;
-  }
+    let buffer = "";
 
-  try {
-    const data =
-      JSON.parse(raw);
+    while (true) {
+      const { value, done } =
+        await reader.read();
 
-    const delta =
-      data.delta ||
-      data.content ||
-      data.text ||
-      "";
+      if (done) break;
 
-    if (
-      typeof delta === "string"
-    ) {
-      assistantMessage.content +=
-        delta;
+      buffer += decoder.decode(value, {
+        stream: true
+      });
 
-      if (contentElement) {
-        contentElement.innerHTML =
-          renderMarkdown(
-            assistantMessage.content
-          );
+      const lines =
+        buffer.split("\n");
+
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed =
+          line.trim();
+
+        if (!trimmed) continue;
+
+        if (!trimmed.startsWith("data:")) {
+          continue;
+        }
+
+        const data =
+          trimmed.slice(5).trim();
+
+        if (data === "[DONE]") {
+          continue;
+        }
+
+        try {
+          const parsed =
+            JSON.parse(data);
+
+          const delta =
+            parsed?.choices?.[0]?.delta?.content ||
+            parsed?.content ||
+            "";
+
+          if (delta) {
+            assistantMessage.content += delta;
+
+            renderCurrentConversation(
+              false
+            );
+
+            scrollChatToBottom();
+          }
+        } catch (_) {
+          // Ignore malformed stream chunks.
+        }
       }
     }
-  } catch {
-    /* Ignore malformed final chunk */
+
+    return;
   }
+
+  const data = await response.json();
+
+  const content =
+    data?.choices?.[0]?.message?.content ||
+    data?.content ||
+    data?.message ||
+    "";
+
+  assistantMessage.content =
+    typeof content === "string"
+      ? content
+      : JSON.stringify(content);
 }
 
-/* =========================================================
-   GENERATING UI
-========================================================= */
-
-function setGeneratingUI(isGenerating) {
-  OZLIND.els.typingIndicator?.classList.toggle(
-    "active",
-    isGenerating
-  );
-
-  if (OZLIND.els.chatSendButton) {
-    OZLIND.els.chatSendButton.innerHTML =
-      isGenerating ? "■" : "➤";
-
-    OZLIND.els.chatSendButton.title =
-      isGenerating
-        ? "Stop generation"
-        : "Send message";
-  }
-
-  if (OZLIND.els.chatInput) {
-    OZLIND.els.chatInput.disabled =
-      isGenerating;
-  }
-
-  scrollChatToBottom();
-}
-
-/* =========================================================
-   STOP
-========================================================= */
+/* ---------------------------------------------------------
+   STOP GENERATION
+--------------------------------------------------------- */
 
 function stopGeneration() {
   if (
-    OZLIND.state.abortController
+    state.generating &&
+    state.abortController
   ) {
-    OZLIND.state.abortController.abort();
+    state.abortController.abort();
   }
 }
 
-/* =========================================================
-   MESSAGE RENDERING
-========================================================= */
+/* ---------------------------------------------------------
+   TYPING INDICATOR
+--------------------------------------------------------- */
 
-function renderMessages() {
-  const container =
-    OZLIND.els.chatMessages;
+function showTyping(show) {
+  if (!els.typingIndicator) return;
 
-  if (!container) return;
+  els.typingIndicator.classList.toggle(
+    "active",
+    Boolean(show)
+  );
+}
 
-  if (!OZLIND.state.messages.length) {
-    container.innerHTML = `
-      <div class="welcome-message">
-        <div class="assistant-avatar">✦</div>
-        <div class="welcome-copy">
-          <h3>Welcome to OZLIND AI</h3>
-          <p>
-            Ask anything, upload an image, research
-            the web, write code, or brainstorm your
-            next idea.
-          </p>
-        </div>
-      </div>
-    `;
+/* ---------------------------------------------------------
+   SEND BUTTON
+--------------------------------------------------------- */
 
-    updateContextMeter();
+function updateSendButton() {
+  if (!els.sendBtn) return;
+
+  if (state.generating) {
+    els.sendBtn.textContent = "Stop";
+    els.sendBtn.setAttribute(
+      "aria-label",
+      "Stop generation"
+    );
+    els.sendBtn.classList.add("stop-mode");
     return;
   }
 
-  container.innerHTML =
-    OZLIND.state.messages
-      .map(renderMessage)
-      .join("");
-
-  scrollChatToBottom();
+  els.sendBtn.textContent = "Send";
+  els.sendBtn.setAttribute(
+    "aria-label",
+    "Send message"
+  );
+  els.sendBtn.classList.remove("stop-mode");
 }
+
+/* ---------------------------------------------------------
+   RENDER CHAT
+--------------------------------------------------------- */
+
+function renderCurrentConversation(
+  shouldScroll = true
+) {
+  const conversation =
+    getCurrentConversation();
+
+  if (!conversation) return;
+
+  if (els.chatTitle) {
+    els.chatTitle.textContent =
+      conversation.title || "New conversation";
+  }
+
+  if (els.chatMessages) {
+    els.chatMessages.innerHTML = "";
+
+    if (
+      !conversation.messages ||
+      conversation.messages.length === 0
+    ) {
+      renderEmptyChatState();
+    } else {
+      conversation.messages.forEach(
+        renderMessage
+      );
+    }
+  }
+
+  updateFavoriteButton();
+
+  updateContextIndicator();
+
+  if (shouldScroll) {
+    requestAnimationFrame(
+      scrollChatToBottom
+    );
+  }
+}
+
+/* ---------------------------------------------------------
+   EMPTY CHAT
+--------------------------------------------------------- */
+
+function renderEmptyChatState() {
+  if (!els.chatMessages) return;
+
+  const empty = document.createElement("div");
+
+  empty.className = "empty-chat";
+
+  empty.innerHTML = `
+    <div class="empty-chat-icon">✦</div>
+    <h3>How can I help you?</h3>
+    <p>
+      Ask OZLIND anything, upload an image,
+      or turn on web research for current information.
+    </p>
+  `;
+
+  els.chatMessages.appendChild(empty);
+}
+
+/* ---------------------------------------------------------
+   MESSAGE RENDERING
+--------------------------------------------------------- */
 
 function renderMessage(message) {
-  const isUser =
-    message.role === "user";
+  const wrapper =
+    document.createElement("article");
+
+  wrapper.className =
+    `message ${message.role}`;
+
+  wrapper.dataset.messageId =
+    message.id;
+
+  const avatar =
+    document.createElement("div");
+
+  avatar.className = "message-avatar";
+
+  avatar.textContent =
+    message.role === "user"
+      ? "You"
+      : "O";
+
+  const body =
+    document.createElement("div");
+
+  body.className = "message-body";
 
   const content =
-    message.content || "";
+    document.createElement("div");
 
-  const attachments =
-    Array.isArray(
-      message.attachments
-    )
-      ? message.attachments
-      : [];
-
-  const attachmentHtml =
-    attachments
-      .filter(
-        (file) =>
-          file.type?.startsWith(
-            "image/"
-          )
-      )
-      .map(
-        (file) => `
-          <div class="attachment-item">
-            <img
-              src="${escapeAttribute(
-                file.dataUrl
-              )}"
-              alt="${escapeAttribute(
-                file.name ||
-                  "Uploaded image"
-              )}"
-            />
-          </div>
-        `
-      )
-      .join("");
-
-  return `
-    <div
-      class="message ${
-        isUser
-          ? "user"
-          : "assistant"
-      }"
-      data-message-id="${escapeAttribute(
-        message.id
-      )}"
-    >
-
-      ${
-        !isUser
-          ? `<div class="message-avatar">✦</div>`
-          : ""
-      }
-
-      <div class="message-body">
-
-        ${
-          attachmentHtml
-            ? `<div class="attachment-preview">${attachmentHtml}</div>`
-            : ""
-        }
-
-        <div class="message-content">
-          ${
-            content
-              ? renderMarkdown(
-                  content
-                )
-              : '<span class="typing-placeholder">Generating…</span>'
-          }
-        </div>
-
-        <div class="message-actions">
-
-          <button
-            class="message-action"
-            data-message-action="copy"
-            title="Copy"
-          >
-            ⧉
-          </button>
-
-          ${
-            isUser
-              ? `
-                <button
-                  class="message-action"
-                  data-message-action="edit"
-                  title="Edit"
-                >
-                  ✎
-                </button>
-
-                <button
-                  class="message-action"
-                  data-message-action="delete"
-                  title="Delete"
-                >
-                  ×
-                </button>
-              `
-              : `
-                <button
-                  class="message-action"
-                  data-message-action="regenerate"
-                  title="Regenerate"
-                >
-                  ↻
-                </button>
-
-                <button
-                  class="message-action"
-                  data-message-action="read"
-                  title="Read aloud"
-                >
-                  🔊
-                </button>
-
-                <button
-                  class="message-action"
-                  data-message-action="like"
-                  title="Helpful"
-                >
-                  👍
-                </button>
-
-                <button
-                  class="message-action"
-                  data-message-action="dislike"
-                  title="Not helpful"
-                >
-                  👎
-                </button>
-              `
-          }
-
-        </div>
-
-      </div>
-
-      ${
-        isUser
-          ? `<div class="message-avatar">You</div>`
-          : ""
-      }
-
-    </div>
-  `;
-}
-
-/* =========================================================
-   DYNAMIC MESSAGE ACTIONS
-========================================================= */
-
-function handleDynamicActions(event) {
-  const button =
-    event.target.closest(
-      "[data-message-action]"
-    );
-
-  if (!button) return;
-
-  const messageElement =
-    button.closest(
-      "[data-message-id]"
-    );
-
-  if (!messageElement) return;
-
-  const messageId =
-    messageElement.dataset.messageId;
-
-  const action =
-    button.dataset.messageAction;
-
-  handleMessageAction(
-    action,
-    messageId
-  );
-}
-
-function handleMessageAction(
-  action,
-  messageId
-) {
-  const message =
-    OZLIND.state.messages.find(
-      (item) =>
-        item.id === messageId
-    );
-
-  if (!message) return;
-
-  switch (action) {
-    case "copy":
-      copyText(
-        message.content
-      );
-      break;
-
-    case "edit":
-      editMessage(messageId);
-      break;
-
-    case "delete":
-      deleteMessage(messageId);
-      break;
-
-    case "regenerate":
-      regenerateMessage(
-        messageId
-      );
-      break;
-
-    case "read":
-      speakText(
-        message.content
-      );
-      break;
-
-    case "like":
-      showToast(
-        "Thanks for the feedback 👍"
-      );
-      break;
-
-    case "dislike":
-      showToast(
-        "Feedback recorded 👎"
-      );
-      break;
-
-    default:
-      break;
-  }
-}
-
-/* =========================================================
-   EDIT
-========================================================= */
-
-function editMessage(messageId) {
-  const message =
-    OZLIND.state.messages.find(
-      (item) =>
-        item.id === messageId
-    );
+  content.className = "message-content";
 
   if (
-    !message ||
-    message.role !== "user"
+    message.role === "user" &&
+    Array.isArray(message.attachments)
   ) {
-    return;
-  }
-
-  showPage("chat");
-
-  if (OZLIND.els.chatInput) {
-    OZLIND.els.chatInput.value =
-      message.content || "";
-
-    autoResizeTextarea(
-      OZLIND.els.chatInput
+    renderMessageAttachments(
+      message.attachments,
+      content
     );
-
-    OZLIND.els.chatInput.focus();
   }
 
-  const index =
-    OZLIND.state.messages.findIndex(
-      (item) =>
-        item.id === messageId
+  if (message.content) {
+    content.insertAdjacentHTML(
+      "beforeend",
+      renderMarkdown(
+        message.content
+      )
     );
-
-  if (index !== -1) {
-    OZLIND.state.messages =
-      OZLIND.state.messages.slice(
-        0,
-        index
-      );
-
-    saveCurrentConversation();
-    renderMessages();
-    updateContextMeter();
   }
 
-  showToast(
-    "Edit your message and send again"
+  body.appendChild(content);
+
+  const actions =
+    createMessageActions(message);
+
+  body.appendChild(actions);
+
+  wrapper.appendChild(avatar);
+  wrapper.appendChild(body);
+
+  els.chatMessages?.appendChild(
+    wrapper
   );
 }
 
-/* =========================================================
-   DELETE MESSAGE
-========================================================= */
+/* ---------------------------------------------------------
+   ATTACHMENT RENDERING
+--------------------------------------------------------- */
 
-function deleteMessage(messageId) {
-  OZLIND.state.messages =
-    OZLIND.state.messages.filter(
-      (message) =>
-        message.id !== messageId
-    );
+function renderMessageAttachments(
+  attachments,
+  container
+) {
+  if (!Array.isArray(attachments)) return;
 
-  saveCurrentConversation();
-  renderMessages();
-  updateContextMeter();
+  const group =
+    document.createElement("div");
 
-  showToast("Message deleted");
+  group.className =
+    "message-attachments";
+
+  attachments.forEach((attachment) => {
+    if (
+      attachment.type?.startsWith("image/") &&
+      attachment.dataUrl
+    ) {
+      const image =
+        document.createElement("img");
+
+      image.src =
+        attachment.dataUrl;
+
+      image.alt =
+        attachment.name ||
+        "Uploaded image";
+
+      image.loading = "lazy";
+
+      group.appendChild(image);
+    } else {
+      const file =
+        document.createElement("div");
+
+      file.className =
+        "message-file";
+
+      file.textContent =
+        attachment.name ||
+        "Attachment";
+
+      group.appendChild(file);
+    }
+  });
+
+  container.appendChild(group);
 }
 
-/* =========================================================
-   REGENERATE
-========================================================= */
+/* ---------------------------------------------------------
+   MESSAGE ACTIONS
+--------------------------------------------------------- */
 
-async function regenerateMessage(
-  messageId
-) {
-  if (OZLIND.state.generating) {
-    return;
-  }
+function createMessageActions(message) {
+  const actions =
+    document.createElement("div");
 
-  const index =
-    OZLIND.state.messages.findIndex(
-      (message) =>
-        message.id === messageId
-    );
+  actions.className =
+    "message-actions";
 
-  if (index === -1) return;
-
-  const message =
-    OZLIND.state.messages[index];
-
-  if (message.role !== "assistant") {
-    return;
-  }
-
-  const previousUser =
-    [...OZLIND.state.messages]
-      .slice(0, index)
-      .reverse()
-      .find(
-        (item) =>
-          item.role === "user"
+  if (
+    message.role === "assistant"
+  ) {
+    const copy =
+      createActionButton(
+        "Copy",
+        "copy"
       );
 
-  if (!previousUser) return;
-
-  OZLIND.state.messages =
-    OZLIND.state.messages.slice(
-      0,
-      index
+    copy.addEventListener(
+      "click",
+      () => {
+        copyText(
+          message.content || ""
+        );
+      }
     );
 
-  renderMessages();
-  saveCurrentConversation();
+    actions.appendChild(copy);
 
-  await requestAssistantResponse();
+    const speak =
+      createActionButton(
+        "Read aloud",
+        "speak"
+      );
+
+    speak.addEventListener(
+      "click",
+      () => {
+        speakText(
+          message.content || ""
+        );
+      }
+    );
+
+    actions.appendChild(speak);
+
+    const regenerate =
+      createActionButton(
+        "Regenerate",
+        "regenerate"
+      );
+
+    regenerate.addEventListener(
+      "click",
+      () => {
+        regenerateMessage(
+          message.id
+        );
+      }
+    );
+
+    actions.appendChild(
+      regenerate
+    );
+  }
+
+  const edit =
+    createActionButton(
+      "Edit",
+      "edit"
+    );
+
+  edit.addEventListener(
+    "click",
+    () => {
+      editMessage(message.id);
+    }
+  );
+
+  actions.appendChild(edit);
+
+  const remove =
+    createActionButton(
+      "Delete",
+      "delete"
+    );
+
+  remove.addEventListener(
+    "click",
+    () => {
+      deleteMessage(message.id);
+    }
+  );
+
+  actions.appendChild(remove);
+
+  return actions;
 }
 
-/* =========================================================
+function createActionButton(
+  label,
+  action
+) {
+  const button =
+    document.createElement("button");
+
+  button.type = "button";
+
+  button.className =
+    "message-action";
+
+  button.dataset.action =
+    action;
+
+  button.title = label;
+  button.setAttribute(
+    "aria-label",
+    label
+  );
+
+  button.textContent = label;
+
+  return button;
+}
+
+/* ---------------------------------------------------------
+   MARKDOWN
+--------------------------------------------------------- */
+
+function renderMarkdown(text) {
+  if (!text) return "";
+
+  let safe = escapeHTML(
+    String(text)
+  );
+
+  const codeBlocks = [];
+
+  safe = safe.replace(
+    /```([\w+-]*)\n?([\s\S]*?)```/g,
+    (_, language, code) => {
+      const index =
+        codeBlocks.length;
+
+      codeBlocks.push({
+        language:
+          language || "code",
+        code
+      });
+
+      return `@@CODEBLOCK_${index}@@`;
+    }
+  );
+
+  safe = safe.replace(
+    /^### (.+)$/gm,
+    "<h4>$1</h4>"
+  );
+
+  safe = safe.replace(
+    /^## (.+)$/gm,
+    "<h3>$1</h3>"
+  );
+
+  safe = safe.replace(
+    /^# (.+)$/gm,
+    "<h2>$1</h2>"
+  );
+
+  safe = safe.replace(
+    /\*\*(.+?)\*\*/g,
+    "<strong>$1</strong>"
+  );
+
+  safe = safe.replace(
+    /`([^`]+)`/g,
+    "<code>$1</code>"
+  );
+
+  safe = safe.replace(
+    /^\s*[-*]\s+(.+)$/gm,
+    "<li>$1</li>"
+  );
+
+  safe = safe.replace(
+    /(<li>.*<\/li>)/gs,
+    "<ul>$1</ul>"
+  );
+
+  safe = safe.replace(
+    /\n{2,}/g,
+    "</p><p>"
+  );
+
+  safe = safe.replace(
+    /\n/g,
+    "<br>"
+  );
+
+  safe = `<p>${safe}</p>`;
+
+  codeBlocks.forEach(
+    (block, index) => {
+      const codeHTML =
+        `<pre class="code-block"><code>${block.code}</code></pre>`;
+
+      safe = safe.replace(
+        `@@CODEBLOCK_${index}@@`,
+        codeHTML
+      );
+    }
+  );
+
+  return safe;
+}
+
+function escapeHTML(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/* ---------------------------------------------------------
    COPY
-========================================================= */
+--------------------------------------------------------- */
 
 async function copyText(text) {
-  if (!text) return;
+  if (!text) {
+    showToast("Nothing to copy.");
+    return;
+  }
 
   try {
-    await navigator.clipboard.writeText(
-      stripMarkdown(text)
-    );
+    await navigator.clipboard.writeText(text);
 
-    showToast("Copied");
-  } catch {
+    showToast("Copied to clipboard.");
+  } catch (error) {
     const textarea =
-      document.createElement(
-        "textarea"
-      );
+      document.createElement("textarea");
 
-    textarea.value =
-      stripMarkdown(text);
+    textarea.value = text;
+
+    textarea.style.position =
+      "fixed";
+
+    textarea.style.opacity = "0";
 
     document.body.appendChild(
       textarea
@@ -1474,231 +1359,210 @@ async function copyText(text) {
 
     textarea.select();
 
-    document.execCommand("copy");
+    try {
+      document.execCommand("copy");
+      showToast(
+        "Copied to clipboard."
+      );
+    } catch (_) {
+      showToast(
+        "Copy failed."
+      );
+    }
 
     textarea.remove();
-
-    showToast("Copied");
   }
 }
 
-/* =========================================================
-   MARKDOWN
-========================================================= */
+/* ---------------------------------------------------------
+   READ ALOUD
+--------------------------------------------------------- */
 
-function renderMarkdown(text) {
-  if (!text) return "";
+function speakText(text) {
+  if (!text) return;
 
-  let html =
-    escapeHtml(String(text));
+  if (!("speechSynthesis" in window)) {
+    showToast(
+      "Read aloud is not supported on this device."
+    );
 
-  /* Code blocks */
-  html = html.replace(
-    /```([\s\S]*?)```/g,
-    (_, code) => {
-      const cleaned =
-        code.replace(
-          /^\w+\n/,
-          ""
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+
+  const cleanText =
+    text
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/[#*_`]/g, "");
+
+  const utterance =
+    new SpeechSynthesisUtterance(
+      cleanText
+    );
+
+  utterance.rate = 1;
+  utterance.pitch = 1;
+
+  window.speechSynthesis.speak(
+    utterance
+  );
+}
+
+/* ---------------------------------------------------------
+   EDIT MESSAGE
+--------------------------------------------------------- */
+
+function editMessage(messageId) {
+  const conversation =
+    getCurrentConversation();
+
+  if (!conversation) return;
+
+  const message =
+    conversation.messages.find(
+      (item) =>
+        item.id === messageId
+    );
+
+  if (!message) return;
+
+  if (!els.messageInput) return;
+
+  els.messageInput.value =
+    message.content || "";
+
+  state.editingMessageId =
+    messageId;
+
+  autoResizeTextarea();
+  els.messageInput.focus();
+
+  showToast(
+    "Edit the message and press Send."
+  );
+}
+
+/* ---------------------------------------------------------
+   DELETE MESSAGE
+--------------------------------------------------------- */
+
+function deleteMessage(messageId) {
+  const conversation =
+    getCurrentConversation();
+
+  if (!conversation) return;
+
+  const index =
+    conversation.messages.findIndex(
+      (message) =>
+        message.id === messageId
+    );
+
+  if (index === -1) return;
+
+  conversation.messages.splice(
+    index,
+    1
+  );
+
+  conversation.updatedAt =
+    Date.now();
+
+  persistConversations();
+  renderCurrentConversation();
+
+  showToast("Message deleted.");
+}
+
+/* ---------------------------------------------------------
+   REGENERATE
+--------------------------------------------------------- */
+
+async function regenerateMessage(
+  messageId
+) {
+  if (state.generating) {
+    showToast(
+      "Please wait for the current response."
+    );
+
+    return;
+  }
+
+  const conversation =
+    getCurrentConversation();
+
+  if (!conversation) return;
+
+  const index =
+    conversation.messages.findIndex(
+      (message) =>
+        message.id === messageId
+    );
+
+  if (index === -1) return;
+
+  const message =
+    conversation.messages[index];
+
+  if (message.role !== "assistant") {
+    return;
+  }
+
+  conversation.messages.splice(
+    index,
+    1
+  );
+
+  persistConversations();
+  renderCurrentConversation();
+
+  await generateAssistantResponse();
+}
+
+/* ---------------------------------------------------------
+   ATTACHMENTS
+--------------------------------------------------------- */
+
+function setupAttachments() {
+  els.fileInput?.addEventListener(
+    "change",
+    async (event) => {
+      const files =
+        Array.from(
+          event.target.files || []
         );
 
-      return `
-        <div class="code-block">
-          <div class="code-header">
-            <span>CODE</span>
-            <button
-              class="code-copy"
-              onclick="window.OZLINDCopyCode(this)"
-            >
-              Copy
-            </button>
-          </div>
-          <pre><code>${cleaned.trim()}</code></pre>
-        </div>
-      `;
+      if (!files.length) return;
+
+      await addFiles(files);
+
+      event.target.value = "";
     }
   );
-
-  /* Inline code */
-  html = html.replace(
-    /`([^`]+)`/g,
-    '<code class="inline-code">$1</code>'
-  );
-
-  /* Bold */
-  html = html.replace(
-    /\*\*(.+?)\*\*/g,
-    "<strong>$1</strong>"
-  );
-
-  /* Italic */
-  html = html.replace(
-    /(^|[^\*])\*([^*\n]+)\*/g,
-    "$1<em>$2</em>"
-  );
-
-  /* Headings */
-  html = html.replace(
-    /^### (.+)$/gm,
-    "<h3>$1</h3>"
-  );
-
-  html = html.replace(
-    /^## (.+)$/gm,
-    "<h2>$1</h2>"
-  );
-
-  html = html.replace(
-    /^# (.+)$/gm,
-    "<h1>$1</h1>"
-  );
-
-  /* Links */
-  html = html.replace(
-    /(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-  );
-
-  /* Unordered lists */
-  html = html.replace(
-    /(?:^|\n)((?:[-*] .+(?:\n|$))+)/g,
-    (_, block) => {
-      const items =
-        block
-          .trim()
-          .split("\n")
-          .map(
-            (line) =>
-              `<li>${line
-                .replace(
-                  /^[-*]\s+/,
-                  ""
-                )
-                .trim()}</li>`
-          )
-          .join("");
-
-      return `\n<ul>${items}</ul>\n`;
-    }
-  );
-
-  /* Ordered lists */
-  html = html.replace(
-    /(?:^|\n)((?:\d+\.\s.+(?:\n|$))+)/g,
-    (_, block) => {
-      const items =
-        block
-          .trim()
-          .split("\n")
-          .map(
-            (line) =>
-              `<li>${line
-                .replace(
-                  /^\d+\.\s+/,
-                  ""
-                )
-                .trim()}</li>`
-          )
-          .join("");
-
-      return `\n<ol>${items}</ol>\n`;
-    }
-  );
-
-  /* Blockquotes */
-  html = html.replace(
-    /^>\s?(.*)$/gm,
-    "<blockquote>$1</blockquote>"
-  );
-
-  /* Paragraphs / line breaks */
-  const blocks =
-    html
-      .split(/\n{2,}/)
-      .map((block) => {
-        const trimmed =
-          block.trim();
-
-        if (!trimmed) return "";
-
-        if (
-          /^<(h1|h2|h3|ul|ol|blockquote|div)/.test(
-            trimmed
-          )
-        ) {
-          return trimmed;
-        }
-
-        return `<p>${trimmed.replace(
-          /\n/g,
-          "<br>"
-        )}</p>`;
-      })
-      .join("");
-
-  return blocks;
 }
 
-function stripMarkdown(text) {
-  return String(text || "")
-    .replace(
-      /```[\s\S]*?```/g,
-      ""
-    )
-    .replace(
-      /[*_~`]/g,
-      ""
-    )
-    .replace(
-      /\[(.*?)\]\((.*?)\)/g,
-      "$1"
-    );
-}
+async function addFiles(files) {
+  const maxFiles = 5;
+  const maxSize =
+    10 * 1024 * 1024;
 
-window.OZLINDCopyCode = function (
-  button
-) {
-  const code =
-    button
-      .closest(".code-block")
-      ?.querySelector("code")
-      ?.textContent || "";
-
-  copyText(code);
-};
-
-/* =========================================================
-   ATTACHMENTS
-========================================================= */
-
-async function handleAttachments(event) {
-  const files =
-    Array.from(
-      event.target.files || []
-    );
-
-  if (!files.length) return;
-
-  const maxFiles = 4;
-
-  const selected =
-    files.slice(0, maxFiles);
-
-  for (const file of selected) {
-    if (!file.type.startsWith("image/")) {
-      showToast(
-        "Only image files are supported here"
-      );
-
-      continue;
-    }
-
+  for (const file of files) {
     if (
-      file.size >
-      8 * 1024 * 1024
+      state.attachments.length >=
+      maxFiles
     ) {
       showToast(
-        `${file.name} is larger than 8 MB`
+        `Maximum ${maxFiles} files allowed.`
+      );
+
+      break;
+    }
+
+    if (file.size > maxSize) {
+      showToast(
+        `${file.name} is larger than 10 MB.`
       );
 
       continue;
@@ -1710,24 +1574,27 @@ async function handleAttachments(event) {
           file
         );
 
-      OZLIND.state.attachments.push(
-        {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          dataUrl,
-        }
+      state.attachments.push({
+        id: createId("file"),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl
+      });
+
+    } catch (error) {
+      console.error(
+        "Attachment error:",
+        error
       );
-    } catch {
+
       showToast(
-        `Couldn't read ${file.name}`
+        `Could not read ${file.name}.`
       );
     }
   }
 
-  event.target.value = "";
-
-  renderAttachments();
+  renderAttachmentPreview();
 }
 
 function readFileAsDataURL(file) {
@@ -1741,7 +1608,10 @@ function readFileAsDataURL(file) {
           reader.result
         );
 
-      reader.onerror = reject;
+      reader.onerror = () =>
+        reject(
+          reader.error
+        );
 
       reader.readAsDataURL(
         file
@@ -1750,1084 +1620,1194 @@ function readFileAsDataURL(file) {
   );
 }
 
-function renderAttachments() {
-  const container =
-    OZLIND.els.attachmentPreview;
+function renderAttachmentPreview() {
+  if (!els.attachmentPreview)
+    return;
 
-  if (!container) return;
+  els.attachmentPreview.innerHTML =
+    "";
 
   if (
-    !OZLIND.state.attachments.length
+    state.attachments.length ===
+    0
   ) {
-    container.innerHTML = "";
+    els.attachmentPreview.classList.remove(
+      "active"
+    );
+
     return;
   }
 
-  container.innerHTML =
-    OZLIND.state.attachments
-      .map(
-        (file, index) => `
-          <div
-            class="attachment-item"
-            title="${escapeAttribute(
-              file.name
-            )}"
-          >
-            <img
-              src="${escapeAttribute(
-                file.dataUrl
-              )}"
-              alt="${escapeAttribute(
-                file.name
-              )}"
-            />
+  els.attachmentPreview.classList.add(
+    "active"
+  );
 
-            <button
-              class="attachment-remove"
-              data-remove-attachment="${index}"
-              type="button"
-            >
-              ×
-            </button>
-          </div>
-        `
-      )
-      .join("");
+  state.attachments.forEach(
+    (attachment) => {
+      const item =
+        document.createElement(
+          "div"
+        );
 
-  container
-    .querySelectorAll(
-      "[data-remove-attachment]"
-    )
-    .forEach((button) => {
-      button.addEventListener(
+      item.className =
+        "attachment-item";
+
+      const name =
+        document.createElement(
+          "span"
+        );
+
+      name.textContent =
+        attachment.name;
+
+      const remove =
+        document.createElement(
+          "button"
+        );
+
+      remove.type = "button";
+
+      remove.textContent = "×";
+
+      remove.title =
+        "Remove attachment";
+
+      remove.addEventListener(
         "click",
         () => {
-          const index =
-            Number(
-              button.dataset
-                .removeAttachment
-            );
-
-          OZLIND.state.attachments.splice(
-            index,
-            1
+          removeAttachment(
+            attachment.id
           );
-
-          renderAttachments();
         }
       );
-    });
+
+      item.appendChild(name);
+      item.appendChild(remove);
+
+      els.attachmentPreview.appendChild(
+        item
+      );
+    }
+  );
 }
 
-/* =========================================================
-   WEB RESEARCH
-========================================================= */
+function removeAttachment(
+  attachmentId
+) {
+  state.attachments =
+    state.attachments.filter(
+      (attachment) =>
+        attachment.id !==
+        attachmentId
+    );
+
+  renderAttachmentPreview();
+}
+
+function clearAttachments() {
+  state.attachments = [];
+
+  renderAttachmentPreview();
+
+  if (els.fileInput) {
+    els.fileInput.value = "";
+  }
+}
+
+/* ---------------------------------------------------------
+   RESEARCH
+--------------------------------------------------------- */
 
 function toggleResearch() {
-  OZLIND.state.researchEnabled =
-    !OZLIND.state.researchEnabled;
+  state.research = !state.research;
 
-  OZLIND.els.researchButton?.classList.toggle(
+  els.researchBtn?.classList.toggle(
     "active",
-    OZLIND.state.researchEnabled
+    state.research
+  );
+
+  els.researchBtn?.setAttribute(
+    "aria-pressed",
+    String(state.research)
   );
 
   showToast(
-    OZLIND.state.researchEnabled
-      ? "Web research enabled"
-      : "Web research disabled"
+    state.research
+      ? "Web research enabled."
+      : "Web research disabled."
   );
 }
 
-/* =========================================================
+/* ---------------------------------------------------------
    VOICE INPUT
-========================================================= */
+--------------------------------------------------------- */
 
-function toggleVoiceInput() {
+function setupVoiceInput() {
+  if (!els.voiceInputBtn) return;
+
   const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    showToast(
-      "Voice input is not supported in this browser"
-    );
+    els.voiceInputBtn.disabled = true;
+    els.voiceInputBtn.title =
+      "Voice input is not supported here.";
 
     return;
   }
 
-  if (OZLIND.state.listening) {
-    stopVoiceInput();
-    return;
-  }
-
-  const recognition =
+  state.recognition =
     new SpeechRecognition();
 
-  recognition.lang =
-    navigator.language ||
-    "en-US";
+  state.recognition.lang =
+    navigator.language || "en-US";
 
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
+  state.recognition.interimResults =
+    true;
 
-  recognition.onstart = () => {
-    OZLIND.state.listening =
-      true;
-
-    OZLIND.els.voiceButton?.classList.add(
-      "active"
-    );
-
-    showToast(
-      "Listening…"
-    );
-  };
-
-  recognition.onresult = (
-    event
-  ) => {
-    let transcript = "";
-
-    for (
-      let i = event.resultIndex;
-      i < event.results.length;
-      i++
-    ) {
-      transcript +=
-        event.results[i][0]
-          .transcript;
-    }
-
-    if (OZLIND.els.chatInput) {
-      OZLIND.els.chatInput.value =
-        transcript;
-
-      autoResizeTextarea(
-        OZLIND.els.chatInput
-      );
-    }
-  };
-
-  recognition.onerror = () => {
-    showToast(
-      "Voice input failed"
-    );
-  };
-
-  recognition.onend = () => {
-    stopVoiceInput();
-  };
-
-  OZLIND.state.recognition =
-    recognition;
-
-  recognition.start();
-}
-
-function stopVoiceInput() {
-  try {
-    OZLIND.state.recognition?.stop();
-  } catch {
-    /* Already stopped */
-  }
-
-  OZLIND.state.recognition =
-    null;
-
-  OZLIND.state.listening =
+  state.recognition.continuous =
     false;
 
-  OZLIND.els.voiceButton?.classList.remove(
-    "active"
-  );
-}
+  state.recognition.onstart =
+    () => {
+      state.listening = true;
 
-/* =========================================================
-   TEXT TO SPEECH
-========================================================= */
-
-function readLatestResponse() {
-  const latest =
-    [...OZLIND.state.messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.role ===
-          "assistant" &&
-          message.content
+      els.voiceInputBtn.classList.add(
+        "active"
       );
 
-  if (!latest) {
+      showToast(
+        "Listening..."
+      );
+    };
+
+  state.recognition.onresult =
+    (event) => {
+      let transcript = "";
+
+      for (
+        let i =
+          event.resultIndex;
+        i <
+        event.results.length;
+        i++
+      ) {
+        transcript +=
+          event.results[i][0]
+            .transcript;
+      }
+
+      if (els.messageInput) {
+        els.messageInput.value =
+          transcript;
+
+        autoResizeTextarea();
+      }
+    };
+
+  state.recognition.onerror =
+    (event) => {
+      console.warn(
+        "Speech recognition error:",
+        event.error
+      );
+
+      showToast(
+        "Voice input could not be used."
+      );
+    };
+
+  state.recognition.onend =
+    () => {
+      state.listening = false;
+
+      els.voiceInputBtn.classList.remove(
+        "active"
+      );
+    };
+
+  els.voiceInputBtn.addEventListener(
+    "click",
+    toggleVoiceInput
+  );
+}
+
+function toggleVoiceInput() {
+  if (!state.recognition) {
     showToast(
-      "No response to read"
+      "Voice input is unavailable."
     );
 
     return;
   }
 
-  speakText(
-    latest.content
-  );
-}
-
-function speakText(text) {
-  if (
-    !("speechSynthesis" in window)
-  ) {
-    showToast(
-      "Read aloud is not supported"
-    );
-
+  if (state.listening) {
+    state.recognition.stop();
     return;
   }
 
-  window.speechSynthesis.cancel();
-
-  const utterance =
-    new SpeechSynthesisUtterance(
-      stripMarkdown(text)
+  try {
+    state.recognition.start();
+  } catch (error) {
+    console.warn(
+      "Voice start error:",
+      error
     );
-
-  utterance.rate = 1;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-
-  window.speechSynthesis.speak(
-    utterance
-  );
+  }
 }
 
-/* =========================================================
+/* ---------------------------------------------------------
    HISTORY
-========================================================= */
+--------------------------------------------------------- */
+
+function setupHistory() {
+  els.historySearch?.addEventListener(
+    "input",
+    () => {
+      state.searchQuery =
+        els.historySearch.value
+          .trim()
+          .toLowerCase();
+
+      renderHistory();
+    }
+  );
+
+  renderHistory();
+}
 
 function renderHistory() {
+  if (!els.historyList) return;
+
+  els.historyList.innerHTML =
+    "";
+
+  let conversations =
+    [...state.conversations];
+
+  if (state.searchQuery) {
+    conversations =
+      conversations.filter(
+        (conversation) =>
+          conversation.title
+            ?.toLowerCase()
+            .includes(
+              state.searchQuery
+            ) ||
+          conversation.messages?.some(
+            (message) =>
+              message.content
+                ?.toLowerCase()
+                .includes(
+                  state.searchQuery
+                )
+          )
+      );
+  }
+
+  if (conversations.length === 0) {
+    const empty =
+      document.createElement(
+        "div"
+      );
+
+    empty.className =
+      "history-empty";
+
+    empty.textContent =
+      state.searchQuery
+        ? "No matching conversations."
+        : "No conversations yet.";
+
+    els.historyList.appendChild(
+      empty
+    );
+
+    return;
+  }
+
+  conversations.forEach(
+    (conversation) => {
+      const item =
+        document.createElement(
+          "button"
+        );
+
+      item.type = "button";
+
+      item.className =
+        "history-item";
+
+      if (
+        conversation.id ===
+        state.currentConversationId
+      ) {
+        item.classList.add(
+          "active"
+        );
+      }
+
+      const title =
+        document.createElement(
+          "strong"
+        );
+
+      title.textContent =
+        conversation.title ||
+        "New conversation";
+
+      const meta =
+        document.createElement(
+          "span"
+        );
+
+      meta.textContent =
+        formatDate(
+          conversation.updatedAt
+        );
+
+      item.appendChild(title);
+      item.appendChild(meta);
+
+      item.addEventListener(
+        "click",
+        () => {
+          state.currentConversationId =
+            conversation.id;
+
+          persistConversations();
+          renderCurrentConversation();
+
+          showPage("chat");
+        }
+      );
+
+      els.historyList.appendChild(
+        item
+      );
+    }
+  );
+}
+
+/* ---------------------------------------------------------
+   FAVORITES
+--------------------------------------------------------- */
+
+function toggleCurrentFavorite() {
+  const conversation =
+    getCurrentConversation();
+
+  if (!conversation) return;
+
+  conversation.favorite =
+    !conversation.favorite;
+
+  conversation.updatedAt =
+    Date.now();
+
+  if (conversation.favorite) {
+    if (
+      !state.favorites.includes(
+        conversation.id
+      )
+    ) {
+      state.favorites.push(
+        conversation.id
+      );
+    }
+  } else {
+    state.favorites =
+      state.favorites.filter(
+        (id) =>
+          id !== conversation.id
+      );
+  }
+
+  saveJSON(
+    STORAGE.favorites,
+    state.favorites
+  );
+
+  persistConversations();
+
+  updateFavoriteButton();
+
+  showToast(
+    conversation.favorite
+      ? "Added to favorites."
+      : "Removed from favorites."
+  );
+}
+
+function updateFavoriteButton() {
+  if (!els.favoriteChatBtn)
+    return;
+
+  const conversation =
+    getCurrentConversation();
+
+  if (!conversation) return;
+
+  els.favoriteChatBtn.classList.toggle(
+    "active",
+    Boolean(
+      conversation.favorite
+    )
+  );
+
+  els.favoriteChatBtn.textContent =
+    conversation.favorite
+      ? "★"
+      : "☆";
+}
+
+function renderFavorites() {
+  const page =
+    document.querySelector(
+      '[data-page="favorites"]'
+    );
+
+  if (!page) return;
+
   const container =
-    OZLIND.els.historyList;
+    page.querySelector(
+      ".favorites-list"
+    ) ||
+    page.querySelector(
+      ".history-list"
+    );
 
   if (!container) return;
 
-  const search =
-    (
-      OZLIND.els.historySearch
-        ?.value || ""
-    )
-      .trim()
-      .toLowerCase();
+  container.innerHTML = "";
 
-  const conversations =
-    OZLIND.state.conversations
-      .filter(
-        (conversation) =>
-          !search ||
-          conversation.title
-            .toLowerCase()
-            .includes(search)
-      )
-      .sort(
-        (a, b) =>
-          b.updatedAt -
-          a.updatedAt
+  const favorites =
+    state.conversations.filter(
+      (conversation) =>
+        conversation.favorite ||
+        state.favorites.includes(
+          conversation.id
+        )
+    );
+
+  if (!favorites.length) {
+    const empty =
+      document.createElement(
+        "div"
       );
 
-  if (!conversations.length) {
-    container.innerHTML = `
-      <div class="side-card">
-        <h3>No conversations yet</h3>
-        <p>
-          Your conversations will appear here.
-        </p>
-      </div>
-    `;
+    empty.className =
+      "history-empty";
+
+    empty.textContent =
+      "No favorite conversations yet.";
+
+    container.appendChild(
+      empty
+    );
 
     return;
   }
 
-  container.innerHTML =
-    conversations
-      .map(
-        (conversation) => `
-          <div
-            class="history-item"
-            data-conversation-id="${escapeAttribute(
-              conversation.id
-            )}"
-          >
+  favorites.forEach(
+    (conversation) => {
+      const item =
+        document.createElement(
+          "button"
+        );
 
-            <div class="history-icon">
-              ✦
-            </div>
+      item.type = "button";
+      item.className =
+        "history-item";
 
-            <div class="history-main">
-              <strong>
-                ${escapeHtml(
-                  conversation.title
-                )}
-              </strong>
+      const title =
+        document.createElement(
+          "strong"
+        );
 
-              <span>
-                ${formatDate(
-                  conversation.updatedAt
-                )}
-              </span>
-            </div>
+      title.textContent =
+        conversation.title ||
+        "Conversation";
 
-            <div class="history-actions">
+      const meta =
+        document.createElement(
+          "span"
+        );
 
-              <button
-                class="icon-btn"
-                data-history-open="${escapeAttribute(
-                  conversation.id
-                )}"
-                title="Open"
-              >
-                →
-              </button>
+      meta.textContent =
+        formatDate(
+          conversation.updatedAt
+        );
 
-              <button
-                class="icon-btn"
-                data-history-delete="${escapeAttribute(
-                  conversation.id
-                )}"
-                title="Delete"
-              >
-                ×
-              </button>
+      item.appendChild(title);
+      item.appendChild(meta);
 
-            </div>
-
-          </div>
-        `
-      )
-      .join("");
-
-  container
-    .querySelectorAll(
-      "[data-history-open]"
-    )
-    .forEach((button) => {
-      button.addEventListener(
+      item.addEventListener(
         "click",
         () => {
-          loadConversation(
-            button.dataset
-              .historyOpen
+          state.currentConversationId =
+            conversation.id;
+
+          persistConversations();
+
+          renderCurrentConversation();
+
+          showPage("chat");
+        }
+      );
+
+      container.appendChild(
+        item
+      );
+    }
+  );
+}
+
+/* ---------------------------------------------------------
+   SETTINGS
+--------------------------------------------------------- */
+
+function setupSettings() {
+  document
+    .querySelectorAll(
+      ".theme-option"
+    )
+    .forEach((option) => {
+      option.addEventListener(
+        "click",
+        () => {
+          const theme =
+            option.dataset.theme;
+
+          if (!theme) return;
+
+          state.theme = theme;
+
+          localStorage.setItem(
+            STORAGE.theme,
+            theme
+          );
+
+          applyTheme(theme);
+          syncSettingsUI();
+
+          showToast(
+            `Theme: ${theme}`
           );
         }
       );
     });
 
-  container
+  document
     .querySelectorAll(
-      "[data-history-delete]"
+      '[data-action="save-instructions"]'
     )
     .forEach((button) => {
       button.addEventListener(
         "click",
-        () => {
-          deleteConversation(
-            button.dataset
-              .historyDelete
-          );
-        }
+        saveCustomInstructions
+      );
+    });
+
+  document
+    .querySelectorAll(
+      '[data-action="delete-data"]'
+    )
+    .forEach((button) => {
+      button.addEventListener(
+        "click",
+        deleteAllData
       );
     });
 }
 
-function loadConversation(id) {
-  const conversation =
-    OZLIND.state.conversations.find(
-      (item) =>
-        item.id === id
-    );
-
-  if (!conversation) return;
-
-  OZLIND.state.currentConversationId =
-    id;
-
-  OZLIND.state.messages = [
-    ...(conversation.messages || []),
-  ];
-
-  showPage("chat");
-
-  updateChatTitle();
-  renderMessages();
-  updateContextMeter();
-
-  closeSidebar();
-}
-
-function deleteConversation(id) {
-  OZLIND.state.conversations =
-    OZLIND.state.conversations.filter(
-      (conversation) =>
-        conversation.id !== id
-    );
-
-  if (
-    OZLIND.state.currentConversationId ===
-    id
-  ) {
-    OZLIND.state.currentConversationId =
-      null;
-
-    OZLIND.state.messages = [];
+function syncSettingsUI() {
+  if (els.customInstructions) {
+    els.customInstructions.value =
+      state.customInstructions;
   }
 
-  saveLocalData();
-  renderHistory();
+  document
+    .querySelectorAll(
+      ".theme-option"
+    )
+    .forEach((option) => {
+      option.classList.toggle(
+        "active",
+        option.dataset.theme ===
+          state.theme
+      );
+    });
+}
+
+function saveCustomInstructions() {
+  state.customInstructions =
+    els.customInstructions?.value
+      .trim() || "";
+
+  localStorage.setItem(
+    STORAGE.customInstructions,
+    state.customInstructions
+  );
 
   showToast(
-    "Conversation deleted"
+    "Instructions saved."
   );
 }
 
-/* =========================================================
-   TITLE
-========================================================= */
+/* ---------------------------------------------------------
+   DELETE ALL DATA
+--------------------------------------------------------- */
 
-function updateConversationTitle(
-  text
-) {
-  const conversation =
-    getCurrentConversation();
-
-  if (!conversation) return;
-
-  if (
-    conversation.title ===
-      "New conversation" &&
-    text
-  ) {
-    conversation.title =
-      createConversationTitle(
-        text
-      );
-  }
-
-  updateChatTitle();
-}
-
-function createConversationTitle(
-  text
-) {
-  const clean =
-    String(text || "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  if (!clean) {
-    return "New conversation";
-  }
-
-  if (clean.length <= 42) {
-    return clean;
-  }
-
-  return (
-    clean.slice(0, 39) +
-    "..."
-  );
-}
-
-function updateChatTitle() {
-  const conversation =
-    getCurrentConversation();
-
-  if (
-    OZLIND.els.chatTitle &&
-    conversation
-  ) {
-    OZLIND.els.chatTitle.textContent =
-      conversation.title;
-  }
-}
-
-/* =========================================================
-   CLEAR CHAT
-========================================================= */
-
-function clearCurrentChat() {
-  if (
-    !OZLIND.state.messages.length
-  ) {
-    showToast(
-      "Chat is already empty"
-    );
-
-    return;
-  }
-
+function deleteAllData() {
   const confirmed =
     window.confirm(
-      "Clear this conversation?"
+      "Delete all OZLIND conversations and local settings?"
     );
 
   if (!confirmed) return;
 
-  OZLIND.state.messages = [];
-
-  saveCurrentConversation();
-  renderMessages();
-  updateContextMeter();
-
-  showToast(
-    "Conversation cleared"
-  );
-}
-
-function clearChatUI() {
-  if (OZLIND.els.chatMessages) {
-    OZLIND.els.chatMessages.innerHTML = "";
-  }
-}
-
-/* =========================================================
-   CONTEXT
-========================================================= */
-
-function updateContextMeter() {
-  const messages =
-    OZLIND.state.messages;
-
-  const text =
-    messages
-      .map(
-        (message) =>
-          message.content || ""
-      )
-      .join(" ");
-
-  const approximateTokens =
-    Math.ceil(
-      text.length / 4
-    );
-
-  const maxTokens = 32000;
-
-  const percentage = Math.min(
-    100,
-    Math.round(
-      (approximateTokens /
-        maxTokens) *
-        100
-    )
-  );
-
-  if (
-    OZLIND.els.contextProgress
-  ) {
-    OZLIND.els.contextProgress.style.width =
-      `${percentage}%`;
+  if (state.generating) {
+    stopGeneration();
   }
 
-  if (
-    OZLIND.els.contextCount
-  ) {
-    OZLIND.els.contextCount.textContent =
-      `${approximateTokens.toLocaleString()} tokens`;
-  }
-}
-
-/* =========================================================
-   THEME
-========================================================= */
-
-function applyTheme(theme) {
-  if (
-    !["dark", "light"].includes(
-      theme
-    )
-  ) {
-    theme = "dark";
-  }
-
-  OZLIND.state.theme =
-    theme;
-
-  document.documentElement.classList.toggle(
-    "light",
-    theme === "light"
-  );
-
-  OZLIND.els.themeOptions?.forEach(
-    (button) => {
-      button.classList.toggle(
-        "active",
-        button.dataset.theme ===
-          theme
-      );
+  Object.values(STORAGE).forEach(
+    (key) => {
+      localStorage.removeItem(key);
     }
   );
 
-  saveLocalData();
+  state.conversations = [];
+  state.currentConversationId = null;
+  state.attachments = [];
+  state.favorites = [];
+  state.customInstructions = "";
+
+  ensureConversation();
+
+  clearAttachments();
+
+  renderCurrentConversation();
+
+  syncControls();
+
+  showPage("home");
+
+  showToast(
+    "All local OZLIND data deleted."
+  );
+}
+
+/* ---------------------------------------------------------
+   THEME
+--------------------------------------------------------- */
+
+function applyTheme(theme) {
+  const root =
+    document.documentElement;
+
+  if (theme === "system") {
+    const prefersDark =
+      window.matchMedia &&
+      window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+
+    root.dataset.theme =
+      prefersDark
+        ? "dark"
+        : "light";
+
+    root.removeAttribute(
+      "data-theme-preference"
+    );
+
+    return;
+  }
+
+  root.dataset.theme =
+    theme;
+
+  root.dataset.themePreference =
+    theme;
+}
+
+function setupThemeButton() {
+  if (!els.themeButton) return;
+
+  els.themeButton.addEventListener(
+    "click",
+    cycleTheme
+  );
 }
 
 function cycleTheme() {
+  const order = [
+    "dark",
+    "light",
+    "system"
+  ];
+
+  const current =
+    order.indexOf(
+      state.theme
+    );
+
   const next =
-    OZLIND.state.theme ===
-    "dark"
-      ? "light"
-      : "dark";
+    order[
+      (current + 1) %
+        order.length
+    ];
+
+  state.theme = next;
+
+  localStorage.setItem(
+    STORAGE.theme,
+    next
+  );
 
   applyTheme(next);
+  syncSettingsUI();
 
   showToast(
-    `${capitalize(next)} theme enabled`
+    `Theme: ${next}`
   );
 }
 
-/* =========================================================
-   SETTINGS
-========================================================= */
+/* ---------------------------------------------------------
+   GLOBAL SEARCH
+--------------------------------------------------------- */
 
-function saveInstructions() {
-  if (
-    !OZLIND.els.customInstructions
-  ) {
-    return;
-  }
+function setupGlobalSearch() {
+  els.globalSearch?.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Enter")
+        return;
 
-  OZLIND.state.customInstructions =
-    OZLIND.els.customInstructions.value.trim();
+      const query =
+        els.globalSearch.value.trim();
 
-  saveLocalData();
+      if (!query) return;
 
-  showToast(
-    "Custom instructions saved"
+      if (els.historySearch) {
+        els.historySearch.value =
+          query;
+
+        state.searchQuery =
+          query.toLowerCase();
+      }
+
+      showPage("history");
+      renderHistory();
+    }
   );
 }
 
-/* =========================================================
-   LOCAL STORAGE
-========================================================= */
+/* ---------------------------------------------------------
+   CLEAR BUTTON
+--------------------------------------------------------- */
 
-const STORAGE_KEY =
-  "ozlind_ai_state_v1";
+function setupClearButton() {
+  els.clearButton?.addEventListener(
+    "click",
+    () => {
+      if (state.generating) {
+        stopGeneration();
+      }
 
-function saveLocalData() {
-  try {
-    const data = {
-      conversations:
-        OZLIND.state.conversations,
+      const conversation =
+        getCurrentConversation();
 
-      currentConversationId:
-        OZLIND.state.currentConversationId,
+      if (!conversation) return;
 
-      theme:
-        OZLIND.state.theme,
-
-      memoryEnabled:
-        OZLIND.state.memoryEnabled,
-
-      responseStyle:
-        OZLIND.state.responseStyle,
-
-      responseLength:
-        OZLIND.state.responseLength,
-
-      customInstructions:
-        OZLIND.state.customInstructions,
-    };
-
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(data)
-    );
-  } catch (error) {
-    console.warn(
-      "OZLIND storage error:",
-      error
-    );
-  }
-}
-
-function loadLocalData() {
-  try {
-    const raw =
-      localStorage.getItem(
-        STORAGE_KEY
-      );
-
-    if (!raw) {
-      createConversation();
-      return;
-    }
-
-    const data =
-      JSON.parse(raw);
-
-    if (
-      Array.isArray(
-        data.conversations
-      )
-    ) {
-      OZLIND.state.conversations =
-        data.conversations;
-    }
-
-    if (
-      typeof data.theme ===
-      "string"
-    ) {
-      OZLIND.state.theme =
-        data.theme;
-    }
-
-    if (
-      typeof data.memoryEnabled ===
-      "boolean"
-    ) {
-      OZLIND.state.memoryEnabled =
-        data.memoryEnabled;
-    }
-
-    if (
-      typeof data.responseStyle ===
-      "string"
-    ) {
-      OZLIND.state.responseStyle =
-        data.responseStyle;
-    }
-
-    if (
-      typeof data.responseLength ===
-      "string"
-    ) {
-      OZLIND.state.responseLength =
-        data.responseLength;
-    }
-
-    if (
-      typeof data.customInstructions ===
-      "string"
-    ) {
-      OZLIND.state.customInstructions =
-        data.customInstructions;
-    }
-
-    if (
-      data.currentConversationId &&
-      OZLIND.state.conversations.some(
-        (conversation) =>
-          conversation.id ===
-          data.currentConversationId
-      )
-    ) {
-      OZLIND.state.currentConversationId =
-        data.currentConversationId;
-
-      const current =
-        OZLIND.state.conversations.find(
-          (conversation) =>
-            conversation.id ===
-            data.currentConversationId
+      if (
+        conversation.messages.length ===
+        0
+      ) {
+        showToast(
+          "This chat is already empty."
         );
 
-      OZLIND.state.messages = [
-        ...(current?.messages || []),
-      ];
-    } else if (
-      OZLIND.state.conversations
-        .length
-    ) {
-      const first =
-        OZLIND.state.conversations[0];
+        return;
+      }
 
-      OZLIND.state.currentConversationId =
-        first.id;
+      const confirmed =
+        window.confirm(
+          "Clear messages from this conversation?"
+        );
 
-      OZLIND.state.messages = [
-        ...(first.messages || []),
-      ];
-    } else {
-      createConversation();
+      if (!confirmed) return;
+
+      conversation.messages = [];
+      conversation.title =
+        "New conversation";
+
+      conversation.updatedAt =
+        Date.now();
+
+      persistConversations();
+
+      renderCurrentConversation();
+
+      showToast(
+        "Conversation cleared."
+      );
     }
-
-    if (
-      OZLIND.els.customInstructions
-    ) {
-      OZLIND.els.customInstructions.value =
-        OZLIND.state.customInstructions;
-    }
-
-    if (
-      OZLIND.els.memoryToggle
-    ) {
-      OZLIND.els.memoryToggle.checked =
-        OZLIND.state.memoryEnabled;
-    }
-
-    if (
-      OZLIND.els.responseStyle
-    ) {
-      OZLIND.els.responseStyle.value =
-        OZLIND.state.responseStyle;
-    }
-
-    if (
-      OZLIND.els.responseLength
-    ) {
-      OZLIND.els.responseLength.value =
-        OZLIND.state.responseLength;
-    }
-  } catch (error) {
-    console.warn(
-      "OZLIND load error:",
-      error
-    );
-
-    OZLIND.state.conversations =
-      [];
-
-    createConversation();
-  }
+  );
 }
 
-function deleteLocalData() {
-  const confirmed =
-    window.confirm(
-      "Delete all locally stored OZLIND conversations and settings?"
-    );
+/* ---------------------------------------------------------
+   EXPORT
+--------------------------------------------------------- */
 
-  if (!confirmed) return;
+function exportCurrentConversation() {
+  const conversation =
+    getCurrentConversation();
 
-  localStorage.removeItem(
-    STORAGE_KEY
+  if (!conversation) return;
+
+  let text =
+    `${conversation.title}\n`;
+
+  text +=
+    `${"=".repeat(
+      conversation.title.length
+    )}\n\n`;
+
+  conversation.messages.forEach(
+    (message) => {
+      const role =
+        message.role === "user"
+          ? "You"
+          : "OZLIND";
+
+      text += `${role}:\n`;
+      text += `${message.content || ""}\n\n`;
+    }
   );
 
-  OZLIND.state.conversations =
-    [];
+  const blob =
+    new Blob(
+      [text],
+      {
+        type: "text/plain;charset=utf-8"
+      }
+    );
 
-  OZLIND.state.messages =
-    [];
+  const url =
+    URL.createObjectURL(blob);
 
-  OZLIND.state.currentConversationId =
-    null;
+  const link =
+    document.createElement("a");
 
-  OZLIND.state.customInstructions =
-    "";
+  link.href = url;
 
-  createConversation();
+  link.download =
+    `${sanitizeFilename(
+      conversation.title
+    ) || "ozlind-chat"}.txt`;
 
-  if (
-    OZLIND.els.customInstructions
-  ) {
-    OZLIND.els.customInstructions.value =
-      "";
-  }
+  document.body.appendChild(
+    link
+  );
 
-  renderHistory();
-  renderMessages();
-  updateContextMeter();
+  link.click();
+
+  link.remove();
+
+  URL.revokeObjectURL(url);
 
   showToast(
-    "Local data deleted"
+    "Conversation exported."
   );
 }
 
-/* =========================================================
-   KEYBOARD SHORTCUTS
-========================================================= */
+/* ---------------------------------------------------------
+   CONTEXT INDICATOR
+--------------------------------------------------------- */
 
-function handleKeyboardShortcuts(
-  event
-) {
-  const isMac =
-    navigator.platform
-      .toUpperCase()
-      .includes("MAC");
+function updateContextIndicator() {
+  const conversation =
+    getCurrentConversation();
 
-  const modifier =
-    isMac
-      ? event.metaKey
-      : event.ctrlKey;
+  let total = 0;
 
-  if (
-    modifier &&
-    event.key.toLowerCase() ===
-      "k"
-  ) {
-    event.preventDefault();
-
-    OZLIND.els.searchInput?.focus();
-
-    return;
+  if (conversation) {
+    total += JSON.stringify(
+      conversation.messages
+    ).length;
   }
 
-  if (
-    modifier &&
-    event.key.toLowerCase() ===
-      "n"
-  ) {
-    event.preventDefault();
+  total +=
+    els.messageInput?.value
+      ?.length || 0;
 
-    startNewChat();
+  const max =
+    50000;
 
-    return;
+  const percent =
+    Math.min(
+      100,
+      Math.round(
+        (total / max) * 100
+      )
+    );
+
+  if (els.contextProgress) {
+    els.contextProgress.style.width =
+      `${percent}%`;
   }
 
-  if (
-    event.key === "Escape" &&
-    OZLIND.state.generating
-  ) {
-    stopGeneration();
+  if (els.contextText) {
+    els.contextText.textContent =
+      `${percent}% context used`;
   }
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
+/* ---------------------------------------------------------
+   TEXTAREA
+--------------------------------------------------------- */
 
-function createMessageId() {
-  return (
-    "msg_" +
-    Date.now() +
-    "_" +
-    Math.random()
-      .toString(36)
-      .slice(2, 9)
-  );
-}
+function autoResizeTextarea() {
+  if (!els.messageInput) return;
 
-function autoResizeTextarea(
-  textarea
-) {
-  if (!textarea) return;
-
-  textarea.style.height =
+  els.messageInput.style.height =
     "auto";
 
-  textarea.style.height =
+  els.messageInput.style.height =
     `${Math.min(
-      textarea.scrollHeight,
+      els.messageInput.scrollHeight,
       180
     )}px`;
 }
 
+/* ---------------------------------------------------------
+   SCROLL
+--------------------------------------------------------- */
+
 function scrollChatToBottom() {
-  const container =
-    OZLIND.els.chatMessages;
+  if (!els.chatMessages) return;
 
-  if (!container) return;
-
-  requestAnimationFrame(() => {
-    container.scrollTop =
-      container.scrollHeight;
-  });
+  els.chatMessages.scrollTop =
+    els.chatMessages.scrollHeight;
 }
 
-function formatDate(
-  timestamp
-) {
-  if (!timestamp) {
-    return "";
+/* ---------------------------------------------------------
+   TITLE GENERATION
+--------------------------------------------------------- */
+
+function generateTitle(text) {
+  if (!text) {
+    return "New conversation";
   }
+
+  const cleaned =
+    text
+      .replace(/\s+/g, " ")
+      .trim();
+
+  if (!cleaned) {
+    return "New conversation";
+  }
+
+  const maxLength = 42;
+
+  if (
+    cleaned.length <=
+    maxLength
+  ) {
+    return cleaned;
+  }
+
+  return (
+    cleaned
+      .slice(0, maxLength)
+      .trimEnd() + "…"
+  );
+}
+
+/* ---------------------------------------------------------
+   DATE
+--------------------------------------------------------- */
+
+function formatDate(timestamp) {
+  if (!timestamp) return "";
 
   const date =
     new Date(timestamp);
 
-  const now =
-    new Date();
-
-  const diff =
-    now.getTime() -
-    date.getTime();
-
   if (
-    diff <
-    24 * 60 * 60 * 1000
+    Number.isNaN(
+      date.getTime()
+    )
   ) {
-    return date.toLocaleTimeString(
-      [],
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    );
+    return "";
   }
 
   return date.toLocaleDateString(
-    [],
+    undefined,
     {
-      day: "2-digit",
+      day: "numeric",
       month: "short",
-      year: "numeric",
+      year: "numeric"
     }
   );
 }
 
-function capitalize(text) {
-  return (
-    String(text || "")
-      .charAt(0)
-      .toUpperCase() +
-    String(text || "")
-      .slice(1)
-  );
+/* ---------------------------------------------------------
+   FILENAME
+--------------------------------------------------------- */
+
+function sanitizeFilename(name) {
+  return String(name || "")
+    .replace(
+      /[<>:"/\\|?*\x00-\x1F]/g,
+      ""
+    )
+    .replace(/\s+/g, "-")
+    .slice(0, 80);
 }
 
-function escapeHtml(text) {
-  return String(text || "")
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-}
+/* ---------------------------------------------------------
+   TOAST
+--------------------------------------------------------- */
 
-function escapeAttribute(
-  text
-) {
-  return escapeHtml(text);
-}
+let toastTimer = null;
 
 function showToast(message) {
-  const toast =
-    OZLIND.els.toast;
+  if (!els.toast) return;
 
-  if (!toast) return;
+  els.toast.textContent =
+    message;
 
-  toast.textContent =
-    String(message || "");
-
-  toast.classList.add(
+  els.toast.classList.add(
     "show"
   );
 
-  clearTimeout(
-    showToast.timeout
-  );
+  clearTimeout(toastTimer);
 
-  showToast.timeout =
-    setTimeout(() => {
-      toast.classList.remove(
+  toastTimer = setTimeout(
+    () => {
+      els.toast?.classList.remove(
         "show"
       );
-    }, 2400);
+    },
+    2600
+  );
 }
 
-/* =========================================================
-   PUBLIC API
-========================================================= */
+/* ---------------------------------------------------------
+   KEYBOARD SHORTCUTS
+--------------------------------------------------------- */
 
-window.OZLIND = OZLIND;
+function setupKeyboardShortcuts() {
+  setupThemeButton();
+  setupGlobalSearch();
+  setupClearButton();
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      const isMac =
+        navigator.platform
+          .toUpperCase()
+          .includes("MAC");
+
+      const modifier =
+        isMac
+          ? event.metaKey
+          : event.ctrlKey;
+
+      if (
+        modifier &&
+        event.key.toLowerCase() ===
+          "k"
+      ) {
+        event.preventDefault();
+
+        els.globalSearch?.focus();
+      }
+
+      if (
+        modifier &&
+        event.key.toLowerCase() ===
+          "n"
+      ) {
+        event.preventDefault();
+
+        newConversation();
+      }
+
+      if (
+        event.key === "Escape" &&
+        state.generating
+      ) {
+        stopGeneration();
+      }
+
+      if (
+        event.key === "Escape"
+      ) {
+        closeSidebar();
+      }
+    }
+  );
+}
+
+/* ---------------------------------------------------------
+   SYSTEM THEME CHANGE
+--------------------------------------------------------- */
+
+if (window.matchMedia) {
+  const mediaQuery =
+    window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    );
+
+  mediaQuery.addEventListener?.(
+    "change",
+    () => {
+      if (
+        state.theme ===
+        "system"
+      ) {
+        applyTheme("system");
+      }
+    }
+  );
+}
+
+/* ---------------------------------------------------------
+   PAGE LOAD SAFETY
+--------------------------------------------------------- */
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+    if (state.generating) {
+      state.abortController?.abort();
+    }
+  }
+);
+
+/* ---------------------------------------------------------
+   DEBUG-FRIENDLY GLOBAL
+--------------------------------------------------------- */
+
+window.OZLIND = {
+  state,
+
+  newChat: newConversation,
+
+  showPage,
+
+  sendMessage,
+
+  stopGeneration,
+
+  toggleResearch,
+
+  applyTheme
+};
