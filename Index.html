@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+
+  <title>OZLIND AI</title>
+  <meta
+    name="description"
+    content="OZLIND — Your all-in-one AI productivity companion."
+  />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <span></span>
+          <span></span>
+        </div>
+
+        <div>
+          <div class="brand-name">OZLIND</div>
+          <div class="brand-subtitle">AI PLATFORM</div>
+        </div>
+      </div>
+
+      <button class="new-chat-btn" id="newChatBtn">
+        <span class="plus">+</span>
+        <span>New Chat</span>
+      </button>
+
+      <nav class="side-nav">
+        <div class="nav-label">WORKSPACE</div>
+
+        <button class="nav-item active" data-page="home">
+          <span class="nav-icon">⌂</span>
+          <span>Home</span>
+        </button>
+
+        <button class="nav-item" data-page="chat">
+          <span class="nav-icon">✦</span>
+          <span>AI Chat</span>
+        </button>
+
+        <div class="nav-label tools-label">TOOLS</div>
+
+        <button class="nav-item" data-page="image">
+          <span class="nav-icon">◈</span>
+          <span>Image Generator</span>
+          <span class="soon">NEXT</span>
+        </button>
+
+        <button class="nav-item" data-page="photo">
+          <span class="nav-icon">▧</span>
+          <span>Photo Editor</span>
+          <span class="soon">NEXT</span>
+        </button>
+
+        <button class="nav-item" data-page="code">
+          <span class="nav-icon">{ }</span>
+          <span>Code Assistant</span>
+          <span class="soon">NEXT</span>
+        </button>
+
+        <button class="nav-item" data-page="documents">
+          <span class="nav-icon">▤</span>
+          <span>Documents</span>
+          <span class="soon">NEXT</span>
+        </button>
+
+        <button class="nav-item" data-page="voice">
+          <span class="nav-icon">◉</span>
+          <span>Voice</span>
+          <span class="soon">NEXT</span>
+        </button>
+
+        <div class="nav-label">PERSONAL</div>
+
+        <button class="nav-item" data-page="history">
+          <span class="nav-icon">◷</span>
+          <span>Recent</span>
+        </button>
+
+        <button class="nav-item" data-page="favorites">
+          <span class="nav-icon">☆</span>
+          <span>Favorites</span>
+        </button>
+
+        <button class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙</span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="profile-card">
+          <div class="profile-avatar">A</div>
+
+          <div class="profile-info">
+            <strong>Athul</strong>
+            <span>Personal workspace</span>
+          </div>
+
+          <span class="profile-more">•••</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenuBtn">☰</button>
+
+        <div class="search-box">
+          <span>⌕</span>
+          <input
+            id="globalSearch"
+            type="search"
+            placeholder="Search chats..."
+            autocomplete="off"
+          />
+          <kbd>⌘ K</kbd>
+        </div>
+
+        <div class="top-actions">
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>Online</span>
+          </div>
+
+          <button class="icon-button" id="clearChatBtn" title="Clear current chat">
+            ⌫
+          </button>
+
+          <div class="top-avatar">A</div>
+        </div>
+      </header>
+
+      <!-- PAGE CONTAINER -->
+      <section class="page-container">
+
+        <!-- HOME -->
+        <section class="page active-page" id="page-home">
+
+          <div class="hero">
+            <div class="hero-glow"></div>
+
+            <div class="hero-content">
+              <div class="eyebrow">
+                <span class="spark">✦</span>
+                YOUR AI WORKSPACE
+              </div>
+
+              <h1>
+                Your All-in-One
+                <span>AI Companion</span>
+              </h1>
+
+              <p>
+                Think, create, code, research and work smarter with
+                one intelligent workspace built for you.
+              </p>
+
+              <div class="hero-buttons">
+                <button class="primary-btn" id="heroStartBtn">
+                  <span>✦</span>
+                  Start a Conversation
+                </button>
+
+                <button class="secondary-btn" id="heroExploreBtn">
+                  Explore Workspace
+                  <span>→</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="hero-orb">
+              <div class="orb-core">O</div>
+            </div>
+          </div>
+
+          <div class="section-heading">
+            <div>
+              <h2>AI Workspace</h2>
+              <p>Everything you need in one place.</p>
+            </div>
+          </div>
+
+          <div class="feature-grid">
+
+            <button class="feature-card feature-main" data-page="chat">
+              <div class="feature-icon purple">✦</div>
+              <div class="feature-title">AI Chat</div>
+              <div class="feature-description">
+                Ask anything, brainstorm ideas, solve problems and get intelligent answers.
+              </div>
+              <div class="feature-footer">
+                <span>Open Chat</span>
+                <span>→</span>
+              </div>
+            </button>
+
+            <button class="feature-card" data-page="image">
+              <div class="feature-icon blue">◈</div>
+              <div class="feature-title">Image Generator</div>
+              <div class="feature-description">
+                Turn your ideas into stunning visuals with AI.
+              </div>
+              <div class="feature-footer">
+                <span>Coming next</span>
+                <span>→</span>
+              </div>
+            </button>
+
+            <button class="feature-card" data-page="photo">
+              <div class="feature-icon pink">▧</div>
+              <div class="feature-title">Photo Editor</div>
+              <div class="feature-description">
+                Enhance, transform and edit your photos naturally.
+              </div>
+              <div class="feature-footer">
+                <span>Coming next</span>
+                <span>→</span>
+              </div>
+            </button>
+
+            <button class="feature-card" data-page="code">
+              <div class="feature-icon cyan">{ }</div>
+              <div class="feature-title">Code Assistant</div>
+              <div class="feature-description">
+                Build, debug and understand code faster.
+              </div>
+              <div class="feature-footer">
+                <span>Coming next</span>
+                <span>→</span>
+              </div>
+            </button>
+
+          </div>
+        </section>
+
+        <!-- CHAT -->
+        <section class="page" id="page-chat">
+
+          <div class="chat-header">
+            <div>
+              <div class="eyebrow">
+                <span class="spark">✦</span>
+                AI CHAT
+              </div>
+
+              <h1>What can I help you with?</h1>
+              <p>Ask OZLIND anything. Keep it simple or go deep.</p>
+            </div>
+
+            <div class="chat-header-actions">
+              <div class="context-pill" id="contextIndicator">
+                Context 0%
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-layout">
+
+            <div class="chat-panel">
+
+              <div class="messages" id="messages">
+                <div class="empty-chat" id="emptyChat">
+                  <div class="empty-orb">
+                    <span>✦</span>
+                  </div>
+
+                  <h2>Start a new conversation</h2>
+
+                  <p>
+                    Ask a question, upload an image, paste code,
+                    or simply say hello.
+                  </p>
+
+                  <div class="suggestions">
+                    <button data-suggestion="Explain something to me simply">Explain something</button>
+                    <button data-suggestion="Help me build a website">Build a website</button>
+                    <button data-suggestion="Give me creative ideas">Creative ideas</button>
+                    <button data-suggestion="Research the latest information about AI">Research something</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="typing-area" id="typingArea" hidden>
+                <div class="typing-avatar">✦</div>
+                <div class="typing-content">
+                  <span>OZLIND is thinking</span>
+                  <div class="typing-dots">
+                    <i></i><i></i><i></i>
+                  </div>
+                </div>
+              </div>
+
+              <div class="composer-wrapper">
+
+                <div class="attachment-preview" id="attachmentPreview"></div>
+
+                <form class="composer" id="composer">
+
+                  <button
+                    type="button"
+                    class="composer-tool"
+                    id="attachBtn"
+                    title="Attach file"
+                  >
+                    +
+                  </button>
+
+                  <input
+                    type="file"
+                    id="fileInput"
+                    hidden
+                    multiple
+                    accept="image/*,.txt,.md,.json,.csv,.js,.ts,.html,.css"
+                  />
+
+                  <textarea
+                    id="messageInput"
+                    rows="1"
+                    maxlength="8000"
+                    placeholder="Message OZLIND..."
+                    autocomplete="off"
+                  ></textarea>
+
+                  <button
+                    type="button"
+                    class="voice-btn"
+                    id="voiceBtn"
+                    title="Voice input"
+                  >
+                    🎙
+                  </button>
+
+                  <button
+                    type="submit"
+                    class="send-btn"
+                    id="sendBtn"
+                    title="Send"
+                  >
+                    ↑
+                  </button>
+
+                  <button
+                    type="button"
+                    class="stop-btn"
+                    id="stopBtn"
+                    hidden
+                    title="Stop generating"
+                  >
+                    ■
+                  </button>
+
+                </form>
+
+                <div class="composer-footer">
+                  <span>OZLIND can make mistakes. Verify important information.</span>
+
+                  <div class="composer-meta">
+                    <span id="charCounter">0 / 8000</span>
+                    <span>Enter ↵</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <aside class="chat-tools">
+
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <span>Response</span>
+                  <span>⚙</span>
+                </div>
+
+                <label>
+                  Style
+                  <select id="responseStyle">
+                    <option value="balanced">Balanced</option>
+                    <option value="concise">Concise</option>
+                    <option value="detailed">Detailed</option>
+                    <option value="professional">Professional</option>
+                    <option value="creative">Creative</option>
+                  </select>
+                </label>
+
+                <label>
+                  Model
+                  <select id="modelSelect">
+                    <option value="smart">Smart</option>
+                    <option value="fast">Fast</option>
+                    <option value="deep">Deep</option>
+                  </select>
+                </label>
+
+                <label class="toggle-row">
+                  <span>Web research</span>
+                  <input type="checkbox" id="webResearch" />
+                  <span class="toggle"></span>
+                </label>
+
+                <label class="toggle-row">
+                  <span>Memory</span>
+                  <input type="checkbox" id="memoryToggle" checked />
+                  <span class="toggle"></span>
+                </label>
+              </div>
+
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <span>Quick actions</span>
+                </div>
+
+                <button class="quick-action" data-suggestion="Summarize this conversation">
+                  <span>▤</span>
+                  Summarize chat
+                </button>
+
+                <button class="quick-action" data-suggestion="Give me the key points from our conversation">
+                  <span>✦</span>
+                  Key points
+                </button>
+
+                <button class="quick-action" data-suggestion="Rewrite my last request more clearly">
+                  <span>↗</span>
+                  Improve prompt
+                </button>
+              </div>
+
+            </aside>
+
+          </div>
+        </section>
+
+        <!-- FUTURE PAGES -->
+        <section class="page future-page" id="page-image">
+          <div class="future-icon">◈</div>
+          <div class="eyebrow">CREATIVE TOOL</div>
+          <h1>AI Image Generator</h1>
+          <p>Generate images from natural language prompts.</p>
+          <span class="coming-badge">COMING NEXT</span>
+        </section>
+
+        <section class="page future-page" id="page-photo">
+          <div class="future-icon">▧</div>
+          <div class="eyebrow">CREATIVE TOOL</div>
+          <h1>AI Photo Editor</h1>
+          <p>Enhance and transform your photos with AI.</p>
+          <span class="coming-badge">COMING NEXT</span>
+        </section>
+
+        <section class="page future-page" id="page-code">
+          <div class="future-icon">{ }</div>
+          <div class="eyebrow">DEVELOPER TOOL</div>
+          <h1>Code Assistant</h1>
+          <p>Write, explain, debug and improve your code.</p>
+          <span class="coming-badge">COMING NEXT</span>
+        </section>
+
+        <section class="page future-page" id="page-documents">
+          <div class="future-icon">▤</div>
+          <div class="eyebrow">DOCUMENT AI</div>
+          <h1>Documents</h1>
+          <p>Chat with PDFs, documents and files.</p>
+          <span class="coming-badge">COMING NEXT</span>
+        </section>
+
+        <section class="page future-page" id="page-voice">
+          <div class="future-icon">◉</div>
+          <div class="eyebrow">VOICE AI</div>
+          <h1>Voice</h1>
+          <p>Talk naturally with your AI companion.</p>
+          <span class="coming-badge">COMING NEXT</span>
+        </section>
+
+        <section class="page" id="page-history">
+          <div class="simple-page">
+            <div class="eyebrow">PERSONAL</div>
+            <h1>Recent conversations</h1>
+            <p>Your saved conversations appear here.</p>
+
+            <div id="historyList" class="history-list"></div>
+          </div>
+        </section>
+
+        <section class="page" id="page-favorites">
+          <div class="simple-page">
+            <div class="eyebrow">PERSONAL</div>
+            <h1>Favorites</h1>
+            <p>Your favorite conversations will appear here.</p>
+
+            <div id="favoritesList" class="history-list"></div>
+          </div>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="simple-page settings-page">
+            <div class="eyebrow">SETTINGS</div>
+            <h1>OZLIND Settings</h1>
+            <p>Customize how your AI companion responds.</p>
+
+            <div class="settings-card">
+              <label>
+                <span>Custom instructions</span>
+                <textarea
+                  id="customInstructions"
+                  maxlength="3000"
+                  placeholder="Tell OZLIND how you want it to respond..."
+                ></textarea>
+              </label>
+
+              <button class="primary-btn" id="saveSettingsBtn">
+                Save settings
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <nav class="mobile-nav">
+    <button data-page="home" class="active">
+      <span>⌂</span>
+      Home
+    </button>
+
+    <button data-page="chat">
+      <span>✦</span>
+      Chat
+    </button>
+
+    <button id="mobileNewChat">
+      <span class="mobile-plus">+</span>
+      New
+    </button>
+
+    <button data-page="history">
+      <span>◷</span>
+      Recent
+    </button>
+
+    <button data-page="settings">
+      <span>⚙</span>
+      Settings
+    </button>
+  </nav>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="chatbot.js"></script>
+</body>
+  </html>
