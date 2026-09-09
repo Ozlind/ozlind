@@ -2,14 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
 
   <meta
     name="description"
-    content="OZLIND — a focused AI workspace for conversation, research, coding and image understanding."
+    content="OZLIND — AI workspace for conversation, research, coding and image understanding."
   >
 
-  <meta name="theme-color" content="#111315">
+  <meta
+    name="theme-color"
+    content="#111315"
+  >
 
   <title>OZLIND — AI Workspace</title>
 
@@ -20,9 +27,9 @@
 
 <div class="app" id="app">
 
-  <!-- =========================================================
-       MOBILE OVERLAY
-       ========================================================= -->
+  <!-- =====================================================
+       MOBILE SIDEBAR OVERLAY
+       ===================================================== -->
 
   <div
     class="sidebar-overlay"
@@ -31,11 +38,14 @@
   </div>
 
 
-  <!-- =========================================================
+  <!-- =====================================================
        SIDEBAR
-       ========================================================= -->
+       ===================================================== -->
 
-  <aside class="sidebar" id="sidebar">
+  <aside
+    class="sidebar"
+    id="sidebar"
+    aria-label="OZLIND navigation">
 
     <!-- BRAND -->
 
@@ -47,9 +57,9 @@
         data-view="chat"
         aria-label="Go to OZLIND AI">
 
-        <!-- OZLIND #3 ANGULAR LOGO -->
-
-        <span class="brand-logo" aria-hidden="true">
+        <span
+          class="brand-logo"
+          aria-hidden="true">
 
           <svg
             class="ozlind-logo"
@@ -65,20 +75,16 @@
             <path
               d="M36 36H55L45 46H27L36 36Z"
               fill="currentColor"
-              opacity="0.48"
+              opacity=".48"
             />
 
           </svg>
 
         </span>
 
-
         <span class="brand-copy">
-
           <strong>OZLIND</strong>
-
           <small>AI WORKSPACE</small>
-
         </span>
 
       </button>
@@ -105,7 +111,11 @@
       id="newChatBtn"
       type="button">
 
-      <span class="new-chat-icon" aria-hidden="true">+</span>
+      <span
+        class="new-chat-icon"
+        aria-hidden="true">
+        +
+      </span>
 
       <span>New chat</span>
 
@@ -129,7 +139,11 @@
         data-view="chat"
         aria-current="page">
 
-        <span class="nav-icon" aria-hidden="true">✦</span>
+        <span
+          class="nav-icon"
+          aria-hidden="true">
+          ✦
+        </span>
 
         <span class="nav-label">
           AI Chat
@@ -143,7 +157,11 @@
         type="button"
         data-view="history">
 
-        <span class="nav-icon" aria-hidden="true">◷</span>
+        <span
+          class="nav-icon"
+          aria-hidden="true">
+          ◷
+        </span>
 
         <span class="nav-label">
           History
@@ -162,7 +180,11 @@
         type="button"
         data-view="research">
 
-        <span class="nav-icon" aria-hidden="true">⌕</span>
+        <span
+          class="nav-icon"
+          aria-hidden="true">
+          ⌕
+        </span>
 
         <span class="nav-label">
           Research
@@ -176,7 +198,11 @@
         type="button"
         data-view="vision">
 
-        <span class="nav-icon" aria-hidden="true">◉</span>
+        <span
+          class="nav-icon"
+          aria-hidden="true">
+          ◉
+        </span>
 
         <span class="nav-label">
           Vision
@@ -195,7 +221,11 @@
         type="button"
         data-view="settings">
 
-        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <span
+          class="nav-icon"
+          aria-hidden="true">
+          ⚙
+        </span>
 
         <span class="nav-label">
           Settings
@@ -213,19 +243,17 @@
       <span class="status-indicator"></span>
 
       <div>
-
         <strong>OZLIND</strong>
 
         <small>
           Workspace ready
         </small>
-
       </div>
 
     </div>
 
 
-    <!-- USER / WORKSPACE -->
+    <!-- PROFILE -->
 
     <button
       class="sidebar-profile"
@@ -244,7 +272,7 @@
         </strong>
 
         <small>
-          Settings & preferences
+          Settings &amp; preferences
         </small>
 
       </span>
@@ -260,9 +288,9 @@
   </aside>
 
 
-  <!-- =========================================================
+  <!-- =====================================================
        MAIN
-       ========================================================= -->
+       ===================================================== -->
 
   <main class="main">
 
@@ -347,22 +375,21 @@
     </header>
 
 
-    <!-- =======================================================
+    <!-- =====================================================
          PAGE CONTENT
-         ======================================================= -->
+         ===================================================== -->
 
     <div class="page-content">
 
 
-      <!-- =====================================================
-           CHAT VIEW
-           ===================================================== -->
+      <!-- ===================================================
+           CHAT
+           =================================================== -->
 
       <section
         class="view view--chat is-active"
         data-page="chat"
         aria-label="AI Chat">
-
 
         <!-- CHAT HEADER -->
 
@@ -412,7 +439,9 @@
                 AI mode
               </span>
 
-              <select id="modelSelect">
+              <select
+                id="modelSelect"
+                aria-label="AI mode">
 
                 <option value="auto">
                   Auto
@@ -495,18 +524,13 @@
         </div>
 
 
-        <!-- ===================================================
-             MESSAGE AREA
-             =================================================== -->
+        <!-- MESSAGE AREA -->
 
         <div
           class="chat-messages"
           id="chatMessages"
           aria-live="polite"
           aria-label="Conversation">
-
-
-          <!-- EMPTY STATE -->
 
           <div
             class="chat-empty"
@@ -620,9 +644,7 @@
         </div>
 
 
-        <!-- ===================================================
-             ATTACHMENTS
-             =================================================== -->
+        <!-- ATTACHMENTS -->
 
         <div
           class="chat-attachments"
@@ -631,9 +653,7 @@
         </div>
 
 
-        <!-- ===================================================
-             COMPOSER
-             =================================================== -->
+        <!-- COMPOSER -->
 
         <div class="chat-composer">
 
@@ -641,7 +661,6 @@
             id="chatForm"
             class="chat-form"
             autocomplete="off">
-
 
             <div class="composer-shell">
 
@@ -668,7 +687,7 @@
                 hidden>
 
 
-              <!-- INPUT -->
+              <!-- TEXT -->
 
               <textarea
                 id="chatInput"
@@ -725,8 +744,6 @@
           </form>
 
 
-          <!-- COMPOSER INFO -->
-
           <div
             class="composer-footer"
             id="contextIndicator">
@@ -753,15 +770,14 @@
       </section>
 
 
-      <!-- =====================================================
-           HISTORY VIEW
-           ===================================================== -->
+      <!-- ===================================================
+           HISTORY
+           =================================================== -->
 
       <section
         class="view view--history"
         data-page="history"
         aria-label="Conversation History">
-
 
         <div class="page-header">
 
@@ -821,15 +837,14 @@
       </section>
 
 
-      <!-- =====================================================
-           RESEARCH VIEW
-           ===================================================== -->
+      <!-- ===================================================
+           RESEARCH
+           =================================================== -->
 
       <section
         class="view view--research"
         data-page="research"
         aria-label="Research">
-
 
         <div class="tool-page">
 
@@ -866,15 +881,14 @@
       </section>
 
 
-      <!-- =====================================================
-           VISION VIEW
-           ===================================================== -->
+      <!-- ===================================================
+           VISION
+           =================================================== -->
 
       <section
         class="view view--vision"
         data-page="vision"
         aria-label="Vision">
-
 
         <div class="tool-page">
 
@@ -911,15 +925,14 @@
       </section>
 
 
-      <!-- =====================================================
-           SETTINGS VIEW
-           ===================================================== -->
+      <!-- ===================================================
+           SETTINGS
+           =================================================== -->
 
       <section
         class="view view--settings"
         data-page="settings"
         aria-label="Settings">
-
 
         <div class="settings-page">
 
@@ -944,7 +957,7 @@
           </div>
 
 
-          <!-- AI SETTINGS -->
+          <!-- AI BEHAVIOUR -->
 
           <div class="settings-section">
 
@@ -986,7 +999,8 @@
                   id="memoryToggle"
                   type="button"
                   role="switch"
-                  aria-checked="true">
+                  aria-checked="true"
+                  aria-label="Toggle memory">
 
                   <span></span>
 
@@ -1014,7 +1028,8 @@
 
                 <select
                   id="responseLength"
-                  class="setting-select">
+                  class="setting-select"
+                  aria-label="Response length">
 
                   <option value="short">
                     Concise
@@ -1054,9 +1069,12 @@
 
                 <select
                   id="responseStyle"
-                  class="setting-select">
+                  class="setting-select"
+                  aria-label="Response style">
 
-                  <option value="balanced" selected>
+                  <option
+                    value="balanced"
+                    selected>
                     Balanced
                   </option>
 
@@ -1109,7 +1127,8 @@
                 class="settings-textarea"
                 maxlength="5000"
                 rows="6"
-                placeholder="Example: Keep answers practical and explain technical steps clearly."></textarea>
+                placeholder="Example: Keep answers practical and explain technical steps clearly."
+                aria-label="Custom instructions"></textarea>
 
 
               <div class="settings-card-footer">
@@ -1117,6 +1136,7 @@
                 <small>
                   Up to 5,000 characters
                 </small>
+
 
                 <button
                   class="btn btn--secondary btn--small"
@@ -1154,6 +1174,8 @@
             <div class="settings-card">
 
 
+              <!-- EXPORT -->
+
               <div class="setting-row">
 
                 <div class="setting-info">
@@ -1181,6 +1203,8 @@
               </div>
 
 
+              <!-- IMPORT -->
+
               <div class="setting-row">
 
                 <div class="setting-info">
@@ -1205,6 +1229,7 @@
 
                 </button>
 
+
                 <input
                   id="historyFileInput"
                   type="file"
@@ -1213,6 +1238,8 @@
 
               </div>
 
+
+              <!-- CLEAR -->
 
               <div class="setting-row setting-row--danger">
 
@@ -1289,16 +1316,15 @@
   </main>
 
 
-  <!-- =========================================================
+  <!-- =====================================================
        CHAT HISTORY DRAWER
-       ========================================================= -->
+       ===================================================== -->
 
   <aside
     class="chat-history-panel"
     id="chatHistoryPanel"
     aria-label="Conversation history"
     aria-hidden="true">
-
 
     <div class="history-panel-header">
 
@@ -1361,15 +1387,16 @@
   </aside>
 
 
-  <!-- =========================================================
-       MOBILE THEME BUTTON
-       ========================================================= -->
+  <!-- =====================================================
+       MOBILE THEME
+       ===================================================== -->
 
   <button
     class="theme-mobile-control"
     id="themeToggleMobile"
     type="button"
-    aria-label="Toggle theme">
+    aria-label="Toggle theme"
+    title="Toggle theme">
 
     <span
       class="theme-icon"
@@ -1380,23 +1407,22 @@
   </button>
 
 
-  <!-- =========================================================
+  <!-- =====================================================
        MODAL
-       ========================================================= -->
+       ===================================================== -->
 
   <div
     class="modal-overlay"
     id="modalOverlay"
     aria-hidden="true">
 
-
     <div
       class="modal"
       id="modal"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modalTitle">
-
+      aria-labelledby="modalTitle"
+      tabindex="-1">
 
       <div class="modal-header">
 
@@ -1436,9 +1462,9 @@
   </div>
 
 
-  <!-- =========================================================
+  <!-- =====================================================
        TOASTS
-       ========================================================= -->
+       ===================================================== -->
 
   <div
     class="toast-stack"
@@ -1447,13 +1473,15 @@
     aria-atomic="true">
   </div>
 
-
 </div>
 
 
-<!-- =========================================================
-     APP SCRIPT
-     ========================================================= -->
+<!-- =======================================================
+     ONLY APP SCRIPT
+     =======================================================
+
+     image-editor.js is intentionally removed.
+     ======================================================= -->
 
 <script
   src="chatbot.js"
