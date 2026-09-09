@@ -1,39 +1,52 @@
 (() => {
   "use strict";
 
-  /* =========================================================
-     OZLIND AI — CHAT ENGINE
-     =========================================================
-     Features:
-     - Chat + streaming
-     - Auto / Fast / Smart / Research / Code / Write
-     - Groq / Gemini / Experiential routing via /api/chat
-     - Web research
-     - Vision/image upload
-     - Voice input
-     - Conversation history
-     - Search history
-     - Rename / delete conversations
-     - Import / export
-     - Memory toggle
-     - Custom instructions
-     - Response length/style
-     - Theme
-     - Regenerate
-     - Edit
-     - Copy
-     - Feedback
-     - Stop generation
-     - Mobile sidebar
-     - Modal + toast system
-     ========================================================= */
+  /*
+   * ============================================================
+   * OZLIND AI — SYNCHRONIZED CHAT ENGINE
+   * ============================================================
+   *
+   * Synchronized with:
+   *   index.html
+   *   /api/chat
+   *
+   * Features:
+   *   Chat
+   *   Auto / Fast / Smart / Research / Code / Write
+   *   Groq / Gemini / Experiential routing
+   *   Tavily research
+   *   Vision image upload
+   *   Voice input
+   *   Conversation history
+   *   Search history
+   *   Rename / delete
+   *   Import / export
+   *   Memory toggle
+   *   Custom instructions
+   *   Response length/style
+   *   Theme
+   *   Regenerate
+   *   Edit
+   *   Copy
+   *   Feedback
+   *   Stop generation
+   *   Mobile sidebar
+   *   Sidebar collapse
+   *   Modal
+   *   Toast
+   *
+   * IMPORTANT:
+   * image-editor.js is intentionally NOT used.
+   * ============================================================
+   */
 
   const STORAGE = {
     conversations: "ozlind:conversations",
     settings: "ozlind:chat-settings",
     instructions: "ozlind:custom-instructions",
     memory: "ozlind:memory",
-    theme: "ozlind:theme"
+    theme: "ozlind:theme",
+    sidebar: "ozlind:sidebar-collapsed"
   };
 
   const LIMITS = {
@@ -43,7 +56,8 @@
     attachmentSize: 8 * 1024 * 1024,
     maxAttachments: 4,
     maxImageDimension: 1600,
-    maxInstructions: 5000
+    maxInstructions: 5000,
+    historyFileSize: 10 * 1024 * 1024
   };
 
   const $ = (selector, root = document) =>
@@ -52,9 +66,13 @@
   const $$ = (selector, root = document) =>
     Array.from(root.querySelectorAll(selector));
 
-  /* =========================================================
-     DOM
-     ========================================================= */
+  /*
+   * ============================================================
+   * DOM
+   * ============================================================
+   */
+
+  const body = document.body;
 
   const chatMessages = $("#chatMessages");
   const chatEmpty = $("#chatEmpty");
@@ -69,18 +87,25 @@
   const attachBtn = $("#attachBtn");
   const fileInput = $("#fileInput");
   const chatAttachments = $("#chatAttachments");
+
   const voiceBtn = $("#voiceBtn");
 
   const newChatBtn = $("#newChatBtn");
 
   const chatHistoryPanel = $("#chatHistoryPanel");
   const closeHistoryPanel = $("#closeHistoryPanel");
+
   const conversationSearch = $("#conversationSearch");
+  const conversationSearchDrawer =
+    $("#conversationSearchDrawer");
+
   const conversationList = $("#conversationList");
+  const conversationListDrawer =
+    $("#conversationListDrawer");
 
   const mobileNavBtn = $("#mobileNavBtn");
   const sidebarOverlay = $("#sidebarOverlay");
-  const sidebarCollapse = $("#sidebarCollapse");
+  const sidebarCollapse = $("#collapseBtn");
 
   const modalOverlay = $("#modalOverlay");
   const modal = $("#modal");
@@ -94,15 +119,45 @@
   const customInstructions = $("#customInstructions");
   const responseLength = $("#responseLength");
   const responseStyle = $("#responseStyle");
-  const themeSelect = $("#themeSelect");
 
-  const saveInstructionsBtn = $("#saveInstructionsBtn");
+  const saveInstructionsBtn =
+    $("#saveInstructionsBtn");
 
-  /* =========================================================
-     STATE
-     ========================================================= */
+  const exportHistoryBtn =
+    $("#exportHistoryBtn");
+
+  const importHistoryBtn =
+    $("#importHistoryBtn");
+
+  const historyFileInput =
+    $("#historyFileInput");
+
+  const clearHistoryBtn =
+    $("#clearHistoryBtn");
+
+  const themeToggleDesktop =
+    $("#themeToggleDesktop");
+
+  const themeToggleMobile =
+    $("#themeToggleMobile");
+
+  const profileBtnTop =
+    $("#profileBtnTop");
+
+  const connectionStatus =
+    $("#connectionStatus");
+
+  const topbarTitle =
+    $("#topbarTitle");
+
+  /*
+   * ============================================================
+   * STATE
+   * ============================================================
+   */
 
   let conversations = loadConversations();
+
   let activeConversationId =
     conversations[0]?.id || null;
 
@@ -116,23 +171,22 @@
 
   let currentView = "chat";
 
-  /* =========================================================
-     HELPERS
-     ========================================================= */
+  /*
+   * ============================================================
+   * HELPERS
+   * ============================================================
+   */
 
-  function id(prefix = "id") {
+  function createId(prefix = "id") {
     if (
       window.crypto &&
-      typeof crypto.randomUUID === "function"
+      typeof window.crypto.randomUUID === "function"
     ) {
-      return `${prefix}_${crypto.randomUUID()}`;
+      return `${prefix}_${window.crypto.randomUUID()}`;
     }
 
     return (
-      prefix +
-      "_" +
-      Date.now() +
-      "_" +
+      `${prefix}_${Date.now()}_` +
       Math.random().toString(36).slice(2)
     );
   }
@@ -160,8 +214,12 @@
 
   function getStorage(key, fallback = "") {
     try {
-      const value = localStorage.getItem(key);
-      return value === null ? fallback : value;
+      const value =
+        window.localStorage.getItem(key);
+
+      return value === null
+        ? fallback
+        : value;
     } catch {
       return fallback;
     }
@@ -169,100 +227,184 @@
 
   function setStorage(key, value) {
     try {
-      localStorage.setItem(key, value);
+      window.localStorage.setItem(
+        key,
+        value
+      );
+
       return true;
     } catch {
-      toast("Browser storage is full.", "error");
+      toast(
+        "Browser storage is full.",
+        "error"
+      );
+
       return false;
     }
   }
 
   function removeStorage(key) {
     try {
-      localStorage.removeItem(key);
+      window.localStorage.removeItem(key);
     } catch {}
   }
 
-  /* =========================================================
-     TOAST
-     ========================================================= */
+  /*
+   * ============================================================
+   * TOAST
+   * ============================================================
+   */
 
   function toast(message, type = "info") {
-    if (!toastStack) return;
+    if (!toastStack) {
+      console[type === "error" ? "error" : "log"](
+        message
+      );
+      return;
+    }
 
     const element =
       document.createElement("div");
 
     element.className =
       "toast" +
-      (type === "error" ? " is-error" : "") +
-      (type === "success" ? " is-success" : "");
+      (type === "error"
+        ? " is-error"
+        : "") +
+      (type === "success"
+        ? " is-success"
+        : "");
 
-    element.textContent = message;
+    element.textContent = String(message);
 
     toastStack.appendChild(element);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       element.remove();
     }, 3200);
   }
 
-  /* =========================================================
-     THEME
-     ========================================================= */
+  /*
+   * ============================================================
+   * THEME
+   * ============================================================
+   */
+
+  function getTheme() {
+    return getStorage(
+      STORAGE.theme,
+      "dark"
+    ) === "light"
+      ? "light"
+      : "dark";
+  }
 
   function applyTheme(theme) {
     const valid =
-      theme === "light" ||
-      theme === "dark"
-        ? theme
+      theme === "light"
+        ? "light"
         : "dark";
 
-    document.body.dataset.theme = valid;
+    body.dataset.theme = valid;
 
-    if (themeSelect) {
-      themeSelect.value = valid;
-    }
-
-    setStorage(STORAGE.theme, valid);
-  }
-
-  function loadTheme() {
-    const saved =
-      getStorage(STORAGE.theme, "dark");
-
-    applyTheme(saved);
-  }
-
-  /* =========================================================
-     SETTINGS
-     ========================================================= */
-
-  function loadSettings() {
-    const saved = parseJSON(
-      getStorage(STORAGE.settings, "{}"),
-      {}
+    setStorage(
+      STORAGE.theme,
+      valid
     );
 
-    if (responseLength) {
-      responseLength.value =
-        ["short", "balanced", "detailed"].includes(
+    updateThemeButtons(valid);
+  }
+
+  function updateThemeButtons(theme) {
+    const nextLabel =
+      theme === "dark"
+        ? "Switch to light theme"
+        : "Switch to dark theme";
+
+    [themeToggleDesktop, themeToggleMobile]
+      .filter(Boolean)
+      .forEach(button => {
+        button.setAttribute(
+          "aria-label",
+          nextLabel
+        );
+
+        button.setAttribute(
+          "title",
+          nextLabel
+        );
+
+        const icon =
+          $(".theme-icon", button);
+
+        if (icon) {
+          icon.textContent =
+            theme === "dark"
+              ? "☾"
+              : "☀";
+        }
+      });
+  }
+
+  function toggleTheme() {
+    applyTheme(
+      getTheme() === "dark"
+        ? "light"
+        : "dark"
+    );
+  }
+
+  /*
+   * ============================================================
+   * SETTINGS
+   * ============================================================
+   */
+
+  function getSettings() {
+    const saved =
+      parseJSON(
+        getStorage(
+          STORAGE.settings,
+          "{}"
+        ),
+        {}
+      );
+
+    return {
+      responseLength:
+        ["short", "medium", "long"].includes(
           saved.responseLength
         )
           ? saved.responseLength
-          : "balanced";
+          : "medium",
+
+      responseStyle:
+        [
+          "balanced",
+          "professional",
+          "friendly",
+          "direct",
+          "creative"
+        ].includes(
+          saved.responseStyle
+        )
+          ? saved.responseStyle
+          : "balanced"
+    };
+  }
+
+  function loadSettings() {
+    const settings =
+      getSettings();
+
+    if (responseLength) {
+      responseLength.value =
+        settings.responseLength;
     }
 
     if (responseStyle) {
       responseStyle.value =
-        [
-          "professional",
-          "friendly",
-          "concise",
-          "technical"
-        ].includes(saved.responseStyle)
-          ? saved.responseStyle
-          : "professional";
+        settings.responseStyle;
     }
 
     if (customInstructions) {
@@ -277,35 +419,155 @@
     }
 
     if (memoryToggle) {
+      const enabled =
+        getStorage(
+          STORAGE.memory,
+          "true"
+        ) !== "false";
+
       memoryToggle.setAttribute(
         "aria-checked",
-        getStorage(STORAGE.memory, "true") !==
-          "false"
+        String(enabled)
       );
     }
   }
 
   function saveSettings() {
+    const settings = {
+      responseLength:
+        ["short", "medium", "long"].includes(
+          responseLength?.value
+        )
+          ? responseLength.value
+          : "medium",
+
+      responseStyle:
+        [
+          "balanced",
+          "professional",
+          "friendly",
+          "direct",
+          "creative"
+        ].includes(
+          responseStyle?.value
+        )
+          ? responseStyle.value
+          : "balanced"
+    };
+
     setStorage(
       STORAGE.settings,
-      JSON.stringify({
-        responseLength:
-          responseLength?.value ||
-          "balanced",
-
-        responseStyle:
-          responseStyle?.value ||
-          "professional"
-      })
+      JSON.stringify(settings)
     );
   }
 
-  /* =========================================================
-     CONVERSATIONS
-     ========================================================= */
+  function toggleMemory() {
+    if (!memoryToggle) return;
+
+    const current =
+      memoryToggle.getAttribute(
+        "aria-checked"
+      ) === "true";
+
+    const next = !current;
+
+    memoryToggle.setAttribute(
+      "aria-checked",
+      String(next)
+    );
+
+    setStorage(
+      STORAGE.memory,
+      String(next)
+    );
+
+    toast(
+      next
+        ? "Memory enabled."
+        : "Memory disabled.",
+      "success"
+    );
+  }
+
+  function saveCustomInstructions() {
+    const value =
+      String(
+        customInstructions?.value || ""
+      )
+        .slice(
+          0,
+          LIMITS.maxInstructions
+        );
+
+    setStorage(
+      STORAGE.instructions,
+      value
+    );
+
+    saveSettings();
+
+    toast(
+      "Settings saved.",
+      "success"
+    );
+  }
+
+  /*
+   * ============================================================
+   * CONVERSATIONS
+   * ============================================================
+   */
+
+  function normalizeAttachment(
+    attachment
+  ) {
+    if (
+      !attachment ||
+      typeof attachment !== "object" ||
+      typeof attachment.dataUrl !== "string"
+    ) {
+      return null;
+    }
+
+    if (
+      !/^data:image\//i.test(
+        attachment.dataUrl
+      )
+    ) {
+      return null;
+    }
+
+    return {
+      name:
+        typeof attachment.name === "string"
+          ? attachment.name.slice(0, 200)
+          : "image",
+
+      type:
+        typeof attachment.type === "string"
+          ? attachment.type
+          : "image/jpeg",
+
+      dataUrl:
+        attachment.dataUrl,
+
+      width:
+        Number.isFinite(attachment.width)
+          ? attachment.width
+          : undefined,
+
+      height:
+        Number.isFinite(attachment.height)
+          ? attachment.height
+          : undefined
+    };
+  }
 
   function normalizeMessage(message) {
-    if (!message || typeof message !== "object") {
+    if (
+      !message ||
+      typeof message !== "object"
+    ) {
       return null;
     }
 
@@ -316,13 +578,25 @@
       return null;
     }
 
+    const attachments =
+      Array.isArray(message.attachments)
+        ? message.attachments
+            .map(normalizeAttachment)
+            .filter(Boolean)
+            .slice(
+              0,
+              LIMITS.maxAttachments
+            )
+        : [];
+
     return {
       id:
         typeof message.id === "string"
           ? message.id
-          : id("msg"),
+          : createId("msg"),
 
-      role: message.role,
+      role:
+        message.role,
 
       content:
         typeof message.content === "string"
@@ -337,19 +611,7 @@
           ? message.createdAt
           : now(),
 
-      attachments:
-        Array.isArray(message.attachments)
-          ? message.attachments
-              .filter(
-                a =>
-                  a &&
-                  typeof a.dataUrl === "string"
-              )
-              .slice(
-                0,
-                LIMITS.maxAttachments
-              )
-          : [],
+      attachments,
 
       feedback:
         message.feedback === "like" ||
@@ -368,6 +630,17 @@
       return null;
     }
 
+    const messages =
+      Array.isArray(item.messages)
+        ? item.messages
+            .map(normalizeMessage)
+            .filter(Boolean)
+            .slice(
+              0,
+              LIMITS.messages
+            )
+        : [];
+
     return {
       id: item.id,
 
@@ -380,34 +653,28 @@
           : "New chat",
 
       createdAt:
-        item.createdAt || now(),
+        typeof item.createdAt === "string"
+          ? item.createdAt
+          : now(),
 
       updatedAt:
-        item.updatedAt ||
-        item.createdAt ||
-        now(),
+        typeof item.updatedAt === "string"
+          ? item.updatedAt
+          : now(),
 
-      messages:
-        Array.isArray(item.messages)
-          ? item.messages
-              .map(normalizeMessage)
-              .filter(Boolean)
-              .slice(
-                0,
-                LIMITS.messages
-              )
-          : []
+      messages
     };
   }
 
   function loadConversations() {
-    const data = parseJSON(
-      getStorage(
-        STORAGE.conversations,
-        "[]"
-      ),
-      []
-    );
+    const data =
+      parseJSON(
+        getStorage(
+          STORAGE.conversations,
+          "[]"
+        ),
+        []
+      );
 
     if (!Array.isArray(data)) {
       return [];
@@ -416,15 +683,18 @@
     return data
       .map(normalizeConversation)
       .filter(Boolean)
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt) -
-          new Date(a.updatedAt)
-      )
+      .sort(sortConversations)
       .slice(
         0,
         LIMITS.conversations
       );
+  }
+
+  function sortConversations(a, b) {
+    return (
+      new Date(b.updatedAt).getTime() -
+      new Date(a.updatedAt).getTime()
+    );
   }
 
   function saveConversations() {
@@ -434,35 +704,41 @@
     );
   }
 
-  function activeConversation() {
+  function getActiveConversation() {
     return conversations.find(
-      c => c.id === activeConversationId
+      conversation =>
+        conversation.id ===
+        activeConversationId
     );
   }
 
   function createConversation() {
     const conversation = {
-      id: id("chat"),
+      id: createId("chat"),
       title: "New chat",
       createdAt: now(),
       updatedAt: now(),
       messages: []
     };
 
-    conversations.unshift(conversation);
+    conversations.unshift(
+      conversation
+    );
 
     conversations =
-      conversations.slice(
-        0,
-        LIMITS.conversations
-      );
+      conversations
+        .sort(sortConversations)
+        .slice(
+          0,
+          LIMITS.conversations
+        );
 
     activeConversationId =
       conversation.id;
 
     saveConversations();
 
-    renderConversationList();
+    renderConversationLists();
     renderMessages();
 
     return conversation;
@@ -470,23 +746,34 @@
 
   function ensureConversation() {
     return (
-      activeConversation() ||
+      getActiveConversation() ||
       createConversation()
     );
   }
 
-  function newChat() {
+  function startNewChat() {
+    if (generating) {
+      toast(
+        "Please stop the current response first.",
+        "error"
+      );
+      return;
+    }
+
     pendingAttachments = [];
+
     renderAttachments();
 
     createConversation();
+
+    showView("chat");
 
     closeHistoryPanelUI();
 
     focusInput();
   }
 
-  function conversationTitle(text) {
+  function makeConversationTitle(text) {
     const clean =
       String(text || "")
         .replace(/\s+/g, " ")
@@ -504,7 +791,9 @@
 
     if (title.length > 60) {
       title =
-        title.slice(0, 60).trim();
+        title
+          .slice(0, 60)
+          .trim();
     }
 
     if (clean.length > title.length) {
@@ -514,117 +803,239 @@
     return title;
   }
 
-  /* =========================================================
-     NAVIGATION
-     ========================================================= */
+  function updateConversation(
+    conversation
+  ) {
+    conversation.updatedAt = now();
+
+    conversations.sort(
+      sortConversations
+    );
+
+    saveConversations();
+  }
+
+  /*
+   * ============================================================
+   * NAVIGATION
+   * ============================================================
+   *
+   * IMPORTANT:
+   * index.html uses:
+   *
+   *   data-page="chat"
+   *   data-page="history"
+   *   etc.
+   *
+   * We therefore DO NOT depend on #chatView etc.
+   */
+
+  const VIEW_TITLES = {
+    chat: "AI Chat",
+    history: "History",
+    research: "Research",
+    vision: "Vision",
+    settings: "Settings"
+  };
 
   function showView(view) {
-    const views = {
-      chat: "#chatView",
-      history: "#historyView",
-      research: "#researchView",
-      vision: "#visionView",
-      settings: "#settingsView"
-    };
+    const validViews = Object.keys(
+      VIEW_TITLES
+    );
 
-    if (!views[view]) {
+    if (!validViews.includes(view)) {
       view = "chat";
     }
 
     currentView = view;
 
     $$(".view").forEach(element => {
-      element.classList.remove(
-        "is-active"
-      );
-    });
+      const active =
+        element.dataset.page === view;
 
-    const target = $(views[view]);
-
-    if (target) {
-      target.classList.add("is-active");
-    }
-
-    $$("[data-view]").forEach(item => {
-      item.classList.toggle(
+      element.classList.toggle(
         "is-active",
-        item.dataset.view === view
+        active
+      );
+
+      element.setAttribute(
+        "aria-hidden",
+        String(!active)
       );
     });
 
-    document.body.classList.remove(
-      "sidebar-open"
+    $$("[data-view]").forEach(
+      element => {
+        const active =
+          element.dataset.view === view;
+
+        element.classList.toggle(
+          "is-active",
+          active
+        );
+
+        if (
+          element.classList.contains(
+            "nav-item"
+          )
+        ) {
+          if (active) {
+            element.setAttribute(
+              "aria-current",
+              "page"
+            );
+          } else {
+            element.removeAttribute(
+              "aria-current"
+            );
+          }
+        }
+      }
     );
 
+    if (topbarTitle) {
+      topbarTitle.textContent =
+        VIEW_TITLES[view];
+    }
+
+    closeMobileSidebar();
+
     if (view === "history") {
-      renderConversationList();
+      renderConversationLists();
     }
 
     if (view === "settings") {
       loadSettings();
     }
-  }
 
-  /* =========================================================
-     SIDEBAR
-     ========================================================= */
-
-  function toggleMobileSidebar() {
-    document.body.classList.toggle(
-      "sidebar-open"
-    );
-  }
-
-  function closeMobileSidebar() {
-    document.body.classList.remove(
-      "sidebar-open"
-    );
-  }
-
-  function toggleSidebarCollapse() {
-    document.body.classList.toggle(
-      "sidebar-collapsed"
-    );
-
-    setStorage(
-      "ozlind:sidebar-collapsed",
-      document.body.classList.contains(
-        "sidebar-collapsed"
-      )
-        ? "true"
-        : "false"
-    );
-  }
-
-  function loadSidebarState() {
-    if (
-      getStorage(
-        "ozlind:sidebar-collapsed",
-        "false"
-      ) === "true"
-    ) {
-      document.body.classList.add(
-        "sidebar-collapsed"
-      );
+    if (view === "chat") {
+      renderMessages();
     }
   }
 
-  /* =========================================================
-     HISTORY UI
-     ========================================================= */
+  /*
+   * ============================================================
+   * MOBILE / SIDEBAR
+   * ============================================================
+   */
+
+  function toggleMobileSidebar() {
+    body.classList.toggle(
+      "sidebar-open"
+    );
+
+    updateSidebarAccessibility();
+  }
+
+  function closeMobileSidebar() {
+    body.classList.remove(
+      "sidebar-open"
+    );
+
+    updateSidebarAccessibility();
+  }
+
+  function toggleSidebarCollapse() {
+    body.classList.toggle(
+      "sidebar-collapsed"
+    );
+
+    const collapsed =
+      body.classList.contains(
+        "sidebar-collapsed"
+      );
+
+    setStorage(
+      STORAGE.sidebar,
+      String(collapsed)
+    );
+
+    updateCollapseButton();
+  }
+
+  function loadSidebarState() {
+    const collapsed =
+      getStorage(
+        STORAGE.sidebar,
+        "false"
+      ) === "true";
+
+    body.classList.toggle(
+      "sidebar-collapsed",
+      collapsed
+    );
+
+    updateCollapseButton();
+  }
+
+  function updateCollapseButton() {
+    if (!sidebarCollapse) return;
+
+    const collapsed =
+      body.classList.contains(
+        "sidebar-collapsed"
+      );
+
+    sidebarCollapse.setAttribute(
+      "aria-label",
+      collapsed
+        ? "Expand sidebar"
+        : "Collapse sidebar"
+    );
+
+    sidebarCollapse.setAttribute(
+      "title",
+      collapsed
+        ? "Expand sidebar"
+        : "Collapse sidebar"
+    );
+
+    const icon =
+      $("span", sidebarCollapse);
+
+    if (icon) {
+      icon.textContent =
+        collapsed ? "›" : "‹";
+    }
+  }
+
+  function updateSidebarAccessibility() {
+    if (!sidebarOverlay) return;
+
+    sidebarOverlay.setAttribute(
+      "aria-hidden",
+      String(
+        !body.classList.contains(
+          "sidebar-open"
+        )
+      )
+    );
+  }
+
+  /*
+   * ============================================================
+   * HISTORY
+   * ============================================================
+   */
 
   function formatDate(value) {
-    const date = new Date(value);
+    const date =
+      new Date(value);
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
       return "";
     }
 
     const today =
-      new Date().toDateString();
+      new Date();
 
     if (
-      date.toDateString() === today
+      date.toDateString() ===
+      today.toDateString()
     ) {
       return date.toLocaleTimeString(
         [],
@@ -644,10 +1055,25 @@
     );
   }
 
-  function renderConversationList(
+  function renderConversationLists(
     filter = ""
   ) {
-    if (!conversationList) return;
+    renderConversationList(
+      conversationList,
+      filter
+    );
+
+    renderConversationList(
+      conversationListDrawer,
+      filter
+    );
+  }
+
+  function renderConversationList(
+    container,
+    filter = ""
+  ) {
+    if (!container) return;
 
     const query =
       String(filter || "")
@@ -655,152 +1081,178 @@
         .toLowerCase();
 
     const list =
-      conversations.filter(c => {
-        if (!query) return true;
+      conversations.filter(
+        conversation => {
+          if (!query) {
+            return true;
+          }
 
-        return (
-          c.title
-            .toLowerCase()
-            .includes(query) ||
-          c.messages.some(m =>
-            m.content
+          return (
+            conversation.title
               .toLowerCase()
-              .includes(query)
-          )
-        );
-      });
+              .includes(query) ||
+            conversation.messages.some(
+              message =>
+                message.content
+                  .toLowerCase()
+                  .includes(query)
+            )
+          );
+        }
+      );
 
-    conversationList.innerHTML = "";
+    container.innerHTML = "";
 
     if (!list.length) {
       const empty =
         document.createElement("div");
 
-      empty.style.padding = "30px 15px";
-      empty.style.textAlign = "center";
-      empty.style.color =
-        "var(--text-muted)";
+      empty.className =
+        "conversation-empty";
+
       empty.textContent =
         query
           ? "No conversations found."
           : "No conversations yet.";
 
-      conversationList.appendChild(empty);
+      container.appendChild(empty);
+
       return;
     }
 
-    list.forEach(conversation => {
-      const item =
-        document.createElement("div");
+    list.forEach(
+      conversation => {
+        const item =
+          document.createElement("div");
 
-      item.className =
-        "conversation-item" +
-        (conversation.id ===
-        activeConversationId
-          ? " is-active"
-          : "");
-
-      const main =
-        document.createElement("button");
-
-      main.className =
-        "conversation-main";
-
-      main.type = "button";
-
-      main.innerHTML = `
-        <span class="conversation-title">
-          ${escapeHTML(conversation.title)}
-        </span>
-        <span class="conversation-date">
-          ${escapeHTML(
-            formatDate(
-              conversation.updatedAt
-            )
-          )}
-        </span>
-      `;
-
-      main.addEventListener(
-        "click",
-        () => {
-          activeConversationId =
-            conversation.id;
-
-          saveConversations();
-          renderConversationList();
-
-          showView("chat");
-          renderMessages();
-
-          closeHistoryPanelUI();
-        }
-      );
-
-      const deleteBtn =
-        document.createElement("button");
-
-      deleteBtn.className =
-        "conversation-delete";
-
-      deleteBtn.type = "button";
-      deleteBtn.title =
-        "Delete conversation";
-      deleteBtn.setAttribute(
-        "aria-label",
-        "Delete conversation"
-      );
-
-      deleteBtn.textContent = "×";
-
-      deleteBtn.addEventListener(
-        "click",
-        event => {
-          event.stopPropagation();
-
-          deleteConversation(
-            conversation.id
+        item.className =
+          "conversation-item" +
+          (
+            conversation.id ===
+            activeConversationId
+              ? " is-active"
+              : ""
           );
-        }
-      );
 
-      item.appendChild(main);
-      item.appendChild(deleteBtn);
+        const main =
+          document.createElement("button");
 
-      conversationList.appendChild(item);
-    });
+        main.type = "button";
+        main.className =
+          "conversation-main";
+
+        main.innerHTML = `
+          <span class="conversation-title">
+            ${escapeHTML(
+              conversation.title
+            )}
+          </span>
+
+          <span class="conversation-date">
+            ${escapeHTML(
+              formatDate(
+                conversation.updatedAt
+              )
+            )}
+          </span>
+        `;
+
+        main.addEventListener(
+          "click",
+          () => {
+            activeConversationId =
+              conversation.id;
+
+            saveConversations();
+
+            showView("chat");
+
+            renderMessages();
+
+            closeHistoryPanelUI();
+
+            focusInput();
+          }
+        );
+
+        const deleteBtn =
+          document.createElement("button");
+
+        deleteBtn.type = "button";
+        deleteBtn.className =
+          "conversation-delete";
+
+        deleteBtn.textContent = "×";
+
+        deleteBtn.setAttribute(
+          "aria-label",
+          "Delete conversation"
+        );
+
+        deleteBtn.title =
+          "Delete conversation";
+
+        deleteBtn.addEventListener(
+          "click",
+          event => {
+            event.stopPropagation();
+
+            deleteConversation(
+              conversation.id
+            );
+          }
+        );
+
+        item.appendChild(main);
+        item.appendChild(deleteBtn);
+
+        container.appendChild(item);
+      }
+    );
   }
 
-  function deleteConversation(idValue) {
+  function deleteConversation(
+    conversationId
+  ) {
     const conversation =
       conversations.find(
-        c => c.id === idValue
+        item =>
+          item.id ===
+          conversationId
       );
 
-    if (!conversation) return;
+    if (!conversation) {
+      return;
+    }
 
-    if (
-      !window.confirm(
+    const confirmed =
+      window.confirm(
         `Delete "${conversation.title}"?`
-      )
-    ) {
+      );
+
+    if (!confirmed) {
       return;
     }
 
     conversations =
       conversations.filter(
-        c => c.id !== idValue
+        item =>
+          item.id !==
+          conversationId
       );
 
     if (
-      activeConversationId === idValue
+      activeConversationId ===
+      conversationId
     ) {
       activeConversationId =
-        conversations[0]?.id || null;
+        conversations[0]?.id ||
+        null;
     }
 
     saveConversations();
-    renderConversationList();
+
+    renderConversationLists();
     renderMessages();
 
     toast(
@@ -809,15 +1261,28 @@
     );
   }
 
-  /* =========================================================
-     HISTORY PANEL
-     ========================================================= */
+  /*
+   * ============================================================
+   * HISTORY DRAWER
+   * ============================================================
+   */
 
   function openHistoryPanelUI() {
     if (!chatHistoryPanel) return;
 
     chatHistoryPanel.classList.add(
       "is-open"
+    );
+
+    chatHistoryPanel.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+
+    renderConversationList(
+      conversationListDrawer,
+      conversationSearchDrawer?.value ||
+        ""
     );
   }
 
@@ -827,11 +1292,18 @@
     chatHistoryPanel.classList.remove(
       "is-open"
     );
+
+    chatHistoryPanel.setAttribute(
+      "aria-hidden",
+      "true"
+    );
   }
 
-  /* =========================================================
-     MESSAGE RENDERING
-     ========================================================= */
+  /*
+   * ============================================================
+   * MARKDOWN
+   * ============================================================
+   */
 
   function markdown(text) {
     let html =
@@ -840,7 +1312,7 @@
     const codeBlocks = [];
 
     html = html.replace(
-      /```([\s\S]*?)```/g,
+      /```(?:[a-zA-Z0-9_+-]+)?\n?([\s\S]*?)```/g,
       (_, code) => {
         const index =
           codeBlocks.push(code) - 1;
@@ -870,7 +1342,12 @@
     );
 
     html = html.replace(
-      /`([^`]+)`/g,
+      /\*([^*\n]+)\*/g,
+      "<em>$1</em>"
+    );
+
+    html = html.replace(
+      /`([^`\n]+)`/g,
       "<code>$1</code>"
     );
 
@@ -889,8 +1366,35 @@
       "</p><p>"
     );
 
+    html = html.replace(
+      /\n/g,
+      "<br>"
+    );
+
     html =
-      "<p>" + html + "</p>";
+      "<p>" +
+      html +
+      "</p>";
+
+    html = html.replace(
+      /<p>\s*(<h[1-3]>)/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /(<\/h[1-3]>)\s*<\/p>/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /<p>\s*(<ul>)/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /(<\/ul>)\s*<\/p>/g,
+      "$1"
+    );
 
     html = html.replace(
       /@@CODE(\d+)@@/g,
@@ -911,6 +1415,12 @@
     return html;
   }
 
+  /*
+   * ============================================================
+   * MESSAGE RENDERING
+   * ============================================================
+   */
+
   function messageAvatar(role) {
     return role === "user"
       ? "You"
@@ -921,7 +1431,7 @@
     if (!chatMessages) return;
 
     const conversation =
-      activeConversation();
+      getActiveConversation();
 
     chatMessages.innerHTML = "";
 
@@ -931,6 +1441,7 @@
     ) {
       if (chatEmpty) {
         chatEmpty.hidden = false;
+
         chatMessages.appendChild(
           chatEmpty
         );
@@ -946,7 +1457,9 @@
     conversation.messages.forEach(
       message => {
         const element =
-          document.createElement("article");
+          document.createElement(
+            "article"
+          );
 
         element.className =
           `message message--${message.role}`;
@@ -954,12 +1467,109 @@
         element.dataset.id =
           message.id;
 
+        const attachmentHTML =
+          Array.isArray(
+            message.attachments
+          ) &&
+          message.attachments.length
+            ? `
+              <div class="message-attachments">
+                ${message.attachments
+                  .map(
+                    attachment => `
+                      <img
+                        src="${escapeHTML(
+                          attachment.dataUrl
+                        )}"
+                        alt="${escapeHTML(
+                          attachment.name ||
+                          "Attached image"
+                        )}"
+                        loading="lazy"
+                      >
+                    `
+                  )
+                  .join("")}
+              </div>
+            `
+            : "";
+
+        const actions =
+          message.role === "assistant"
+            ? `
+              <button
+                class="message-action"
+                type="button"
+                data-action="copy"
+                title="Copy"
+                aria-label="Copy response">
+                ⧉
+              </button>
+
+              <button
+                class="message-action"
+                type="button"
+                data-action="regenerate"
+                title="Regenerate"
+                aria-label="Regenerate response">
+                ↻
+              </button>
+
+              <button
+                class="message-action ${
+                  message.feedback === "like"
+                    ? "is-active"
+                    : ""
+                }"
+                type="button"
+                data-action="like"
+                title="Helpful"
+                aria-label="Helpful">
+                ↑
+              </button>
+
+              <button
+                class="message-action ${
+                  message.feedback === "dislike"
+                    ? "is-active"
+                    : ""
+                }"
+                type="button"
+                data-action="dislike"
+                title="Not helpful"
+                aria-label="Not helpful">
+                ↓
+              </button>
+            `
+            : `
+              <button
+                class="message-action"
+                type="button"
+                data-action="edit"
+                title="Edit"
+                aria-label="Edit message">
+                ✎
+              </button>
+
+              <button
+                class="message-action"
+                type="button"
+                data-action="copy"
+                title="Copy"
+                aria-label="Copy message">
+                ⧉
+              </button>
+            `;
+
         element.innerHTML = `
           <div class="message-avatar">
-            ${messageAvatar(message.role)}
+            ${messageAvatar(
+              message.role
+            )}
           </div>
 
           <div class="message-content">
+
             <div class="message-role">
               ${
                 message.role === "user"
@@ -968,60 +1578,30 @@
               }
             </div>
 
+            ${
+              attachmentHTML
+            }
+
             <div class="message-text">
               ${
                 message.content
                   ? markdown(
                       message.content
                     )
-                  : ""
+                  : `
+                    <span class="typing-indicator">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </span>
+                  `
               }
             </div>
 
             <div class="message-actions">
-              ${
-                message.role ===
-                "assistant"
-                  ? `
-                    <button
-                      class="message-action"
-                      data-action="copy"
-                      title="Copy"
-                    >⧉</button>
-
-                    <button
-                      class="message-action"
-                      data-action="regenerate"
-                      title="Regenerate"
-                    >↻</button>
-
-                    <button
-                      class="message-action"
-                      data-action="like"
-                      title="Helpful"
-                    >↑</button>
-
-                    <button
-                      class="message-action"
-                      data-action="dislike"
-                      title="Not helpful"
-                    >↓</button>
-                  `
-                  : `
-                    <button
-                      class="message-action"
-                      data-action="edit"
-                      title="Edit"
-                    >✎</button>
-
-                    <button
-                      class="message-action"
-                      data-action="copy"
-                      title="Copy"
-                    >⧉</button>
-                  `
-              }
+              ${actions}
             </div>
+
           </div>
         `;
 
@@ -1035,15 +1615,56 @@
       chatMessages.scrollHeight;
   }
 
-  /* =========================================================
-     MESSAGE ACTIONS
-     ========================================================= */
+  /*
+   * ============================================================
+   * MESSAGE ACTIONS
+   * ============================================================
+   */
 
   async function copyText(text) {
-    try {
-      await navigator.clipboard.writeText(
-        text
+    const value =
+      String(text || "");
+
+    if (!value) {
+      toast(
+        "Nothing to copy.",
+        "error"
       );
+      return;
+    }
+
+    try {
+      if (
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText ===
+          "function"
+      ) {
+        await navigator.clipboard.writeText(
+          value
+        );
+      } else {
+        const textarea =
+          document.createElement(
+            "textarea"
+          );
+
+        textarea.value = value;
+        textarea.style.position =
+          "fixed";
+        textarea.style.opacity = "0";
+
+        document.body.appendChild(
+          textarea
+        );
+
+        textarea.select();
+
+        document.execCommand(
+          "copy"
+        );
+
+        textarea.remove();
+      }
 
       toast(
         "Copied to clipboard.",
@@ -1062,13 +1683,15 @@
     messageId
   ) {
     const conversation =
-      activeConversation();
+      getActiveConversation();
 
     if (!conversation) return;
 
     const index =
       conversation.messages.findIndex(
-        m => m.id === messageId
+        message =>
+          message.id ===
+          messageId
       );
 
     if (index === -1) return;
@@ -1077,7 +1700,9 @@
       conversation.messages[index];
 
     if (action === "copy") {
-      copyText(message.content);
+      copyText(
+        message.content
+      );
       return;
     }
 
@@ -1085,33 +1710,51 @@
       action === "like" ||
       action === "dislike"
     ) {
-      message.feedback = action;
+      message.feedback =
+        message.feedback === action
+          ? null
+          : action;
 
       saveConversations();
       renderMessages();
-
-      toast(
-        action === "like"
-          ? "Thanks for the feedback."
-          : "Feedback recorded."
-      );
 
       return;
     }
 
     if (action === "edit") {
-      if (message.role !== "user") {
+      if (
+        message.role !== "user"
+      ) {
+        return;
+      }
+
+      if (generating) {
+        toast(
+          "Please stop generation first.",
+          "error"
+        );
         return;
       }
 
       chatInput.value =
         message.content;
 
+      pendingAttachments =
+        Array.isArray(
+          message.attachments
+        )
+          ? [...message.attachments]
+          : [];
+
       conversation.messages.splice(
         index
       );
 
-      saveConversations();
+      updateConversation(
+        conversation
+      );
+
+      renderAttachments();
       renderMessages();
 
       showView("chat");
@@ -1120,29 +1763,39 @@
       return;
     }
 
-    if (action === "regenerate") {
-      regenerateFrom(messageId);
+    if (
+      action === "regenerate"
+    ) {
+      regenerateFrom(
+        messageId
+      );
     }
   }
 
   async function regenerateFrom(
     assistantMessageId
   ) {
-    const conversation =
-      activeConversation();
+    if (generating) {
+      return;
+    }
 
-    if (!conversation || generating) {
+    const conversation =
+      getActiveConversation();
+
+    if (!conversation) {
       return;
     }
 
     const assistantIndex =
       conversation.messages.findIndex(
-        m =>
-          m.id ===
+        message =>
+          message.id ===
           assistantMessageId
       );
 
-    if (assistantIndex === -1) {
+    if (
+      assistantIndex === -1
+    ) {
       return;
     }
 
@@ -1155,6 +1808,10 @@
       !previousUser ||
       previousUser.role !== "user"
     ) {
+      toast(
+        "Unable to regenerate this response.",
+        "error"
+      );
       return;
     }
 
@@ -1163,6 +1820,7 @@
     );
 
     saveConversations();
+
     renderMessages();
 
     await sendMessage(
@@ -1172,9 +1830,11 @@
     );
   }
 
-  /* =========================================================
-     ATTACHMENTS
-     ========================================================= */
+  /*
+   * ============================================================
+   * ATTACHMENTS
+   * ============================================================
+   */
 
   function renderAttachments() {
     if (!chatAttachments) return;
@@ -1190,9 +1850,10 @@
           "attachment-item";
 
         item.innerHTML = `
-          <span title="${escapeHTML(
-            attachment.name
-          )}">
+          <span
+            title="${escapeHTML(
+              attachment.name
+            )}">
             ${escapeHTML(
               attachment.name
             )}
@@ -1203,7 +1864,9 @@
             type="button"
             data-index="${index}"
             aria-label="Remove attachment"
-          >×</button>
+            title="Remove attachment">
+            ×
+          </button>
         `;
 
         chatAttachments.appendChild(
@@ -1219,23 +1882,25 @@
         const reader =
           new FileReader();
 
-        reader.onerror = () =>
+        reader.onerror = () => {
           reject(
             new Error(
               "Could not read image."
             )
           );
+        };
 
         reader.onload = () => {
           const image =
             new Image();
 
-          image.onerror = () =>
+          image.onerror = () => {
             reject(
               new Error(
                 "Invalid image."
               )
             );
+          };
 
           image.onload = () => {
             let width =
@@ -1268,13 +1933,19 @@
               );
 
             width =
-              Math.round(
-                width * scale
+              Math.max(
+                1,
+                Math.round(
+                  width * scale
+                )
               );
 
             height =
-              Math.round(
-                height * scale
+              Math.max(
+                1,
+                Math.round(
+                  height * scale
+                )
               );
 
             const canvas =
@@ -1289,6 +1960,15 @@
               canvas.getContext(
                 "2d"
               );
+
+            if (!ctx) {
+              reject(
+                new Error(
+                  "Image processing is unavailable."
+                )
+              );
+              return;
+            }
 
             ctx.drawImage(
               image,
@@ -1318,11 +1998,17 @@
     );
   }
 
-  async function handleFiles(files) {
+  async function handleFiles(
+    fileList
+  ) {
     const incoming =
-      Array.from(files || []);
+      Array.from(
+        fileList || []
+      );
 
-    if (!incoming.length) return;
+    if (!incoming.length) {
+      return;
+    }
 
     if (
       pendingAttachments.length >=
@@ -1332,7 +2018,6 @@
         "Maximum 4 images allowed.",
         "error"
       );
-
       return;
     }
 
@@ -1355,7 +2040,6 @@
           `${file.name} is not an image.`,
           "error"
         );
-
         continue;
       }
 
@@ -1367,12 +2051,11 @@
           `${file.name} is larger than 8 MB.`,
           "error"
         );
-
         continue;
       }
 
       try {
-        const image =
+        const processed =
           await resizeImage(file);
 
         pendingAttachments.push({
@@ -1381,13 +2064,18 @@
             file.type ||
             "image/jpeg",
           dataUrl:
-            image.dataUrl,
+            processed.dataUrl,
           width:
-            image.width,
+            processed.width,
           height:
-            image.height
+            processed.height
         });
-      } catch {
+      } catch (error) {
+        console.error(
+          "Image processing:",
+          error
+        );
+
         toast(
           `Could not process ${file.name}.`,
           "error"
@@ -1398,9 +2086,11 @@
     renderAttachments();
   }
 
-  /* =========================================================
-     VOICE INPUT
-     ========================================================= */
+  /*
+   * ============================================================
+   * VOICE
+   * ============================================================
+   */
 
   function setupVoice() {
     const SpeechRecognition =
@@ -1410,6 +2100,7 @@
     if (!SpeechRecognition) {
       if (voiceBtn) {
         voiceBtn.disabled = true;
+
         voiceBtn.title =
           "Voice input is not supported by this browser";
       }
@@ -1430,21 +2121,21 @@
       voiceBtn?.classList.add(
         "is-active"
       );
-
-      toast("Listening…");
     };
 
     recognition.onresult = event => {
       let text = "";
 
       for (
-        let i =
+        let index =
           event.resultIndex;
-        i < event.results.length;
-        i++
+        index <
+        event.results.length;
+        index++
       ) {
         text +=
-          event.results[i][0].transcript;
+          event.results[index][0]
+            .transcript;
       }
 
       if (chatInput) {
@@ -1455,17 +2146,22 @@
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = event => {
       listening = false;
 
       voiceBtn?.classList.remove(
         "is-active"
       );
 
-      toast(
-        "Voice input failed.",
-        "error"
-      );
+      if (
+        event.error !==
+        "aborted"
+      ) {
+        toast(
+          "Voice input failed.",
+          "error"
+        );
+      }
     };
 
     recognition.onend = () => {
@@ -1483,20 +2179,28 @@
         "Voice input is not supported here.",
         "error"
       );
-
       return;
     }
 
-    if (listening) {
-      recognition.stop();
-    } else {
-      recognition.start();
+    try {
+      if (listening) {
+        recognition.stop();
+      } else {
+        recognition.start();
+      }
+    } catch (error) {
+      console.error(
+        "Voice:",
+        error
+      );
     }
   }
 
-  /* =========================================================
-     API REQUEST
-     ========================================================= */
+  /*
+   * ============================================================
+   * API PAYLOAD
+   * ============================================================
+   */
 
   function buildApiMessages(
     conversation
@@ -1504,16 +2208,26 @@
     return conversation.messages
       .slice(-20)
       .map(message => {
-        if (
-          message.attachments?.length
-        ) {
+        const hasImages =
+          Array.isArray(
+            message.attachments
+          ) &&
+          message.attachments.length;
+
+        if (hasImages) {
           return {
             role: message.role,
+
             content: [
-              {
-                type: "text",
-                text: message.content
-              },
+              ...(message.content
+                ? [
+                    {
+                      type: "text",
+                      text:
+                        message.content
+                    }
+                  ]
+                : []),
 
               ...message.attachments.map(
                 attachment => ({
@@ -1541,6 +2255,9 @@
     mode,
     research
   ) {
+    const settings =
+      getSettings();
+
     return {
       messages:
         buildApiMessages(
@@ -1553,7 +2270,8 @@
       mode:
         mode || "auto",
 
-      research: Boolean(research),
+      research:
+        Boolean(research),
 
       memory:
         getStorage(
@@ -1571,18 +2289,18 @@
         ),
 
       responseLength:
-        responseLength?.value ||
-        "balanced",
+        settings.responseLength,
 
       responseStyle:
-        responseStyle?.value ||
-        "professional"
+        settings.responseStyle
     };
   }
 
-  /* =========================================================
-     STREAM PARSER
-     ========================================================= */
+  /*
+   * ============================================================
+   * SSE RESPONSE READER
+   * ============================================================
+   */
 
   async function readResponse(
     response,
@@ -1595,8 +2313,8 @@
       return (
         data?.message ||
         data?.content ||
-        data?.choices?.[0]?.message
-          ?.content ||
+        data?.choices?.[0]
+          ?.message?.content ||
         ""
       );
     }
@@ -1611,34 +2329,38 @@
     let fullText = "";
 
     while (true) {
-      const {
-        value,
-        done
-      } = await reader.read();
+      const result =
+        await reader.read();
 
-      if (done) break;
+      if (result.done) {
+        break;
+      }
 
       buffer += decoder.decode(
-        value,
-        { stream: true }
+        result.value,
+        {
+          stream: true
+        }
       );
 
       const lines =
-        buffer.split("\n");
+        buffer.split(/\r?\n/);
 
       buffer =
         lines.pop() || "";
 
       for (
-        const line of lines
+        const rawLine of lines
       ) {
-        const clean =
-          line.trim();
+        const line =
+          rawLine.trim();
 
-        if (!clean) continue;
+        if (!line) {
+          continue;
+        }
 
         if (
-          !clean.startsWith(
+          !line.startsWith(
             "data:"
           )
         ) {
@@ -1646,7 +2368,9 @@
         }
 
         const payload =
-          clean.slice(5).trim();
+          line
+            .slice(5)
+            .trim();
 
         if (
           payload ===
@@ -1657,7 +2381,14 @@
 
         try {
           const data =
-            JSON.parse(payload);
+            JSON.parse(
+              payload
+            );
+
+          /*
+           * Backend first sends provider/model
+           * metadata. It does NOT contain text.
+           */
 
           const token =
             data?.choices?.[0]
@@ -1668,35 +2399,96 @@
             data?.content ??
             "";
 
-          if (token) {
+          if (
+            typeof token === "string" &&
+            token
+          ) {
             fullText += token;
+
             onToken(token);
           }
         } catch {
           /*
-           * Some backends may send
-           * non-JSON SSE lines.
+           * Ignore malformed/non-JSON
+           * SSE metadata safely.
            */
         }
       }
     }
 
+    /*
+     * Flush decoder.
+     */
+
+    buffer +=
+      decoder.decode();
+
     return fullText;
   }
 
-  /* =========================================================
-     SEND MESSAGE
-     ========================================================= */
+  /*
+   * ============================================================
+   * CONNECTION STATUS
+   * ============================================================
+   */
+
+  function setConnectionState(
+    state,
+    text
+  ) {
+    if (!connectionStatus) {
+      return;
+    }
+
+    const label =
+      connectionStatus.querySelector(
+        "span:last-child"
+      );
+
+    if (label) {
+      label.textContent =
+        text;
+    }
+
+    connectionStatus.dataset.state =
+      state;
+
+    const indicator =
+      connectionStatus.querySelector(
+        ".status-indicator"
+      );
+
+    if (indicator) {
+      indicator.classList.toggle(
+        "is-error",
+        state === "error"
+      );
+
+      indicator.classList.toggle(
+        "is-active",
+        state === "busy"
+      );
+    }
+  }
+
+  /*
+   * ============================================================
+   * SEND MESSAGE
+   * ============================================================
+   */
 
   async function sendMessage(
     text,
     attachments = [],
     regenerate = false
   ) {
-    if (generating) return;
+    if (generating) {
+      return;
+    }
 
     const clean =
-      String(text || "").trim();
+      String(text || "")
+        .trim();
 
     if (
       !clean &&
@@ -1713,7 +2505,6 @@
         "Message is too long.",
         "error"
       );
-
       return;
     }
 
@@ -1722,19 +2513,38 @@
 
     if (!regenerate) {
       conversation.messages.push({
-        id: id("msg"),
+        id: createId("msg"),
         role: "user",
         content: clean,
         createdAt: now(),
-        attachments
+        attachments:
+          attachments.map(
+            attachment => ({
+              ...attachment
+            })
+          )
       });
 
+      /*
+       * Set title only for first user message.
+       */
+
+      const userMessages =
+        conversation.messages.filter(
+          message =>
+            message.role ===
+            "user"
+        );
+
       if (
-        conversation.messages.length ===
-        1
+        userMessages.length === 1
       ) {
         conversation.title =
-          conversationTitle(clean);
+          makeConversationTitle(
+            clean ||
+              attachments[0]?.name ||
+              "Image"
+          );
       }
     }
 
@@ -1742,11 +2552,10 @@
       conversation
     );
 
-    saveConversations();
-    renderMessages();
-
     pendingAttachments = [];
+
     renderAttachments();
+    renderMessages();
 
     if (chatInput) {
       chatInput.value = "";
@@ -1754,13 +2563,14 @@
     }
 
     generating = true;
+
     controller =
       new AbortController();
 
     setGeneratingUI(true);
 
     const assistant = {
-      id: id("msg"),
+      id: createId("msg"),
       role: "assistant",
       content: "",
       createdAt: now(),
@@ -1772,6 +2582,8 @@
       assistant
     );
 
+    saveConversations();
+
     renderMessages();
 
     const assistantElement =
@@ -1782,16 +2594,26 @@
 
     try {
       const mode =
-        modelSelect?.value ||
-        "auto";
+        [
+          "auto",
+          "fast",
+          "smart",
+          "research",
+          "code",
+          "write"
+        ].includes(
+          modelSelect?.value
+        )
+          ? modelSelect.value
+          : "auto";
 
       const research =
-        Boolean(
+        (
           researchToggle?.getAttribute(
             "aria-pressed"
-          ) === "true" ||
-            mode === "research"
-        );
+          ) === "true"
+        ) ||
+        mode === "research";
 
       const payload =
         buildRequest(
@@ -1799,6 +2621,11 @@
           mode,
           research
         );
+
+      setConnectionState(
+        "busy",
+        "Thinking…"
+      );
 
       const response =
         await fetch(
@@ -1809,6 +2636,7 @@
             headers: {
               "Content-Type":
                 "application/json",
+
               Accept:
                 "text/event-stream"
             },
@@ -1837,7 +2665,9 @@
             message;
         } catch {}
 
-        throw new Error(message);
+        throw new Error(
+          message
+        );
       }
 
       let liveText = "";
@@ -1865,7 +2695,13 @@
         }
       );
 
-      if (!assistant.content.trim()) {
+      /*
+       * Successful but empty response.
+       */
+
+      if (
+        !assistant.content.trim()
+      ) {
         assistant.content =
           "I couldn't generate a response.";
       }
@@ -1874,9 +2710,12 @@
         conversation
       );
 
-      saveConversations();
       renderMessages();
 
+      setConnectionState(
+        "ready",
+        "Ready"
+      );
     } catch (error) {
       if (
         error?.name ===
@@ -1884,13 +2723,18 @@
       ) {
         conversation.messages =
           conversation.messages.filter(
-            m =>
-              m.id !==
+            message =>
+              message.id !==
               assistant.id
           );
 
         saveConversations();
         renderMessages();
+
+        setConnectionState(
+          "ready",
+          "Ready"
+        );
 
         toast(
           "Generation stopped."
@@ -1906,43 +2750,38 @@
 
       conversation.messages =
         conversation.messages.filter(
-          m =>
-            m.id !== assistant.id
+          message =>
+            message.id !==
+            assistant.id
         );
 
       saveConversations();
       renderMessages();
+
+      setConnectionState(
+        "error",
+        "Connection error"
+      );
 
       toast(
         error?.message ||
           "Something went wrong.",
         "error"
       );
-
     } finally {
       generating = false;
+
       controller = null;
 
       setGeneratingUI(false);
     }
   }
 
-  function updateConversation(
-    conversation
-  ) {
-    conversation.updatedAt =
-      now();
-
-    conversations.sort(
-      (a, b) =>
-        new Date(b.updatedAt) -
-        new Date(a.updatedAt)
-    );
-  }
-
-  /* =========================================================
-     GENERATION UI
-     ========================================================= */
+  /*
+   * ============================================================
+   * GENERATION UI
+   * ============================================================
+   */
 
   function setGeneratingUI(active) {
     if (sendBtn) {
@@ -1965,29 +2804,31 @@
 
     if (voiceBtn) {
       voiceBtn.disabled =
-        active;
+        active ||
+        !recognition;
     }
 
-    const state =
-      $("#composerState");
-
-    if (state) {
-      state.textContent =
-        active
-          ? "Ozlind is thinking…"
-          : "";
+    if (!active) {
+      setConnectionState(
+        "ready",
+        "Ready"
+      );
     }
   }
 
   function stopGeneration() {
-    if (controller) {
-      controller.abort();
+    if (!controller) {
+      return;
     }
+
+    controller.abort();
   }
 
-  /* =========================================================
-     INPUT
-     ========================================================= */
+  /*
+   * ============================================================
+   * INPUT
+   * ============================================================
+   */
 
   function autoResizeInput() {
     if (!chatInput) return;
@@ -2003,13 +2844,23 @@
   }
 
   function focusInput() {
-    setTimeout(() => {
-      chatInput?.focus();
-    }, 50);
+    window.setTimeout(
+      () => {
+        if (
+          currentView ===
+          "chat"
+        ) {
+          chatInput?.focus();
+        }
+      },
+      50
+    );
   }
 
   function submitChat() {
-    if (generating) return;
+    if (generating) {
+      return;
+    }
 
     const text =
       chatInput?.value || "";
@@ -2020,30 +2871,48 @@
     );
   }
 
-  /* =========================================================
-     RESEARCH TOGGLE
-     ========================================================= */
+  /*
+   * ============================================================
+   * RESEARCH
+   * ============================================================
+   */
 
-  function toggleResearch() {
-    if (!researchToggle) return;
-
-    const active =
-      researchToggle.getAttribute(
-        "aria-pressed"
-      ) === "true";
+  function setResearchEnabled(
+    enabled
+  ) {
+    if (!researchToggle) {
+      return;
+    }
 
     researchToggle.setAttribute(
       "aria-pressed",
-      String(!active)
+      String(enabled)
     );
 
     researchToggle.classList.toggle(
       "is-active",
-      !active
+      enabled
+    );
+  }
+
+  function toggleResearch() {
+    if (!researchToggle) {
+      return;
+    }
+
+    const current =
+      researchToggle.getAttribute(
+        "aria-pressed"
+      ) === "true";
+
+    const next = !current;
+
+    setResearchEnabled(
+      next
     );
 
     if (modelSelect) {
-      if (!active) {
+      if (next) {
         modelSelect.value =
           "research";
       } else if (
@@ -2056,9 +2925,44 @@
     }
   }
 
-  /* =========================================================
-     MODAL
-     ========================================================= */
+  function startResearchMode() {
+    showView("chat");
+
+    if (modelSelect) {
+      modelSelect.value =
+        "research";
+    }
+
+    setResearchEnabled(
+      true
+    );
+
+    focusInput();
+  }
+
+  function startVisionMode() {
+    showView("chat");
+
+    if (modelSelect) {
+      modelSelect.value =
+        "smart";
+    }
+
+    window.setTimeout(
+      () => {
+        fileInput?.click();
+      },
+      100
+    );
+
+    focusInput();
+  }
+
+  /*
+   * ============================================================
+   * MODAL
+   * ============================================================
+   */
 
   function openModal(
     title,
@@ -2082,23 +2986,39 @@
       "is-open"
     );
 
+    modalOverlay.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+
     modal?.focus();
   }
 
   function closeModal() {
-    modalOverlay?.classList.remove(
+    if (!modalOverlay) {
+      return;
+    }
+
+    modalOverlay.classList.remove(
       "is-open"
+    );
+
+    modalOverlay.setAttribute(
+      "aria-hidden",
+      "true"
     );
   }
 
-  /* =========================================================
-     IMPORT / EXPORT
-     ========================================================= */
+  /*
+   * ============================================================
+   * IMPORT / EXPORT
+   * ============================================================
+   */
 
   function exportHistory() {
     const payload = {
       app: "Ozlind",
-      version: 1,
+      version: 2,
       exportedAt: now(),
       conversations
     };
@@ -2129,6 +3049,7 @@
       );
 
     anchor.href = url;
+
     anchor.download =
       `ozlind-history-${Date.now()}.json`;
 
@@ -2137,9 +3058,17 @@
     );
 
     anchor.click();
+
     anchor.remove();
 
-    URL.revokeObjectURL(url);
+    window.setTimeout(
+      () => {
+        URL.revokeObjectURL(
+          url
+        );
+      },
+      1000
+    );
 
     toast(
       "Chat history exported.",
@@ -2150,17 +3079,18 @@
   async function importHistory(
     file
   ) {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     if (
       file.size >
-      10 * 1024 * 1024
+      LIMITS.historyFileSize
     ) {
       toast(
         "History file is too large.",
         "error"
       );
-
       return;
     }
 
@@ -2173,15 +3103,12 @@
 
       const imported =
         Array.isArray(
-          data
-            ? data.conversations
-            : data
+          data?.conversations
         )
-          ? (
-              data.conversations ||
-              data
-            )
-          : [];
+          ? data.conversations
+          : Array.isArray(data)
+            ? data
+            : [];
 
       const normalized =
         imported
@@ -2199,27 +3126,27 @@
       const existing =
         new Map(
           conversations.map(
-            c => [c.id, c]
+            conversation => [
+              conversation.id,
+              conversation
+            ]
           )
         );
 
-      normalized.forEach(c => {
-        existing.set(c.id, c);
-      });
+      normalized.forEach(
+        conversation => {
+          existing.set(
+            conversation.id,
+            conversation
+          );
+        }
+      );
 
       conversations =
         Array.from(
           existing.values()
         )
-          .sort(
-            (a, b) =>
-              new Date(
-                b.updatedAt
-              ) -
-              new Date(
-                a.updatedAt
-              )
-          )
+          .sort(sortConversations)
           .slice(
             0,
             LIMITS.conversations
@@ -2230,15 +3157,20 @@
         null;
 
       saveConversations();
-      renderConversationList();
+
+      renderConversationLists();
       renderMessages();
 
       toast(
         "Chat history imported.",
         "success"
       );
-
     } catch (error) {
+      console.error(
+        "Import:",
+        error
+      );
+
       toast(
         error?.message ||
           "Invalid history file.",
@@ -2247,31 +3179,39 @@
     }
   }
 
-  /* =========================================================
-     CLEAR HISTORY
-     ========================================================= */
-
   function clearHistory() {
     if (!conversations.length) {
-      toast("History is already empty.");
+      toast(
+        "History is already empty."
+      );
       return;
     }
 
-    if (
-      !window.confirm(
+    if (generating) {
+      toast(
+        "Stop generation before clearing history.",
+        "error"
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
         "Delete all conversations?"
-      )
-    ) {
+      );
+
+    if (!confirmed) {
       return;
     }
 
     conversations = [];
-    activeConversationId = null;
+
+    activeConversationId =
+      null;
 
     saveConversations();
 
-    renderConversationList();
-    renderMessages();
+    createConversation();
 
     toast(
       "All conversations deleted.",
@@ -2279,37 +3219,104 @@
     );
   }
 
-  /* =========================================================
-     EVENT LISTENERS
-     ========================================================= */
+  /*
+   * ============================================================
+   * EVENT HELPERS
+   * ============================================================
+   */
 
-  function bindEvents() {
-    /* Navigation */
+  function bindNavigation() {
+    document.addEventListener(
+      "click",
+      event => {
+        const target =
+          event.target.closest(
+            "[data-view]"
+          );
 
-    $$("[data-view]").forEach(
-      element => {
-        element.addEventListener(
-          "click",
-          () => {
-            const view =
-              element.dataset.view;
+        if (!target) {
+          return;
+        }
 
-            if (view) {
-              showView(view);
-            }
-          }
-        );
+        /*
+         * Ignore dynamic message actions.
+         */
+
+        if (
+          target.closest(
+            ".message"
+          )
+        ) {
+          return;
+        }
+
+        const view =
+          target.dataset.view;
+
+        if (!view) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (
+          target.dataset.research ===
+          "true"
+        ) {
+          startResearchMode();
+          return;
+        }
+
+        if (
+          target.dataset.focusAttach ===
+          "true"
+        ) {
+          startVisionMode();
+          return;
+        }
+
+        showView(view);
       }
     );
+  }
 
-    /* New chat */
+  function bindEvents() {
+    /*
+     * Navigation
+     */
+
+    bindNavigation();
+
+    /*
+     * New chat
+     */
 
     newChatBtn?.addEventListener(
       "click",
-      newChat
+      startNewChat
     );
 
-    /* Mobile sidebar */
+    document.addEventListener(
+      "click",
+      event => {
+        const button =
+          event.target.closest(
+            '[data-action="new-chat"]'
+          );
+
+        if (!button) {
+          return;
+        }
+
+        event.preventDefault();
+
+        startNewChat();
+      }
+    );
+
+    /*
+     * Mobile sidebar
+     */
 
     mobileNavBtn?.addEventListener(
       "click",
@@ -2326,12 +3333,21 @@
       toggleSidebarCollapse
     );
 
-    /* Chat */
+    /*
+     * Chat form
+     *
+     * IMPORTANT:
+     * We intentionally do NOT attach a
+     * second click handler to sendBtn.
+     * Otherwise type="submit" could
+     * trigger the request twice.
+     */
 
     chatForm?.addEventListener(
       "submit",
       event => {
         event.preventDefault();
+
         submitChat();
       }
     );
@@ -2350,14 +3366,10 @@
           !event.isComposing
         ) {
           event.preventDefault();
+
           submitChat();
         }
       }
-    );
-
-    sendBtn?.addEventListener(
-      "click",
-      submitChat
     );
 
     stopBtn?.addEventListener(
@@ -2365,16 +3377,26 @@
       stopGeneration
     );
 
+    /*
+     * Research
+     */
+
     researchToggle?.addEventListener(
       "click",
       toggleResearch
     );
 
-    /* Attachments */
+    /*
+     * Attachments
+     */
 
     attachBtn?.addEventListener(
       "click",
-      () => fileInput?.click()
+      () => {
+        if (!generating) {
+          fileInput?.click();
+        }
+      }
     );
 
     fileInput?.addEventListener(
@@ -2396,320 +3418,32 @@
             ".attachment-remove"
           );
 
-        if (!button) return;
+        if (!button) {
+          return;
+        }
 
         const index =
           Number(
             button.dataset.index
           );
 
-        pendingAttachments.splice(
-          index,
-          1
-        );
-
-        renderAttachments();
-      }
-    );
-
-    /* Voice */
-
-    voiceBtn?.addEventListener(
-      "click",
-      toggleVoice
-    );
-
-    /* History */
-
-    conversationSearch?.addEventListener(
-      "input",
-      event => {
-        renderConversationList(
-          event.target.value
-        );
-      }
-    );
-
-    closeHistoryPanel?.addEventListener(
-      "click",
-      closeHistoryPanelUI
-    );
-
-    /* History panel buttons */
-
-    $("#chatHistoryBtn")?.addEventListener(
-      "click",
-      openHistoryPanelUI
-    );
-
-    $("#chatHistoryBtn2")?.addEventListener(
-      "click",
-      openHistoryPanelPanelSafe
-    );
-
-    function openHistoryPanelPanelSafe() {
-      openHistoryPanelUI();
-    }
-
-    /* Settings */
-
-    $("#chatSettingsBtn")?.addEventListener(
-      "click",
-      () => showView("settings")
-    );
-
-    saveInstructionsBtn?.addEventListener(
-      "click",
-      () => {
-        const value =
-          customInstructions?.value
-            ?.slice(
-              0,
-              LIMITS.maxInstructions
-            ) || "";
-
-        setStorage(
-          STORAGE.instructions,
-          value
-        );
-
-        saveSettings();
-
-        toast(
-          "Settings saved.",
-          "success"
-        );
-      }
-    );
-
-    responseLength?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    responseStyle?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    memoryToggle?.addEventListener(
-      "click",
-      () => {
-        const active =
-          memoryToggle.getAttribute(
-            "aria-checked"
-          ) === "true";
-
-        memoryToggle.setAttribute(
-          "aria-checked",
-          String(!active)
-        );
-
-        setStorage(
-          STORAGE.memory,
-          String(!active)
-        );
-      }
-    );
-
-    themeSelect?.addEventListener(
-      "change",
-      event => {
-        applyTheme(
-          event.target.value
-        );
-      }
-    );
-
-    /* Import / export */
-
-    $("#exportHistoryBtn")?.addEventListener(
-      "click",
-      exportHistory
-    );
-
-    $("#importHistoryBtn")?.addEventListener(
-      "click",
-      () =>
-        $("#historyFileInput")?.click()
-    );
-
-    $("#historyFileInput")?.addEventListener(
-      "change",
-      event => {
-        importHistory(
-          event.target.files?.[0]
-        );
-
-        event.target.value = "";
-      }
-    );
-
-    $("#clearHistoryBtn")?.addEventListener(
-      "click",
-      clearHistory
-    );
-
-    /* Research */
-
-    $("#startResearchBtn")?.addEventListener(
-      "click",
-      () => {
-        showView("chat");
-
-        if (modelSelect) {
-          modelSelect.value =
-            "research";
-        }
-
-        if (researchToggle) {
-          researchToggle.setAttribute(
-            "aria-pressed",
-            "true"
-          );
-
-          researchToggle.classList.add(
-            "is-active"
-          );
-        }
-
-        focusInput();
-      }
-    );
-
-    /* Vision */
-
-    $("#startVisionBtn")?.addEventListener(
-      "click",
-      () => {
-        showView("chat");
-
-        fileInput?.click();
-
-        if (modelSelect) {
-          modelSelect.value =
-            "smart";
-        }
-
-        focusInput();
-      }
-    );
-
-    /* Modal */
-
-    modalClose?.addEventListener(
-      "click",
-      closeModal
-    );
-
-    modalOverlay?.addEventListener(
-      "click",
-      event => {
         if (
-          event.target ===
-          modalOverlay
+          Number.isInteger(index) &&
+          index >= 0
         ) {
-          closeModal();
-        }
-      }
-    );
-
-    document.addEventListener(
-      "keydown",
-      event => {
-        if (
-          event.key === "Escape"
-        ) {
-          closeModal();
-          closeHistoryPanelUI();
-          closeMobileSidebar();
-        }
-      }
-    );
-
-    /* Message actions */
-
-    chatMessages?.addEventListener(
-      "click",
-      event => {
-        const button =
-          event.target.closest(
-            "[data-action]"
+          pendingAttachments.splice(
+            index,
+            1
           );
 
-        if (!button) return;
-
-        const message =
-          button.closest(
-            ".message"
-          );
-
-        if (!message) return;
-
-        handleMessageAction(
-          button.dataset.action,
-          message.dataset.id
-        );
-      }
-    );
-
-    /* Suggestion cards */
-
-    $$(".suggestion-card").forEach(
-      card => {
-        card.addEventListener(
-          "click",
-          () => {
-            const prompt =
-              card.dataset.prompt;
-
-            if (!prompt) return;
-
-            showView("chat");
-
-            if (chatInput) {
-              chatInput.value =
-                prompt;
-
-              autoResizeInput();
-              focusInput();
-            }
-          }
-        );
-      }
-    );
-
-    /* Drag & drop */
-
-    document.addEventListener(
-      "dragover",
-      event => {
-        if (
-          event.dataTransfer?.files
-            ?.length
-        ) {
-          event.preventDefault();
+          renderAttachments();
         }
       }
     );
 
-    document.addEventListener(
-      "drop",
-      event => {
-        if (
-          event.dataTransfer?.files
-            ?.length
-        ) {
-          event.preventDefault();
-
-          handleFiles(
-            event.dataTransfer.files
-          );
-        }
-      }
-    );
-
-    /* Paste images */
+    /*
+     * Paste images
+     */
 
     chatInput?.addEventListener(
       "paste",
@@ -2739,64 +3473,427 @@
         }
       }
     );
+
+    /*
+     * Drag & drop
+     */
+
+    document.addEventListener(
+      "dragover",
+      event => {
+        if (
+          event.dataTransfer?.files
+            ?.length
+        ) {
+          event.preventDefault();
+        }
+      }
+    );
+
+    document.addEventListener(
+      "drop",
+      event => {
+        if (
+          event.dataTransfer?.files
+            ?.length
+        ) {
+          event.preventDefault();
+
+          handleFiles(
+            event.dataTransfer.files
+          );
+        }
+      }
+    );
+
+    /*
+     * Voice
+     */
+
+    voiceBtn?.addEventListener(
+      "click",
+      toggleVoice
+    );
+
+    /*
+     * History search
+     */
+
+    conversationSearch?.addEventListener(
+      "input",
+      event => {
+        renderConversationList(
+          conversationList,
+          event.target.value
+        );
+      }
+    );
+
+    conversationSearchDrawer?.addEventListener(
+      "input",
+      event => {
+        renderConversationList(
+          conversationListDrawer,
+          event.target.value
+        );
+      }
+    );
+
+    /*
+     * History drawer
+     */
+
+    closeHistoryPanel?.addEventListener(
+      "click",
+      closeHistoryPanelUI
+    );
+
+    /*
+     * Existing chat history
+     * button support if another
+     * compatible button is added later.
+     */
+
+    document.addEventListener(
+      "click",
+      event => {
+        const button =
+          event.target.closest(
+            "#historyToggleBtn, #chatHistoryBtn, #chatHistoryBtn2"
+          );
+
+        if (!button) {
+          return;
+        }
+
+        event.preventDefault();
+
+        openHistoryPanelUI();
+      }
+    );
+
+    /*
+     * Chat settings
+     */
+
+    $("#chatSettingsBtn")
+      ?.addEventListener(
+        "click",
+        () => {
+          showView(
+            "settings"
+          );
+        }
+      );
+
+    /*
+     * Settings
+     */
+
+    memoryToggle?.addEventListener(
+      "click",
+      toggleMemory
+    );
+
+    responseLength?.addEventListener(
+      "change",
+      () => {
+        saveSettings();
+
+        toast(
+          "Response length updated.",
+          "success"
+        );
+      }
+    );
+
+    responseStyle?.addEventListener(
+      "change",
+      () => {
+        saveSettings();
+
+        toast(
+          "Response style updated.",
+          "success"
+        );
+      }
+    );
+
+    saveInstructionsBtn?.addEventListener(
+      "click",
+      saveCustomInstructions
+    );
+
+    /*
+     * Theme
+     */
+
+    themeToggleDesktop?.addEventListener(
+      "click",
+      toggleTheme
+    );
+
+    themeToggleMobile?.addEventListener(
+      "click",
+      toggleTheme
+    );
+
+    /*
+     * Profile/settings buttons
+     */
+
+    profileBtnTop?.addEventListener(
+      "click",
+      () => {
+        showView("settings");
+      }
+    );
+
+    /*
+     * Export / import
+     */
+
+    exportHistoryBtn?.addEventListener(
+      "click",
+      exportHistory
+    );
+
+    importHistoryBtn?.addEventListener(
+      "click",
+      () => {
+        historyFileInput?.click();
+      }
+    );
+
+    historyFileInput?.addEventListener(
+      "change",
+      event => {
+        importHistory(
+          event.target.files?.[0]
+        );
+
+        event.target.value = "";
+      }
+    );
+
+    clearHistoryBtn?.addEventListener(
+      "click",
+      clearHistory
+    );
+
+    /*
+     * Modal
+     */
+
+    modalClose?.addEventListener(
+      "click",
+      closeModal
+    );
+
+    modalOverlay?.addEventListener(
+      "click",
+      event => {
+        if (
+          event.target ===
+          modalOverlay
+        ) {
+          closeModal();
+        }
+      }
+    );
+
+    /*
+     * Keyboard shortcuts
+     */
+
+    document.addEventListener(
+      "keydown",
+      event => {
+        if (
+          event.key ===
+          "Escape"
+        ) {
+          closeModal();
+
+          closeHistoryPanelUI();
+
+          closeMobileSidebar();
+        }
+      }
+    );
+
+    /*
+     * Message actions
+     */
+
+    chatMessages?.addEventListener(
+      "click",
+      event => {
+        const button =
+          event.target.closest(
+            "[data-action]"
+          );
+
+        if (!button) {
+          return;
+        }
+
+        const message =
+          button.closest(
+            ".message"
+          );
+
+        if (!message) {
+          return;
+        }
+
+        handleMessageAction(
+          button.dataset.action,
+          message.dataset.id
+        );
+      }
+    );
+
+    /*
+     * Suggestions
+     */
+
+    $$(".suggestion-card").forEach(
+      card => {
+        card.addEventListener(
+          "click",
+          () => {
+            const prompt =
+              card.dataset.prompt;
+
+            if (!prompt) {
+              return;
+            }
+
+            showView("chat");
+
+            if (chatInput) {
+              chatInput.value =
+                prompt;
+
+              autoResizeInput();
+
+              focusInput();
+            }
+          }
+        );
+      }
+    );
   }
 
-  /* =========================================================
-     INIT
-     ========================================================= */
+  /*
+   * ============================================================
+   * INIT
+   * ============================================================
+   */
 
   function init() {
-    loadTheme();
+    /*
+     * Theme
+     */
+
+    applyTheme(
+      getTheme()
+    );
+
+    /*
+     * Settings
+     */
+
     loadSettings();
+
+    /*
+     * Sidebar
+     */
+
     loadSidebarState();
 
+    /*
+     * Voice
+     */
+
     setupVoice();
+
+    /*
+     * Events
+     */
+
     bindEvents();
+
+    /*
+     * Conversation
+     */
 
     if (!conversations.length) {
       createConversation();
     } else {
-      renderConversationList();
+      /*
+       * Make sure active ID still exists.
+       */
+
+      if (
+        !getActiveConversation()
+      ) {
+        activeConversationId =
+          conversations[0]?.id ||
+          null;
+      }
+
+      renderConversationLists();
       renderMessages();
     }
 
+    /*
+     * Initial view
+     */
+
     showView("chat");
+
+    /*
+     * Composer
+     */
 
     autoResizeInput();
 
     /*
-     * Default connection state.
-     * The backend will prove actual availability
-     * when the first request is made.
+     * Connection
      */
 
-    const connectionDot =
-      $("#connectionDot");
+    setConnectionState(
+      "ready",
+      "Ready"
+    );
 
-    const connectionText =
-      $("#connectionText");
+    /*
+     * Accessibility
+     */
 
-    const connectionSubtext =
-      $("#connectionSubtext");
+    updateSidebarAccessibility();
+    updateCollapseButton();
 
-    if (connectionDot) {
-      connectionDot.classList.add(
-        "is-online"
-      );
-    }
+    /*
+     * Initial attachment render
+     */
 
-    if (connectionText) {
-      connectionText.textContent =
-        "Ready";
-    }
+    renderAttachments();
 
-    if (connectionSubtext) {
-      connectionSubtext.textContent =
-        "AI workspace";
-    }
+    /*
+     * Focus
+     */
 
     focusInput();
   }
+
+  /*
+   * ============================================================
+   * START
+   * ============================================================
+   */
 
   if (
     document.readyState ===
@@ -2805,7 +3902,9 @@
     document.addEventListener(
       "DOMContentLoaded",
       init,
-      { once: true }
+      {
+        once: true
+      }
     );
   } else {
     init();
