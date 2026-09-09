@@ -3,9 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="OZLIND — premium AI workspace for intelligent conversations and professional image editing.">
-  <meta name="theme-color" content="#0b0d12">
+
+  <meta
+    name="description"
+    content="OZLIND — a focused AI workspace for conversation, research, coding and image understanding."
+  >
+
+  <meta name="theme-color" content="#111315">
+
   <title>OZLIND — AI Workspace</title>
+
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -13,35 +20,72 @@
 
 <div class="app" id="app">
 
-  <!-- MOBILE SIDEBAR OVERLAY -->
+  <!-- =========================================================
+       MOBILE OVERLAY
+       ========================================================= -->
+
   <div
     class="sidebar-overlay"
     id="sidebarOverlay"
     aria-hidden="true">
   </div>
 
-  <!-- SIDEBAR -->
+
+  <!-- =========================================================
+       SIDEBAR
+       ========================================================= -->
+
   <aside class="sidebar" id="sidebar">
 
-    <div class="sidebar__top">
+    <!-- BRAND -->
+
+    <div class="sidebar-brand">
 
       <button
         class="brand"
         type="button"
-        data-view="home"
-        aria-label="Go to OZLIND home">
+        data-view="chat"
+        aria-label="Go to OZLIND AI">
 
-        <span class="brand__mark">O</span>
+        <!-- OZLIND #3 ANGULAR LOGO -->
 
-        <span class="brand__text">
+        <span class="brand-logo" aria-hidden="true">
+
+          <svg
+            class="ozlind-logo"
+            viewBox="0 0 64 64"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+
+            <path
+              d="M9 17H55L45 27H27L18 36H36L27 45H9L19 35L28 26H9L9 17Z"
+              fill="currentColor"
+            />
+
+            <path
+              d="M36 36H55L45 46H27L36 36Z"
+              fill="currentColor"
+              opacity="0.48"
+            />
+
+          </svg>
+
+        </span>
+
+
+        <span class="brand-copy">
+
           <strong>OZLIND</strong>
+
           <small>AI WORKSPACE</small>
+
         </span>
 
       </button>
 
+
       <button
-        class="icon-btn sidebar__collapse"
+        class="icon-btn sidebar-collapse"
         id="collapseBtn"
         type="button"
         aria-label="Collapse sidebar"
@@ -54,94 +98,179 @@
     </div>
 
 
+    <!-- NEW CHAT -->
+
+    <button
+      class="new-chat-btn"
+      id="newChatBtn"
+      type="button">
+
+      <span class="new-chat-icon" aria-hidden="true">+</span>
+
+      <span>New chat</span>
+
+    </button>
+
+
     <!-- NAVIGATION -->
-    <nav class="sidebar-nav" aria-label="Main navigation">
+
+    <nav
+      class="sidebar-nav"
+      aria-label="Main navigation">
+
+      <div class="nav-section-label">
+        WORKSPACE
+      </div>
+
 
       <button
-        class="nav__item is-active"
+        class="nav-item is-active"
         type="button"
-        data-view="home"
+        data-view="chat"
         aria-current="page">
 
-        <span class="nav__icon" aria-hidden="true">⌂</span>
-        <span class="nav__label">Home</span>
+        <span class="nav-icon" aria-hidden="true">✦</span>
+
+        <span class="nav-label">
+          AI Chat
+        </span>
 
       </button>
 
-      <button
-        class="nav__item"
-        type="button"
-        data-view="chat">
-
-        <span class="nav__icon" aria-hidden="true">✦</span>
-        <span class="nav__label">AI Chat</span>
-
-      </button>
 
       <button
-        class="nav__item"
-        type="button"
-        data-view="editor">
-
-        <span class="nav__icon" aria-hidden="true">▧</span>
-        <span class="nav__label">Image Editor</span>
-
-      </button>
-
-      <button
-        class="nav__item"
+        class="nav-item"
         type="button"
         data-view="history">
 
-        <span class="nav__icon" aria-hidden="true">◷</span>
-        <span class="nav__label">History</span>
+        <span class="nav-icon" aria-hidden="true">◷</span>
+
+        <span class="nav-label">
+          History
+        </span>
 
       </button>
 
+
+      <div class="nav-section-label nav-section-label--spaced">
+        TOOLS
+      </div>
+
+
       <button
-        class="nav__item"
+        class="nav-item"
+        type="button"
+        data-view="research">
+
+        <span class="nav-icon" aria-hidden="true">⌕</span>
+
+        <span class="nav-label">
+          Research
+        </span>
+
+      </button>
+
+
+      <button
+        class="nav-item"
+        type="button"
+        data-view="vision">
+
+        <span class="nav-icon" aria-hidden="true">◉</span>
+
+        <span class="nav-label">
+          Vision
+        </span>
+
+      </button>
+
+
+      <div class="nav-section-label nav-section-label--spaced">
+        SYSTEM
+      </div>
+
+
+      <button
+        class="nav-item"
         type="button"
         data-view="settings">
 
-        <span class="nav__icon" aria-hidden="true">⚙</span>
-        <span class="nav__label">Settings</span>
+        <span class="nav-icon" aria-hidden="true">⚙</span>
+
+        <span class="nav-label">
+          Settings
+        </span>
 
       </button>
 
     </nav>
 
 
-    <!-- SIDEBAR FOOTER -->
-    <div class="sidebar__footer">
+    <!-- SIDEBAR STATUS -->
 
-      <button
-        class="sidebar-user"
-        id="profileBtn"
-        type="button"
-        data-view="settings"
-        aria-label="Open settings">
+    <div class="sidebar-status">
 
-        <span class="sidebar-user__avatar">O</span>
+      <span class="status-indicator"></span>
 
-        <span class="sidebar-user__info">
-          <strong>OZLIND</strong>
-          <small>Personal Workspace</small>
-        </span>
+      <div>
 
-      </button>
+        <strong>OZLIND</strong>
+
+        <small>
+          Workspace ready
+        </small>
+
+      </div>
 
     </div>
+
+
+    <!-- USER / WORKSPACE -->
+
+    <button
+      class="sidebar-profile"
+      id="profileBtn"
+      type="button"
+      data-view="settings">
+
+      <span class="profile-avatar">
+        O
+      </span>
+
+      <span class="profile-info">
+
+        <strong>
+          Personal Workspace
+        </strong>
+
+        <small>
+          Settings & preferences
+        </small>
+
+      </span>
+
+      <span
+        class="profile-arrow"
+        aria-hidden="true">
+        ›
+      </span>
+
+    </button>
 
   </aside>
 
 
-  <!-- MAIN -->
+  <!-- =========================================================
+       MAIN
+       ========================================================= -->
+
   <main class="main">
 
     <!-- TOPBAR -->
+
     <header class="topbar">
 
-      <div class="topbar__left">
+      <div class="topbar-left">
 
         <button
           class="icon-btn mobile-nav-btn"
@@ -154,15 +283,36 @@
 
         </button>
 
-        <div class="topbar__title-wrap">
-          <span class="topbar__eyebrow">WORKSPACE</span>
-          <h1 id="topbarTitle">Home</h1>
+
+        <div class="topbar-title">
+
+          <span class="topbar-eyebrow">
+            OZLIND
+          </span>
+
+          <h1 id="topbarTitle">
+            AI Chat
+          </h1>
+
         </div>
 
       </div>
 
 
-      <div class="topbar__actions">
+      <div class="topbar-right">
+
+        <div
+          class="connection-status"
+          id="connectionStatus">
+
+          <span class="status-indicator"></span>
+
+          <span>
+            Ready
+          </span>
+
+        </div>
+
 
         <button
           class="icon-btn"
@@ -171,9 +321,14 @@
           aria-label="Toggle theme"
           title="Toggle theme">
 
-          <span class="theme-icon" aria-hidden="true">☾</span>
+          <span
+            class="theme-icon"
+            aria-hidden="true">
+            ☾
+          </span>
 
         </button>
+
 
         <button
           class="avatar-btn"
@@ -183,7 +338,7 @@
           aria-label="Open settings"
           title="Settings">
 
-          <span>O</span>
+          O
 
         </button>
 
@@ -192,1284 +347,404 @@
     </header>
 
 
-    <button
-      class="theme-mobile-control"
-      id="themeToggleMobile"
-      type="button"
-      aria-label="Toggle theme">
+    <!-- =======================================================
+         PAGE CONTENT
+         ======================================================= -->
 
-      <span class="theme-icon" aria-hidden="true">☾</span>
-
-    </button>
-
-
-    <!-- PAGE CONTENT -->
     <div class="page-content">
 
 
       <!-- =====================================================
-           HOME
+           CHAT VIEW
            ===================================================== -->
 
       <section
-        class="view view--home is-active"
-        data-page="home"
-        data-view="home"
-        aria-label="Home">
-
-        <div class="home-hero">
-
-          <div class="home-hero__content">
-
-            <span class="section-kicker">
-              INTELLIGENT WORKSPACE
-            </span>
-
-            <h2>
-              Create.
-              <span>Think.</span>
-              Transform.
-            </h2>
-
-            <p>
-              Welcome to OZLIND — your focused AI workspace
-              for intelligent conversations and professional
-              image editing.
-            </p>
-
-            <div class="home-hero__actions">
-
-              <button
-                class="btn btn--primary"
-                type="button"
-                data-view="chat">
-
-                <span aria-hidden="true">✦</span>
-                Start AI Chat
-
-              </button>
-
-              <button
-                class="btn btn--secondary"
-                type="button"
-                data-view="editor">
-
-                <span aria-hidden="true">▧</span>
-                Open Image Editor
-
-              </button>
-
-            </div>
-
-          </div>
-
-
-          <div
-            class="home-hero__visual"
-            aria-hidden="true">
-
-            <div class="orb orb--one"></div>
-            <div class="orb orb--two"></div>
-
-            <div class="hero-core">
-              <span>O</span>
-            </div>
-
-            <div class="hero-ring hero-ring--one"></div>
-            <div class="hero-ring hero-ring--two"></div>
-
-          </div>
-
-        </div>
-
-
-        <div class="section-heading">
-
-          <div>
-            <span class="section-kicker">TOOLS</span>
-            <h3>Workspace</h3>
-          </div>
-
-          <span class="section-description">
-            Everything you need, without the clutter.
-          </span>
-
-        </div>
-
-
-        <div class="home-grid">
-
-          <button
-            class="home-card home-card--chat"
-            type="button"
-            data-view="chat">
-
-            <span class="home-card__icon">✦</span>
-
-            <span class="home-card__content">
-              <strong>AI Chat</strong>
-              <span>
-                Have intelligent conversations,
-                analyze ideas, write code and
-                solve complex problems.
-              </span>
-            </span>
-
-            <span class="home-card__arrow">→</span>
-
-          </button>
-
-
-          <button
-            class="home-card home-card--editor"
-            type="button"
-            data-view="editor">
-
-            <span class="home-card__icon">▧</span>
-
-            <span class="home-card__content">
-              <strong>Image Editor</strong>
-              <span>
-                Edit images directly in your browser
-                with crop, adjustments, filters,
-                drawing and text tools.
-              </span>
-            </span>
-
-            <span class="home-card__arrow">→</span>
-
-          </button>
-
-
-          <button
-            class="home-card home-card--history"
-            type="button"
-            data-view="history">
-
-            <span class="home-card__icon">◷</span>
-
-            <span class="home-card__content">
-              <strong>History</strong>
-              <span>
-                Quickly return to your previous
-                AI conversations.
-              </span>
-            </span>
-
-            <span class="home-card__arrow">→</span>
-
-          </button>
-
-
-          <button
-            class="home-card home-card--settings"
-            type="button"
-            data-view="settings">
-
-            <span class="home-card__icon">⚙</span>
-
-            <span class="home-card__content">
-              <strong>Settings</strong>
-              <span>
-                Personalize your workspace,
-                memory and conversation preferences.
-              </span>
-            </span>
-
-            <span class="home-card__arrow">→</span>
-
-          </button>
-
-        </div>
-
-
-        <div class="home-status">
-          <span class="status-dot"></span>
-          <span>OZLIND workspace ready</span>
-        </div>
-
-      </section>
-
-
-
-      <!-- =====================================================
-           AI CHAT
-           ===================================================== -->
-
-      <section
-        class="view view--chat"
+        class="view view--chat is-active"
         data-page="chat"
-        data-view="chat"
         aria-label="AI Chat">
 
-        <div class="chat-layout">
 
-          <div class="chat-main">
+        <!-- CHAT HEADER -->
 
+        <div class="chat-header">
 
-            <!-- CHAT HEADER -->
-            <div class="chat-header">
+          <div class="chat-identity">
 
-              <div class="chat-header__identity">
+            <div class="ai-avatar">
 
-                <div class="ai-avatar">
-                  ✦
-                </div>
+              <svg
+                viewBox="0 0 64 64"
+                fill="none"
+                aria-hidden="true">
 
-                <div>
-                  <strong>OZLIND AI</strong>
-                  <span>Intelligent assistant</span>
-                </div>
+                <path
+                  d="M9 17H55L45 27H27L18 36H36L27 45H9L19 35L28 26H9V17Z"
+                  fill="currentColor"
+                />
 
-              </div>
-
-
-              <div class="chat-header__controls">
-
-                <label
-                  class="select-control"
-                  title="AI model">
-
-                  <span class="sr-only">
-                    AI model
-                  </span>
-
-                  <select id="modelSelect">
-
-                    <option value="openai/gpt-oss-120b">
-                      Advanced
-                    </option>
-
-                    <option value="llama-3.3-70b-versatile">
-                      Balanced
-                    </option>
-
-                    <option value="llama-3.1-8b-instant">
-                      Fast
-                    </option>
-
-                  </select>
-
-                </label>
-
-
-                <button
-                  class="control-btn"
-                  id="researchToggle"
-                  type="button"
-                  aria-pressed="false"
-                  title="Enable web research">
-
-                  <span aria-hidden="true">⌕</span>
-                  <span>Research</span>
-
-                </button>
-
-
-                <button
-                  class="icon-btn"
-                  id="chatSettingsBtn"
-                  type="button"
-                  aria-label="Chat settings"
-                  title="Chat settings">
-
-                  ⚙
-
-                </button>
-
-
-                <button
-                  class="icon-btn"
-                  id="historyToggleBtn"
-                  type="button"
-                  aria-label="Open conversation history"
-                  title="Conversation history">
-
-                  ◷
-
-                </button>
-
-              </div>
+              </svg>
 
             </div>
 
 
-            <!-- MESSAGES -->
-            <div
-              class="chat-messages"
-              id="chatMessages"
-              aria-live="polite"
-              aria-label="Conversation">
+            <div>
 
-              <div
-                class="chat-empty"
-                id="chatEmpty">
+              <strong>
+                OZLIND AI
+              </strong>
 
-                <div class="chat-empty__icon">
-                  ✦
-                </div>
-
-                <h2>
-                  How can I help?
-                </h2>
-
-                <p>
-                  Ask anything, brainstorm ideas,
-                  analyze content or work through
-                  a problem with OZLIND AI.
-                </p>
-
-
-                <div class="chat-suggestions">
-
-                  <button
-                    type="button"
-                    class="suggestion-chip"
-                    data-prompt="Explain a complex topic in simple terms.">
-
-                    Explain a complex topic
-
-                  </button>
-
-                  <button
-                    type="button"
-                    class="suggestion-chip"
-                    data-prompt="Help me write clean, production-ready code.">
-
-                    Help me write code
-
-                  </button>
-
-                  <button
-                    type="button"
-                    class="suggestion-chip"
-                    data-prompt="Help me plan and organize a project.">
-
-                    Plan a project
-
-                  </button>
-
-                  <button
-                    type="button"
-                    class="suggestion-chip"
-                    data-prompt="Research this topic and give me a concise, reliable summary.">
-
-                    Research something
-
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            <!-- ATTACHMENTS -->
-            <div
-              class="chat-attachments"
-              id="chatAttachments"
-              aria-live="polite">
-            </div>
-
-
-            <!-- COMPOSER -->
-            <div class="chat-composer">
-
-              <form
-                id="chatForm"
-                class="chat-form"
-                autocomplete="off">
-
-                <div class="composer-shell">
-
-                  <button
-                    class="composer-icon"
-                    id="attachBtn"
-                    type="button"
-                    aria-label="Attach image"
-                    title="Attach image">
-
-                    +
-
-                  </button>
-
-
-                  <input
-                    type="file"
-                    id="fileInput"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    multiple
-                    hidden>
-
-
-                  <textarea
-                    id="chatInput"
-                    rows="1"
-                    maxlength="12000"
-                    placeholder="Message OZLIND..."
-                    aria-label="Message OZLIND">
-                  </textarea>
-
-
-                  <button
-                    class="composer-icon"
-                    id="voiceBtn"
-                    type="button"
-                    aria-label="Voice input"
-                    title="Voice input">
-
-                    ◉
-
-                  </button>
-
-
-                  <button
-                    class="send-btn"
-                    id="sendBtn"
-                    type="submit"
-                    aria-label="Send message"
-                    title="Send message">
-
-                    ↑
-
-                  </button>
-
-
-                  <button
-                    class="stop-btn"
-                    id="stopBtn"
-                    type="button"
-                    aria-label="Stop generating"
-                    title="Stop generating"
-                    hidden>
-
-                    ■
-
-                  </button>
-
-                </div>
-
-              </form>
-
-
-              <div class="context-indicator" id="contextIndicator">
-                <span></span>
-                <small>Ready</small>
-              </div>
+              <span>
+                Intelligent assistant
+              </span>
 
             </div>
 
           </div>
 
 
-          <!-- CHAT HISTORY PANEL -->
-          <aside
-            class="chat-history-panel"
-            id="chatHistoryPanel"
-            aria-label="Conversation history">
+          <div class="chat-controls">
 
-            <div class="history-panel__header">
+            <!-- MODE -->
 
-              <div>
-                <span class="section-kicker">CHATS</span>
-                <h3>Conversation History</h3>
-              </div>
+            <label class="mode-select">
 
-              <button
-                class="icon-btn"
-                id="closeHistoryPanel"
-                type="button"
-                aria-label="Close history">
+              <span class="sr-only">
+                AI mode
+              </span>
 
-                ×
+              <select id="modelSelect">
 
-              </button>
+                <option value="auto">
+                  Auto
+                </option>
 
-            </div>
+                <option value="fast">
+                  Fast
+                </option>
 
+                <option value="smart">
+                  Smart
+                </option>
+
+                <option value="research">
+                  Research
+                </option>
+
+                <option value="code">
+                  Code
+                </option>
+
+                <option value="write">
+                  Write
+                </option>
+
+              </select>
+
+            </label>
+
+
+            <!-- RESEARCH -->
 
             <button
-              class="btn btn--primary history-new-btn"
-              id="newChatBtn"
-              type="button">
+              class="control-btn"
+              id="researchToggle"
+              type="button"
+              aria-pressed="false"
+              title="Enable web research">
 
-              + New chat
+              <span aria-hidden="true">
+                ⌕
+              </span>
+
+              <span>
+                Research
+              </span>
 
             </button>
 
 
-            <div class="history-search">
+            <!-- SETTINGS -->
 
-              <input
-                id="conversationSearch"
-                type="search"
-                placeholder="Search conversations..."
-                autocomplete="off">
+            <button
+              class="icon-btn"
+              id="chatSettingsBtn"
+              type="button"
+              aria-label="Chat settings"
+              title="Chat settings">
 
-            </div>
+              ⚙
+
+            </button>
 
 
-            <div
-              class="conversation-list"
-              id="conversationList">
-            </div>
+            <!-- HISTORY -->
 
-          </aside>
+            <button
+              class="icon-btn"
+              id="historyToggleBtn"
+              type="button"
+              aria-label="Conversation history"
+              title="Conversation history">
+
+              ◷
+
+            </button>
+
+          </div>
 
         </div>
 
-      </section>
+
+        <!-- ===================================================
+             MESSAGE AREA
+             =================================================== -->
+
+        <div
+          class="chat-messages"
+          id="chatMessages"
+          aria-live="polite"
+          aria-label="Conversation">
 
 
+          <!-- EMPTY STATE -->
 
-      <!-- =====================================================
-           IMAGE EDITOR
-           ===================================================== -->
-
-      <section
-        class="view view--editor"
-        data-page="editor"
-        data-view="editor"
-        aria-label="Image Editor">
-
-        <div class="editor-layout" id="editorLayout">
-
-
-          <!-- UPLOAD -->
           <div
-            class="editor-upload"
-            id="editorUpload">
+            class="chat-empty"
+            id="chatEmpty">
 
-            <div
-              class="dropzone"
-              id="dropzone"
-              tabindex="0">
+            <div class="chat-empty-logo">
 
-              <div class="dropzone__icon">
-                ▧
-              </div>
+              <svg
+                viewBox="0 0 64 64"
+                fill="none"
+                aria-hidden="true">
 
-              <h2>
-                Drop your image here
-              </h2>
+                <path
+                  d="M9 17H55L45 27H27L18 36H36L27 45H9L19 35L28 26H9V17Z"
+                  fill="currentColor"
+                />
 
-              <p>
-                or choose an image from your device
-              </p>
+              </svg>
+
+            </div>
+
+
+            <span class="empty-kicker">
+              OZLIND AI
+            </span>
+
+
+            <h2>
+              What are you working on?
+            </h2>
+
+
+            <p>
+              Ask a question, analyze an image,
+              research a topic, write code or
+              turn an idea into a clear plan.
+            </p>
+
+
+            <!-- SUGGESTIONS -->
+
+            <div class="chat-suggestions">
 
               <button
-                class="btn btn--primary"
-                id="editorUploadBtn"
-                type="button">
+                type="button"
+                class="suggestion-card"
+                data-prompt="Explain a complex topic clearly and simply.">
 
-                Choose Image
+                <span class="suggestion-icon">
+                  ◇
+                </span>
+
+                <span>
+                  Explain something
+                </span>
 
               </button>
 
+
+              <button
+                type="button"
+                class="suggestion-card"
+                data-prompt="Help me write clean, production-ready code.">
+
+                <span class="suggestion-icon">
+                  &lt;/&gt;
+                </span>
+
+                <span>
+                  Write code
+                </span>
+
+              </button>
+
+
+              <button
+                type="button"
+                class="suggestion-card"
+                data-prompt="Help me create a practical step-by-step plan for a project.">
+
+                <span class="suggestion-icon">
+                  ≡
+                </span>
+
+                <span>
+                  Plan a project
+                </span>
+
+              </button>
+
+
+              <button
+                type="button"
+                class="suggestion-card"
+                data-prompt="Research this topic using reliable current web sources and summarize the findings.">
+
+                <span class="suggestion-icon">
+                  ⌕
+                </span>
+
+                <span>
+                  Research a topic
+                </span>
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- ===================================================
+             ATTACHMENTS
+             =================================================== -->
+
+        <div
+          class="chat-attachments"
+          id="chatAttachments"
+          aria-live="polite">
+        </div>
+
+
+        <!-- ===================================================
+             COMPOSER
+             =================================================== -->
+
+        <div class="chat-composer">
+
+          <form
+            id="chatForm"
+            class="chat-form"
+            autocomplete="off">
+
+
+            <div class="composer-shell">
+
+
+              <!-- ATTACH -->
+
+              <button
+                class="composer-btn"
+                id="attachBtn"
+                type="button"
+                aria-label="Attach image"
+                title="Attach image">
+
+                +
+
+              </button>
+
+
               <input
                 type="file"
-                id="editorFileInput"
+                id="fileInput"
                 accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
                 hidden>
 
+
+              <!-- INPUT -->
+
+              <textarea
+                id="chatInput"
+                rows="1"
+                maxlength="12000"
+                placeholder="Message OZLIND..."
+                aria-label="Message OZLIND"></textarea>
+
+
+              <!-- VOICE -->
+
+              <button
+                class="composer-btn"
+                id="voiceBtn"
+                type="button"
+                aria-label="Voice input"
+                title="Voice input">
+
+                ◉
+
+              </button>
+
+
+              <!-- SEND -->
+
+              <button
+                class="send-btn"
+                id="sendBtn"
+                type="submit"
+                aria-label="Send message"
+                title="Send message">
+
+                ↑
+
+              </button>
+
+
+              <!-- STOP -->
+
+              <button
+                class="stop-btn"
+                id="stopBtn"
+                type="button"
+                aria-label="Stop generating"
+                title="Stop generating"
+                hidden>
+
+                ■
+
+              </button>
+
+            </div>
+
+          </form>
+
+
+          <!-- COMPOSER INFO -->
+
+          <div
+            class="composer-footer"
+            id="contextIndicator">
+
+            <div class="composer-state">
+
+              <span class="status-indicator"></span>
+
               <small>
-                JPG, PNG, WEBP or GIF · Max 25 MB
+                Ready
               </small>
 
             </div>
 
-          </div>
 
-
-          <!-- WORKSPACE -->
-          <div
-            class="editor-workspace"
-            id="editorWorkspace"
-            hidden>
-
-
-            <!-- TOOLBAR -->
-            <div
-              class="editor-toolbar"
-              id="editorToolbar">
-
-              <div class="toolbar-group">
-
-                <button
-                  class="icon-btn"
-                  id="undoBtn"
-                  type="button"
-                  title="Undo"
-                  aria-label="Undo">
-
-                  ↶
-
-                </button>
-
-                <button
-                  class="icon-btn"
-                  id="redoBtn"
-                  type="button"
-                  title="Redo"
-                  aria-label="Redo">
-
-                  ↷
-
-                </button>
-
-                <button
-                  class="icon-btn"
-                  id="beforeAfterBtn"
-                  type="button"
-                  title="Before / After"
-                  aria-label="Before and after">
-
-                  ◐
-
-                </button>
-
-                <button
-                  class="icon-btn"
-                  id="resetBtn"
-                  type="button"
-                  title="Reset"
-                  aria-label="Reset">
-
-                  ↺
-
-                </button>
-
-              </div>
-
-
-              <div class="toolbar-group">
-
-                <button
-                  class="icon-btn"
-                  id="zoomOutBtn"
-                  type="button"
-                  aria-label="Zoom out">
-
-                  −
-
-                </button>
-
-                <span id="zoomLabel">
-                  100%
-                </span>
-
-                <button
-                  class="icon-btn"
-                  id="zoomInBtn"
-                  type="button"
-                  aria-label="Zoom in">
-
-                  +
-
-                </button>
-
-                <button
-                  class="icon-btn"
-                  id="fullscreenBtn"
-                  type="button"
-                  title="Fullscreen"
-                  aria-label="Fullscreen">
-
-                  ⛶
-
-                </button>
-
-              </div>
-
-            </div>
-
-
-            <!-- CANVAS -->
-            <div
-              class="canvas-wrap"
-              id="canvasWrap">
-
-              <canvas
-                id="editorCanvas">
-              </canvas>
-
-              <div
-                class="crop-box"
-                id="cropBox"
-                hidden>
-
-                <span
-                  class="crop-handle crop-handle--nw"
-                  data-handle="nw">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--n"
-                  data-handle="n">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--ne"
-                  data-handle="ne">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--e"
-                  data-handle="e">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--se"
-                  data-handle="se">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--s"
-                  data-handle="s">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--sw"
-                  data-handle="sw">
-                </span>
-
-                <span
-                  class="crop-handle crop-handle--w"
-                  data-handle="w">
-                </span>
-
-              </div>
-
-            </div>
-
-
-            <!-- EDITOR PANEL -->
-            <aside
-              class="editor-panel"
-              id="editorPanel">
-
-
-              <!-- TABS -->
-              <div class="editor-tabs">
-
-                <button
-                  class="editor-tab is-active"
-                  type="button"
-                  data-tab="crop">
-
-                  Crop
-
-                </button>
-
-                <button
-                  class="editor-tab"
-                  type="button"
-                  data-tab="adjust">
-
-                  Adjust
-
-                </button>
-
-                <button
-                  class="editor-tab"
-                  type="button"
-                  data-tab="filters">
-
-                  Filters
-
-                </button>
-
-                <button
-                  class="editor-tab"
-                  type="button"
-                  data-tab="draw">
-
-                  Draw
-
-                </button>
-
-                <button
-                  class="editor-tab"
-                  type="button"
-                  data-tab="text">
-
-                  Text
-
-                </button>
-
-              </div>
-
-
-              <!-- CROP -->
-              <div
-                class="editor-panel__content"
-                data-panel="crop">
-
-                <div class="control-section">
-
-                  <label>Aspect ratio</label>
-
-                  <div
-                    class="control-group"
-                    id="aspectGroup">
-
-                    <button
-                      type="button"
-                      data-aspect="free"
-                      class="is-active">
-
-                      Free
-
-                    </button>
-
-                    <button
-                      type="button"
-                      data-aspect="1:1">
-
-                      1:1
-
-                    </button>
-
-                    <button
-                      type="button"
-                      data-aspect="4:5">
-
-                      4:5
-
-                    </button>
-
-                    <button
-                      type="button"
-                      data-aspect="16:9">
-
-                      16:9
-
-                    </button>
-
-                    <button
-                      type="button"
-                      data-aspect="9:16">
-
-                      9:16
-
-                    </button>
-
-                  </div>
-
-                </div>
-
-
-                <button
-                  class="btn btn--primary btn--full"
-                  id="applyCropBtn"
-                  type="button">
-
-                  Apply Crop
-
-                </button>
-
-
-                <div class="control-row">
-
-                  <button
-                    class="btn btn--secondary"
-                    id="rotateLeftBtn"
-                    type="button">
-
-                    ↶ Rotate
-
-                  </button>
-
-                  <button
-                    class="btn btn--secondary"
-                    id="rotateRightBtn"
-                    type="button">
-
-                    Rotate ↷
-
-                  </button>
-
-                </div>
-
-
-                <div class="control-row">
-
-                  <button
-                    class="btn btn--secondary"
-                    id="flipHBtn"
-                    type="button">
-
-                    ↔ Flip
-
-                  </button>
-
-                  <button
-                    class="btn btn--secondary"
-                    id="flipVBtn"
-                    type="button">
-
-                    ↕ Flip
-
-                  </button>
-
-                </div>
-
-
-                <div class="range-control">
-
-                  <label for="straightenSlider">
-                    Straighten
-                  </label>
-
-                  <input
-                    id="straightenSlider"
-                    type="range"
-                    min="-45"
-                    max="45"
-                    step="0.1"
-                    value="0">
-
-                </div>
-
-              </div>
-
-
-              <!-- ADJUST -->
-              <div
-                class="editor-panel__content"
-                data-panel="adjust"
-                hidden>
-
-                <div class="range-control">
-                  <label for="brightness">Brightness</label>
-                  <input
-                    id="brightness"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="contrast">Contrast</label>
-                  <input
-                    id="contrast"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="saturation">Saturation</label>
-                  <input
-                    id="saturation"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="exposure">Exposure</label>
-                  <input
-                    id="exposure"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="temperature">Temperature</label>
-                  <input
-                    id="temperature"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="vignette">Vignette</label>
-                  <input
-                    id="vignette"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="blur">Blur</label>
-                  <input
-                    id="blur"
-                    type="range"
-                    min="0"
-                    max="20"
-                    value="0">
-                </div>
-
-                <div class="range-control">
-                  <label for="sharpen">Sharpen</label>
-                  <input
-                    id="sharpen"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="0">
-                </div>
-
-              </div>
-
-
-              <!-- FILTERS -->
-              <div
-                class="editor-panel__content"
-                data-panel="filters"
-                hidden>
-
-                <div class="filter-grid">
-
-                  <button
-                    type="button"
-                    data-filter="none"
-                    class="is-active">
-
-                    Original
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="mono">
-
-                    Mono
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="sepia">
-
-                    Sepia
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="cinematic">
-
-                    Cinematic
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="warm">
-
-                    Warm
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="cool">
-
-                    Cool
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="vintage">
-
-                    Vintage
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-filter="vivid">
-
-                    Vivid
-
-                  </button>
-
-                </div>
-
-              </div>
-
-
-              <!-- DRAW -->
-              <div
-                class="editor-panel__content"
-                data-panel="draw"
-                hidden>
-
-                <div
-                  class="control-group"
-                  id="drawToolGroup">
-
-                  <button
-                    type="button"
-                    data-draw-tool="brush"
-                    class="is-active">
-
-                    Brush
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-draw-tool="eraser">
-
-                    Eraser
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-draw-tool="line">
-
-                    Line
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-draw-tool="rect">
-
-                    Rectangle
-
-                  </button>
-
-                  <button
-                    type="button"
-                    data-draw-tool="circle">
-
-                    Circle
-
-                  </button>
-
-                </div>
-
-
-                <div class="control-row">
-
-                  <label>
-                    Color
-
-                    <input
-                      id="brushColor"
-                      type="color"
-                      value="#ffffff">
-
-                  </label>
-
-                </div>
-
-
-                <div class="range-control">
-
-                  <label for="brushSize">
-                    Size:
-                    <span id="brushSizeVal">8</span>
-                  </label>
-
-                  <input
-                    id="brushSize"
-                    type="range"
-                    min="1"
-                    max="100"
-                    value="8">
-
-                </div>
-
-              </div>
-
-
-              <!-- TEXT -->
-              <div
-                class="editor-panel__content"
-                data-panel="text"
-                hidden>
-
-                <div class="control-section">
-
-                  <label for="textInput">
-                    Text
-                  </label>
-
-                  <textarea
-                    id="textInput"
-                    rows="4"
-                    placeholder="Enter text...">
-                  </textarea>
-
-                </div>
-
-
-                <div class="control-row">
-
-                  <label>
-                    Color
-
-                    <input
-                      id="textColor"
-                      type="color"
-                      value="#ffffff">
-
-                  </label>
-
-                </div>
-
-
-                <div class="range-control">
-
-                  <label for="textSize">
-                    Size:
-                    <span id="textSizeVal">48</span>
-                  </label>
-
-                  <input
-                    id="textSize"
-                    type="range"
-                    min="8"
-                    max="160"
-                    value="48">
-
-                </div>
-
-
-                <button
-                  class="btn btn--primary btn--full"
-                  id="addTextBtn"
-                  type="button">
-
-                  Add Text
-
-                </button>
-
-              </div>
-
-
-              <!-- EXPORT -->
-              <div class="editor-export">
-
-                <button
-                  class="btn btn--primary btn--full"
-                  id="downloadBtn"
-                  type="button">
-
-                  Download Image
-
-                </button>
-
-              </div>
-
-            </aside>
+            <small class="composer-hint">
+              Enter to send · Shift + Enter for new line
+            </small>
 
           </div>
 
@@ -1478,156 +753,332 @@
       </section>
 
 
-
       <!-- =====================================================
-           HISTORY
+           HISTORY VIEW
            ===================================================== -->
 
       <section
         class="view view--history"
         data-page="history"
-        data-view="history"
-        aria-label="History">
+        aria-label="Conversation History">
+
 
         <div class="page-header">
 
           <div>
-            <span class="section-kicker">YOUR ACTIVITY</span>
-            <h2>Conversation History</h2>
+
+            <span class="section-kicker">
+              CONVERSATIONS
+            </span>
+
+            <h2>
+              History
+            </h2>
+
             <p>
-              Continue your previous AI conversations.
+              Find and continue your previous conversations.
             </p>
+
           </div>
+
 
           <button
             class="btn btn--primary"
-            id="historyNewChatBtn"
-            type="button"
-            data-view="chat">
+            data-action="new-chat"
+            type="button">
 
-            + New Chat
+            + New chat
 
           </button>
 
         </div>
 
 
-        <div
-          class="history-page-list"
-          id="historyPageList">
+        <div class="history-toolbar">
+
+          <div class="history-search">
+
+            <span aria-hidden="true">
+              ⌕
+            </span>
+
+            <input
+              id="conversationSearch"
+              type="search"
+              placeholder="Search conversations..."
+              autocomplete="off">
+
+          </div>
+
         </div>
 
 
         <div
-          class="history-page-empty"
-          id="historyPageEmpty"
-          hidden>
+          class="conversation-list conversation-list--page"
+          id="conversationList">
+        </div>
 
-          <div class="empty-state">
+      </section>
 
-            <div class="empty-state__icon">
-              ◷
-            </div>
 
-            <h3>No conversations yet</h3>
+      <!-- =====================================================
+           RESEARCH VIEW
+           ===================================================== -->
 
-            <p>
-              Your AI conversations will appear here.
-            </p>
+      <section
+        class="view view--research"
+        data-page="research"
+        aria-label="Research">
 
-            <button
-              class="btn btn--primary"
-              type="button"
-              data-view="chat">
 
-              Start a Chat
+        <div class="tool-page">
 
-            </button>
-
+          <div class="tool-page-icon">
+            ⌕
           </div>
+
+          <span class="section-kicker">
+            WEB RESEARCH
+          </span>
+
+          <h2>
+            Research with context
+          </h2>
+
+          <p>
+            Use current web information with AI to compare,
+            summarize and reason over sources.
+          </p>
+
+
+          <button
+            class="btn btn--primary"
+            data-view="chat"
+            data-research="true"
+            type="button">
+
+            Start research
+
+          </button>
 
         </div>
 
       </section>
 
 
+      <!-- =====================================================
+           VISION VIEW
+           ===================================================== -->
+
+      <section
+        class="view view--vision"
+        data-page="vision"
+        aria-label="Vision">
+
+
+        <div class="tool-page">
+
+          <div class="tool-page-icon">
+            ◉
+          </div>
+
+          <span class="section-kicker">
+            IMAGE UNDERSTANDING
+          </span>
+
+          <h2>
+            Ask OZLIND about an image
+          </h2>
+
+          <p>
+            Upload an image in chat and ask OZLIND
+            to describe, analyze or reason about it.
+          </p>
+
+
+          <button
+            class="btn btn--primary"
+            data-view="chat"
+            data-focus-attach="true"
+            type="button">
+
+            Upload an image
+
+          </button>
+
+        </div>
+
+      </section>
+
 
       <!-- =====================================================
-           SETTINGS
+           SETTINGS VIEW
            ===================================================== -->
 
       <section
         class="view view--settings"
         data-page="settings"
-        data-view="settings"
         aria-label="Settings">
 
-        <div class="page-header">
 
-          <div>
-            <span class="section-kicker">PREFERENCES</span>
-            <h2>Settings</h2>
-            <p>
-              Personalize your OZLIND workspace.
-            </p>
+        <div class="settings-page">
+
+          <div class="page-header">
+
+            <div>
+
+              <span class="section-kicker">
+                PREFERENCES
+              </span>
+
+              <h2>
+                Settings
+              </h2>
+
+              <p>
+                Personalize how OZLIND behaves.
+              </p>
+
+            </div>
+
           </div>
 
-        </div>
 
+          <!-- AI SETTINGS -->
 
-        <div class="settings-grid">
+          <div class="settings-section">
 
+            <div class="settings-section-heading">
 
-          <!-- APPEARANCE -->
-          <div class="settings-card">
+              <h3>
+                AI behaviour
+              </h3>
 
-            <div class="settings-card__header">
-
-              <div>
-                <span class="settings-card__icon">◐</span>
-
-                <div>
-                  <h3>Appearance</h3>
-                  <p>Choose your preferred theme.</p>
-                </div>
-              </div>
+              <p>
+                Control responses and personalization.
+              </p>
 
             </div>
 
 
-            <div
-              class="settings-theme-group"
-              id="settingsThemeGroup">
+            <div class="settings-card">
 
-              <button
-                type="button"
-                data-theme="dark"
-                aria-pressed="true">
 
-                <span>☾</span>
-                Dark
+              <!-- MEMORY -->
 
-              </button>
+              <div class="setting-row">
 
-              <button
-                type="button"
-                data-theme="light"
-                aria-pressed="false">
+                <div class="setting-info">
 
-                <span>☀</span>
-                Light
+                  <strong>
+                    Memory
+                  </strong>
 
-              </button>
+                  <span>
+                    Allow OZLIND to use saved conversation preferences.
+                  </span>
 
-              <button
-                type="button"
-                data-theme="system"
-                aria-pressed="false">
+                </div>
 
-                <span>◐</span>
-                System
 
-              </button>
+                <button
+                  class="switch"
+                  id="memoryToggle"
+                  type="button"
+                  role="switch"
+                  aria-checked="true">
+
+                  <span></span>
+
+                </button>
+
+              </div>
+
+
+              <!-- RESPONSE LENGTH -->
+
+              <div class="setting-row">
+
+                <div class="setting-info">
+
+                  <strong>
+                    Response length
+                  </strong>
+
+                  <span>
+                    Choose how detailed responses should be.
+                  </span>
+
+                </div>
+
+
+                <select
+                  id="responseLength"
+                  class="setting-select">
+
+                  <option value="short">
+                    Concise
+                  </option>
+
+                  <option
+                    value="medium"
+                    selected>
+                    Balanced
+                  </option>
+
+                  <option value="long">
+                    Detailed
+                  </option>
+
+                </select>
+
+              </div>
+
+
+              <!-- RESPONSE STYLE -->
+
+              <div class="setting-row">
+
+                <div class="setting-info">
+
+                  <strong>
+                    Response style
+                  </strong>
+
+                  <span>
+                    Adjust the general communication style.
+                  </span>
+
+                </div>
+
+
+                <select
+                  id="responseStyle"
+                  class="setting-select">
+
+                  <option value="balanced" selected>
+                    Balanced
+                  </option>
+
+                  <option value="professional">
+                    Professional
+                  </option>
+
+                  <option value="friendly">
+                    Friendly
+                  </option>
+
+                  <option value="direct">
+                    Direct
+                  </option>
+
+                  <option value="creative">
+                    Creative
+                  </option>
+
+                </select>
+
+              </div>
 
             </div>
 
@@ -1635,62 +1086,48 @@
 
 
           <!-- CUSTOM INSTRUCTIONS -->
-          <div class="settings-card">
 
-            <div class="settings-card__header">
+          <div class="settings-section">
 
-              <div>
-                <span class="settings-card__icon">✎</span>
+            <div class="settings-section-heading">
 
-                <div>
-                  <h3>Custom Instructions</h3>
-                  <p>
-                    Tell OZLIND how you want responses.
-                  </p>
-                </div>
-              </div>
+              <h3>
+                Custom instructions
+              </h3>
+
+              <p>
+                Tell OZLIND how you prefer it to respond.
+              </p>
 
             </div>
 
-            <button
-              class="btn btn--secondary"
-              id="customInstructionsBtn"
-              type="button">
 
-              Edit Instructions
+            <div class="settings-card settings-card--block">
 
-            </button>
+              <textarea
+                id="customInstructions"
+                class="settings-textarea"
+                maxlength="5000"
+                rows="6"
+                placeholder="Example: Keep answers practical and explain technical steps clearly."></textarea>
 
-          </div>
 
+              <div class="settings-card-footer">
 
-          <!-- MEMORY -->
-          <div class="settings-card">
+                <small>
+                  Up to 5,000 characters
+                </small>
 
-            <div class="settings-card__header">
+                <button
+                  class="btn btn--secondary btn--small"
+                  id="saveInstructionsBtn"
+                  type="button">
 
-              <div>
-                <span class="settings-card__icon">✦</span>
+                  Save instructions
 
-                <div>
-                  <h3>Memory</h3>
-                  <p>
-                    Allow useful preferences to be remembered
-                    locally.
-                  </p>
-                </div>
+                </button>
+
               </div>
-
-              <label class="switch">
-
-                <input
-                  type="checkbox"
-                  id="memoryToggle"
-                  checked>
-
-                <span class="switch__track"></span>
-
-              </label>
 
             </div>
 
@@ -1698,81 +1135,148 @@
 
 
           <!-- DATA -->
-          <div class="settings-card">
 
-            <div class="settings-card__header">
+          <div class="settings-section">
 
-              <div>
-                <span class="settings-card__icon">⇅</span>
+            <div class="settings-section-heading">
 
-                <div>
-                  <h3>Your Data</h3>
-                  <p>
-                    Export or import your local conversation history.
-                  </p>
-                </div>
-              </div>
+              <h3>
+                Your data
+              </h3>
+
+              <p>
+                Manage locally stored conversations and preferences.
+              </p>
 
             </div>
 
 
-            <div class="control-row">
+            <div class="settings-card">
 
-              <button
-                class="btn btn--secondary"
-                id="exportHistoryBtn"
-                type="button">
 
-                Export History
+              <div class="setting-row">
 
-              </button>
+                <div class="setting-info">
 
-              <button
-                class="btn btn--secondary"
-                id="importHistoryBtn"
-                type="button">
+                  <strong>
+                    Export conversations
+                  </strong>
 
-                Import History
+                  <span>
+                    Download your local conversation history.
+                  </span>
 
-              </button>
+                </div>
 
-              <input
-                type="file"
-                id="importHistoryInput"
-                accept="application/json,.json"
-                hidden>
+
+                <button
+                  class="btn btn--secondary btn--small"
+                  id="exportHistoryBtn"
+                  type="button">
+
+                  Export
+
+                </button>
+
+              </div>
+
+
+              <div class="setting-row">
+
+                <div class="setting-info">
+
+                  <strong>
+                    Import conversations
+                  </strong>
+
+                  <span>
+                    Restore a previously exported history file.
+                  </span>
+
+                </div>
+
+
+                <button
+                  class="btn btn--secondary btn--small"
+                  id="importHistoryBtn"
+                  type="button">
+
+                  Import
+
+                </button>
+
+                <input
+                  id="historyFileInput"
+                  type="file"
+                  accept="application/json,.json"
+                  hidden>
+
+              </div>
+
+
+              <div class="setting-row setting-row--danger">
+
+                <div class="setting-info">
+
+                  <strong>
+                    Clear local data
+                  </strong>
+
+                  <span>
+                    Permanently remove locally stored conversations.
+                  </span>
+
+                </div>
+
+
+                <button
+                  class="btn btn--danger btn--small"
+                  id="clearHistoryBtn"
+                  type="button">
+
+                  Clear
+
+                </button>
+
+              </div>
 
             </div>
 
           </div>
 
 
-          <!-- DANGER -->
-          <div class="settings-card settings-card--danger">
+          <!-- ABOUT -->
 
-            <div class="settings-card__header">
+          <div class="settings-about">
 
-              <div>
-                <span class="settings-card__icon">!</span>
+            <div class="settings-about-logo">
 
-                <div>
-                  <h3>Clear Local Data</h3>
-                  <p>
-                    Permanently remove locally stored OZLIND data.
-                  </p>
-                </div>
-              </div>
+              <svg
+                viewBox="0 0 64 64"
+                fill="none"
+                aria-hidden="true">
+
+                <path
+                  d="M9 17H55L45 27H27L18 36H36L27 45H9L19 35L28 26H9V17Z"
+                  fill="currentColor"
+                />
+
+              </svg>
 
             </div>
 
-            <button
-              class="btn btn--danger"
-              id="clearDataBtn"
-              type="button">
 
-              Clear Data
+            <div>
 
-            </button>
+              <strong>
+                OZLIND
+              </strong>
+
+              <span>
+                AI Workspace
+              </span>
+
+            </div>
 
           </div>
 
@@ -1784,38 +1288,38 @@
 
   </main>
 
-</div>
+
+  <!-- =========================================================
+       CHAT HISTORY DRAWER
+       ========================================================= -->
+
+  <aside
+    class="chat-history-panel"
+    id="chatHistoryPanel"
+    aria-label="Conversation history"
+    aria-hidden="true">
 
 
+    <div class="history-panel-header">
 
-<!-- =========================================================
-     MODAL
-     ========================================================= -->
+      <div>
 
-<div
-  class="modal-overlay"
-  id="modalOverlay"
-  hidden
-  aria-hidden="true">
+        <span class="section-kicker">
+          CHATS
+        </span>
 
-  <div
-    class="modal"
-    id="modal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="modalTitle">
+        <h3>
+          Conversation History
+        </h3>
 
-    <div class="modal__header">
+      </div>
 
-      <h2 id="modalTitle">
-        OZLIND
-      </h2>
 
       <button
         class="icon-btn"
-        id="modalClose"
+        id="closeHistoryPanel"
         type="button"
-        aria-label="Close">
+        aria-label="Close history">
 
         ×
 
@@ -1823,352 +1327,138 @@
 
     </div>
 
+
+    <button
+      class="btn btn--primary history-new-btn"
+      data-action="new-chat"
+      type="button">
+
+      + New chat
+
+    </button>
+
+
+    <div class="history-search">
+
+      <span aria-hidden="true">
+        ⌕
+      </span>
+
+      <input
+        id="conversationSearchDrawer"
+        type="search"
+        placeholder="Search conversations..."
+        autocomplete="off">
+
+    </div>
+
+
     <div
-      class="modal__body"
-      id="modalBody">
+      class="conversation-list"
+      id="conversationListDrawer">
+    </div>
+
+  </aside>
+
+
+  <!-- =========================================================
+       MOBILE THEME BUTTON
+       ========================================================= -->
+
+  <button
+    class="theme-mobile-control"
+    id="themeToggleMobile"
+    type="button"
+    aria-label="Toggle theme">
+
+    <span
+      class="theme-icon"
+      aria-hidden="true">
+      ☾
+    </span>
+
+  </button>
+
+
+  <!-- =========================================================
+       MODAL
+       ========================================================= -->
+
+  <div
+    class="modal-overlay"
+    id="modalOverlay"
+    aria-hidden="true">
+
+
+    <div
+      class="modal"
+      id="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle">
+
+
+      <div class="modal-header">
+
+        <div>
+
+          <span class="section-kicker">
+            OZLIND
+          </span>
+
+          <h2 id="modalTitle">
+            Notice
+          </h2>
+
+        </div>
+
+
+        <button
+          class="icon-btn"
+          id="modalClose"
+          type="button"
+          aria-label="Close">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div
+        class="modal-body"
+        id="modalBody">
+      </div>
+
     </div>
 
   </div>
 
+
+  <!-- =========================================================
+       TOASTS
+       ========================================================= -->
+
+  <div
+    class="toast-stack"
+    id="toastStack"
+    aria-live="polite"
+    aria-atomic="true">
+  </div>
+
+
 </div>
 
 
-
 <!-- =========================================================
-     TOASTS
+     APP SCRIPT
      ========================================================= -->
 
-<div
-  class="toast-stack"
-  id="toastStack"
-  aria-live="polite"
-  aria-atomic="true">
-</div>
-
-
-
-<!-- =========================================================
-     APP SCRIPTS
-     ========================================================= -->
-
-<script src="chatbot.js"></script>
-<script src="image-editor.js"></script>
-
-
-<!-- =========================================================
-     OZLIND APP SHELL
-     Navigation + theme + safe UI wiring
-     ========================================================= -->
-
-<script>
-(() => {
-  "use strict";
-
-  const views = Array.from(
-    document.querySelectorAll(".view[data-page]")
-  );
-
-  const navItems = Array.from(
-    document.querySelectorAll("[data-view]")
-  );
-
-  const topbarTitle =
-    document.getElementById("topbarTitle");
-
-  const sidebar =
-    document.getElementById("sidebar");
-
-  const sidebarOverlay =
-    document.getElementById("sidebarOverlay");
-
-  const mobileNavBtn =
-    document.getElementById("mobileNavBtn");
-
-  const collapseBtn =
-    document.getElementById("collapseBtn");
-
-
-  const titles = {
-    home: "Home",
-    chat: "AI Chat",
-    editor: "Image Editor",
-    history: "History",
-    settings: "Settings"
-  };
-
-
-  function closeMobileSidebar() {
-    if (!sidebar) return;
-
-    sidebar.classList.remove("is-open");
-
-    if (sidebarOverlay) {
-      sidebarOverlay.classList.remove("is-visible");
-      sidebarOverlay.setAttribute(
-        "aria-hidden",
-        "true"
-      );
-    }
-
-    document.body.classList.remove(
-      "sidebar-open"
-    );
-  }
-
-
-  function openMobileSidebar() {
-    if (!sidebar) return;
-
-    sidebar.classList.add("is-open");
-
-    if (sidebarOverlay) {
-      sidebarOverlay.classList.add("is-visible");
-      sidebarOverlay.setAttribute(
-        "aria-hidden",
-        "false"
-      );
-    }
-
-    document.body.classList.add(
-      "sidebar-open"
-    );
-  }
-
-
-  function setActiveView(viewName) {
-    if (!titles[viewName]) {
-      viewName = "home";
-    }
-
-    views.forEach(view => {
-      const active =
-        view.dataset.page === viewName;
-
-      view.classList.toggle(
-        "is-active",
-        active
-      );
-
-      view.hidden = !active;
-
-      if (active) {
-        view.removeAttribute("aria-hidden");
-      } else {
-        view.setAttribute(
-          "aria-hidden",
-          "true"
-        );
-      }
-    });
-
-
-    navItems.forEach(button => {
-      const active =
-        button.dataset.view === viewName;
-
-      if (
-        button.classList.contains("nav__item")
-      ) {
-        button.classList.toggle(
-          "is-active",
-          active
-        );
-
-        if (active) {
-          button.setAttribute(
-            "aria-current",
-            "page"
-          );
-        } else {
-          button.removeAttribute(
-            "aria-current"
-          );
-        }
-      }
-    });
-
-
-    if (topbarTitle) {
-      topbarTitle.textContent =
-        titles[viewName];
-    }
-
-
-    closeMobileSidebar();
-
-
-    try {
-      history.replaceState(
-        null,
-        "",
-        "#" + viewName
-      );
-    } catch {
-      // Ignore history errors.
-    }
-
-
-    window.dispatchEvent(
-      new CustomEvent(
-        "ozlind:viewchange",
-        {
-          detail: {
-            view: viewName
-          }
-        }
-      )
-    );
-  }
-
-
-  navItems.forEach(button => {
-
-    button.addEventListener(
-      "click",
-      event => {
-
-        const view =
-          button.dataset.view;
-
-        if (!view) return;
-
-        event.preventDefault();
-
-        setActiveView(view);
-
-      }
-    );
-
-  });
-
-
-  if (mobileNavBtn) {
-
-    mobileNavBtn.addEventListener(
-      "click",
-      () => {
-
-        const isOpen =
-          sidebar &&
-          sidebar.classList.contains(
-            "is-open"
-          );
-
-        if (isOpen) {
-          closeMobileSidebar();
-        } else {
-          openMobileSidebar();
-        }
-
-      }
-    );
-
-  }
-
-
-  if (sidebarOverlay) {
-
-    sidebarOverlay.addEventListener(
-      "click",
-      closeMobileSidebar
-    );
-
-  }
-
-
-  if (collapseBtn) {
-
-    collapseBtn.addEventListener(
-      "click",
-      () => {
-
-        document.body.classList.toggle(
-          "sidebar-collapsed"
-        );
-
-        const collapsed =
-          document.body.classList.contains(
-            "sidebar-collapsed"
-          );
-
-        collapseBtn.setAttribute(
-          "aria-expanded",
-          String(!collapsed)
-        );
-
-      }
-    );
-
-  }
-
-
-  /* Keyboard navigation */
-
-  document.addEventListener(
-    "keydown",
-    event => {
-
-      if (
-        event.key === "Escape" &&
-        sidebar &&
-        sidebar.classList.contains(
-          "is-open"
-        )
-      ) {
-        closeMobileSidebar();
-      }
-
-    }
-  );
-
-
-  /* Initial view */
-
-  let initialView =
-    window.location.hash
-      .replace("#", "")
-      .trim();
-
-  if (!titles[initialView]) {
-    initialView = "home";
-  }
-
-  setActiveView(initialView);
-
-
-  /*
-   * Some existing scripts may set a view
-   * programmatically. Expose one safe helper.
-   */
-
-  window.OZLIND = window.OZLIND || {};
-
-  window.OZLIND.setView =
-    setActiveView;
-
-
-  /*
-   * Keep old-style view buttons working
-   * even if another script calls this event.
-   */
-
-  window.addEventListener(
-    "ozlind:navigate",
-    event => {
-
-      const view =
-        event.detail &&
-        event.detail.view;
-
-      if (view) {
-        setActiveView(view);
-      }
-
-    }
-  );
-
-})();
+<script
+  src="chatbot.js"
+  defer>
 </script>
 
 </body>
-        </html>
+  </html>
