@@ -2,42 +2,48 @@
   "use strict";
 
   /* =========================================================
-     OZLIND AI CHAT
-     - Local conversation history
-     - Real /api/chat backend
-     - Streaming response support
-     - Image attachments
+     OZLIND AI — CHAT ENGINE
+     =========================================================
+     Features:
+     - Chat + streaming
+     - Auto / Fast / Smart / Research / Code / Write
+     - Groq / Gemini / Experiential routing via /api/chat
+     - Web research
+     - Vision/image upload
      - Voice input
-     - Search/research toggle
-     - Custom instructions
+     - Conversation history
+     - Search history
+     - Rename / delete conversations
+     - Import / export
      - Memory toggle
+     - Custom instructions
      - Response length/style
-     - Import/export history
-     - Edit/regenerate/delete/copy/feedback
-     - Theme integration
-     - Safer storage handling
-     - Robust SSE parsing
-     - Safer markdown rendering
+     - Theme
+     - Regenerate
+     - Edit
+     - Copy
+     - Feedback
+     - Stop generation
+     - Mobile sidebar
+     - Modal + toast system
      ========================================================= */
 
   const STORAGE = {
     conversations: "ozlind:conversations",
     settings: "ozlind:chat-settings",
-    customInstructions: "ozlind:custom-instructions",
+    instructions: "ozlind:custom-instructions",
     memory: "ozlind:memory",
     theme: "ozlind:theme"
   };
 
   const LIMITS = {
-    maxConversations: 100,
-    maxMessagesPerConversation: 100,
-    maxMessageChars: 12000,
-    maxTotalChars: 60000,
-    maxAttachmentSize: 8 * 1024 * 1024,
-    maxAttachmentDimension: 1600,
+    conversations: 100,
+    messages: 100,
+    messageChars: 12000,
+    attachmentSize: 8 * 1024 * 1024,
     maxAttachments: 4,
-    maxHistoryFileSize: 10 * 1024 * 1024,
-    maxCustomInstructions: 5000
+    maxImageDimension: 1600,
+    maxInstructions: 5000
   };
 
   const $ = (selector, root = document) =>
@@ -59,7 +65,6 @@
 
   const modelSelect = $("#modelSelect");
   const researchToggle = $("#researchToggle");
-  const chatSettingsBtn = $("#chatSettingsBtn");
 
   const attachBtn = $("#attachBtn");
   const fileInput = $("#fileInput");
@@ -75,6 +80,7 @@
 
   const mobileNavBtn = $("#mobileNavBtn");
   const sidebarOverlay = $("#sidebarOverlay");
+  const sidebarCollapse = $("#sidebarCollapse");
 
   const modalOverlay = $("#modalOverlay");
   const modal = $("#modal");
@@ -84,42 +90,51 @@
 
   const toastStack = $("#toastStack");
 
+  const memoryToggle = $("#memoryToggle");
+  const customInstructions = $("#customInstructions");
+  const responseLength = $("#responseLength");
+  const responseStyle = $("#responseStyle");
+  const themeSelect = $("#themeSelect");
+
+  const saveInstructionsBtn = $("#saveInstructionsBtn");
+
   /* =========================================================
      STATE
      ========================================================= */
 
   let conversations = loadConversations();
-  let activeConversationId = null;
+  let activeConversationId =
+    conversations[0]?.id || null;
 
   let pendingAttachments = [];
 
-  let abortController = null;
-  let isGenerating = false;
+  let controller = null;
+  let generating = false;
 
   let recognition = null;
-  let isListening = false;
+  let listening = false;
 
-  let chatSettings = loadSettings();
+  let currentView = "chat";
 
   /* =========================================================
-     UTILITIES
+     HELPERS
      ========================================================= */
 
-  function createId(prefix = "id") {
-    try {
-      if (
-        window.crypto &&
-        typeof window.crypto.randomUUID === "function"
-      ) {
-        return `${prefix}_${window.crypto.randomUUID()}`;
-      }
-    } catch {
-      // Fall back below.
+  function id(prefix = "id") {
+    if (
+      window.crypto &&
+      typeof crypto.randomUUID === "function"
+    ) {
+      return `${prefix}_${crypto.randomUUID()}`;
     }
 
-    return `${prefix}_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 10)}`;
+    return (
+      prefix +
+      "_" +
+      Date.now() +
+      "_" +
+      Math.random().toString(36).slice(2)
+    );
   }
 
   function now() {
@@ -135,11 +150,7 @@
       .replace(/'/g, "&#039;");
   }
 
-  function safeJSONParse(value, fallback) {
-    if (typeof value !== "string" || !value) {
-      return fallback;
-    }
-
+  function parseJSON(value, fallback) {
     try {
       return JSON.parse(value);
     } catch {
@@ -147,126 +158,150 @@
     }
   }
 
-  /* =========================================================
-     SAFE STORAGE
-     ========================================================= */
-
-  function storageGet(key, fallback = null) {
+  function getStorage(key, fallback = "") {
     try {
-      return window.localStorage.getItem(key) ?? fallback;
-    } catch (error) {
-      console.warn("OZLIND storage read failed:", error);
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : value;
+    } catch {
       return fallback;
     }
   }
 
-  function storageSet(key, value) {
+  function setStorage(key, value) {
     try {
-      window.localStorage.setItem(key, value);
+      localStorage.setItem(key, value);
       return true;
-    } catch (error) {
-      console.warn("OZLIND storage write failed:", error);
-
-      toast(
-        "Browser storage is unavailable or full.",
-        "error"
-      );
-
+    } catch {
+      toast("Browser storage is full.", "error");
       return false;
     }
   }
 
-  function storageRemove(key) {
+  function removeStorage(key) {
     try {
-      window.localStorage.removeItem(key);
-      return true;
-    } catch (error) {
-      console.warn("OZLIND storage remove failed:", error);
-      return false;
-    }
+      localStorage.removeItem(key);
+    } catch {}
   }
+
+  /* =========================================================
+     TOAST
+     ========================================================= */
 
   function toast(message, type = "info") {
     if (!toastStack) return;
 
-    const item = document.createElement("div");
+    const element =
+      document.createElement("div");
 
-    item.className =
-      `toast${type === "error" ? " toast--error" : ""}`;
+    element.className =
+      "toast" +
+      (type === "error" ? " is-error" : "") +
+      (type === "success" ? " is-success" : "");
 
-    item.textContent = String(message || "");
+    element.textContent = message;
 
-    toastStack.appendChild(item);
+    toastStack.appendChild(element);
 
-    requestAnimationFrame(() => {
-      item.classList.add("toast--show");
-    });
-
-    window.setTimeout(() => {
-      item.classList.remove("toast--show");
-
-      window.setTimeout(() => {
-        item.remove();
-      }, 250);
+    setTimeout(() => {
+      element.remove();
     }, 3200);
   }
 
-  function formatTime(timestamp) {
-    const date = new Date(timestamp);
+  /* =========================================================
+     THEME
+     ========================================================= */
 
-    if (Number.isNaN(date.getTime())) {
-      return "";
+  function applyTheme(theme) {
+    const valid =
+      theme === "light" ||
+      theme === "dark"
+        ? theme
+        : "dark";
+
+    document.body.dataset.theme = valid;
+
+    if (themeSelect) {
+      themeSelect.value = valid;
     }
 
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
+    setStorage(STORAGE.theme, valid);
   }
 
-  function formatDate(timestamp) {
-    const date = new Date(timestamp);
+  function loadTheme() {
+    const saved =
+      getStorage(STORAGE.theme, "dark");
 
-    if (Number.isNaN(date.getTime())) {
-      return "";
-    }
-
-    const today = new Date();
-
-    if (date.toDateString() === today.toDateString()) {
-      return formatTime(timestamp);
-    }
-
-    return date.toLocaleDateString([], {
-      month: "short",
-      day: "numeric"
-    });
-  }
-
-  function debounce(fn, delay = 250) {
-    let timer = null;
-
-    return (...args) => {
-      clearTimeout(timer);
-
-      timer = window.setTimeout(() => {
-        fn(...args);
-      }, delay);
-    };
-  }
-
-  function getValidDateValue(value) {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return now();
-    }
-
-    return date.toISOString();
+    applyTheme(saved);
   }
 
   /* =========================================================
-     STORAGE NORMALIZATION
+     SETTINGS
+     ========================================================= */
+
+  function loadSettings() {
+    const saved = parseJSON(
+      getStorage(STORAGE.settings, "{}"),
+      {}
+    );
+
+    if (responseLength) {
+      responseLength.value =
+        ["short", "balanced", "detailed"].includes(
+          saved.responseLength
+        )
+          ? saved.responseLength
+          : "balanced";
+    }
+
+    if (responseStyle) {
+      responseStyle.value =
+        [
+          "professional",
+          "friendly",
+          "concise",
+          "technical"
+        ].includes(saved.responseStyle)
+          ? saved.responseStyle
+          : "professional";
+    }
+
+    if (customInstructions) {
+      customInstructions.value =
+        getStorage(
+          STORAGE.instructions,
+          ""
+        ).slice(
+          0,
+          LIMITS.maxInstructions
+        );
+    }
+
+    if (memoryToggle) {
+      memoryToggle.setAttribute(
+        "aria-checked",
+        getStorage(STORAGE.memory, "true") !==
+          "false"
+      );
+    }
+  }
+
+  function saveSettings() {
+    setStorage(
+      STORAGE.settings,
+      JSON.stringify({
+        responseLength:
+          responseLength?.value ||
+          "balanced",
+
+        responseStyle:
+          responseStyle?.value ||
+          "professional"
+      })
+    );
+  }
+
+  /* =========================================================
+     CONVERSATIONS
      ========================================================= */
 
   function normalizeMessage(message) {
@@ -274,56 +309,10 @@
       return null;
     }
 
-    const role =
-      message.role === "assistant" ||
-      message.role === "user"
-        ? message.role
-        : null;
-
-    if (!role) {
-      return null;
-    }
-
-    const content =
-      typeof message.content === "string"
-        ? message.content.slice(0, LIMITS.maxMessageChars)
-        : "";
-
-    const attachments = Array.isArray(message.attachments)
-      ? message.attachments
-          .filter(
-            attachment =>
-              attachment &&
-              typeof attachment === "object" &&
-              typeof attachment.dataUrl === "string"
-          )
-          .slice(0, LIMITS.maxAttachments)
-          .map(attachment => ({
-            name:
-              typeof attachment.name === "string"
-                ? attachment.name.slice(0, 200)
-                : "Attached image",
-
-            type:
-              typeof attachment.type === "string"
-                ? attachment.type
-                : "image/jpeg",
-
-            dataUrl: attachment.dataUrl,
-
-            width:
-              Number.isFinite(attachment.width)
-                ? attachment.width
-                : undefined,
-
-            height:
-              Number.isFinite(attachment.height)
-                ? attachment.height
-                : undefined
-          }))
-      : [];
-
-    if (!content && role === "user" && !attachments.length) {
+    if (
+      message.role !== "user" &&
+      message.role !== "assistant"
+    ) {
       return null;
     }
 
@@ -331,17 +320,36 @@
       id:
         typeof message.id === "string"
           ? message.id
-          : createId("msg"),
+          : id("msg"),
 
-      role,
+      role: message.role,
 
-      content,
+      content:
+        typeof message.content === "string"
+          ? message.content.slice(
+              0,
+              LIMITS.messageChars
+            )
+          : "",
 
-      createdAt: getValidDateValue(
-        message.createdAt || now()
-      ),
+      createdAt:
+        typeof message.createdAt === "string"
+          ? message.createdAt
+          : now(),
 
-      attachments,
+      attachments:
+        Array.isArray(message.attachments)
+          ? message.attachments
+              .filter(
+                a =>
+                  a &&
+                  typeof a.dataUrl === "string"
+              )
+              .slice(
+                0,
+                LIMITS.maxAttachments
+              )
+          : [],
 
       feedback:
         message.feedback === "like" ||
@@ -351,165 +359,90 @@
     };
   }
 
-  function normalizeConversation(conversation) {
-    if (!conversation || typeof conversation !== "object") {
+  function normalizeConversation(item) {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      typeof item.id !== "string"
+    ) {
       return null;
     }
-
-    if (typeof conversation.id !== "string") {
-      return null;
-    }
-
-    const messages = Array.isArray(conversation.messages)
-      ? conversation.messages
-          .map(normalizeMessage)
-          .filter(Boolean)
-          .slice(0, LIMITS.maxMessagesPerConversation)
-      : [];
 
     return {
-      id: conversation.id,
+      id: item.id,
 
       title:
-        typeof conversation.title === "string"
-          ? conversation.title
-              .replace(/\s+/g, " ")
+        typeof item.title === "string" &&
+        item.title.trim()
+          ? item.title
               .trim()
-              .slice(0, 100) || "New chat"
+              .slice(0, 100)
           : "New chat",
 
-      createdAt: getValidDateValue(
-        conversation.createdAt || now()
-      ),
+      createdAt:
+        item.createdAt || now(),
 
-      updatedAt: getValidDateValue(
-        conversation.updatedAt ||
-          conversation.createdAt ||
-          now()
-      ),
+      updatedAt:
+        item.updatedAt ||
+        item.createdAt ||
+        now(),
 
-      messages
+      messages:
+        Array.isArray(item.messages)
+          ? item.messages
+              .map(normalizeMessage)
+              .filter(Boolean)
+              .slice(
+                0,
+                LIMITS.messages
+              )
+          : []
     };
   }
 
   function loadConversations() {
-    const raw = storageGet(
-      STORAGE.conversations,
-      ""
+    const data = parseJSON(
+      getStorage(
+        STORAGE.conversations,
+        "[]"
+      ),
+      []
     );
 
-    if (!raw) {
+    if (!Array.isArray(data)) {
       return [];
     }
 
-    const parsed = safeJSONParse(raw, []);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
+    return data
       .map(normalizeConversation)
       .filter(Boolean)
       .sort(
         (a, b) =>
-          new Date(b.updatedAt).getTime() -
-          new Date(a.updatedAt).getTime()
+          new Date(b.updatedAt) -
+          new Date(a.updatedAt)
       )
-      .slice(0, LIMITS.maxConversations);
+      .slice(
+        0,
+        LIMITS.conversations
+      );
   }
 
   function saveConversations() {
-    try {
-      const cleaned = conversations
-        .map(normalizeConversation)
-        .filter(Boolean)
-        .slice(0, LIMITS.maxConversations);
-
-      const serialized = JSON.stringify(cleaned);
-
-      storageSet(
-        STORAGE.conversations,
-        serialized
-      );
-    } catch (error) {
-      console.error(
-        "Unable to save conversations:",
-        error
-      );
-
-      toast(
-        "Chat history could not be saved.",
-        "error"
-      );
-    }
-  }
-
-  function loadSettings() {
-    const defaults = {
-      responseLength: "balanced",
-      responseStyle: "professional"
-    };
-
-    const parsed = safeJSONParse(
-      storageGet(STORAGE.settings, "{}"),
-      {}
-    );
-
-    return {
-      responseLength:
-        ["short", "balanced", "detailed"].includes(
-          parsed.responseLength
-        )
-          ? parsed.responseLength
-          : defaults.responseLength,
-
-      responseStyle:
-        [
-          "professional",
-          "friendly",
-          "concise",
-          "technical"
-        ].includes(parsed.responseStyle)
-          ? parsed.responseStyle
-          : defaults.responseStyle
-    };
-  }
-
-  function saveSettings() {
-    storageSet(
-      STORAGE.settings,
-      JSON.stringify(chatSettings)
+    setStorage(
+      STORAGE.conversations,
+      JSON.stringify(conversations)
     );
   }
 
-  function getCustomInstructions() {
-    return storageGet(
-      STORAGE.customInstructions,
-      ""
-    ).slice(0, LIMITS.maxCustomInstructions);
-  }
-
-  function getMemoryEnabled() {
-    return (
-      storageGet(STORAGE.memory, "true") !== "false"
-    );
-  }
-
-  /* =========================================================
-     CONVERSATIONS
-     ========================================================= */
-
-  function getActiveConversation() {
+  function activeConversation() {
     return conversations.find(
-      conversation =>
-        conversation.id === activeConversationId
+      c => c.id === activeConversationId
     );
   }
 
   function createConversation() {
     const conversation = {
-      id: createId("chat"),
+      id: id("chat"),
       title: "New chat",
       createdAt: now(),
       updatedAt: now(),
@@ -518,14 +451,17 @@
 
     conversations.unshift(conversation);
 
-    conversations = conversations.slice(
-      0,
-      LIMITS.maxConversations
-    );
+    conversations =
+      conversations.slice(
+        0,
+        LIMITS.conversations
+      );
 
-    activeConversationId = conversation.id;
+    activeConversationId =
+      conversation.id;
 
     saveConversations();
+
     renderConversationList();
     renderMessages();
 
@@ -534,93 +470,330 @@
 
   function ensureConversation() {
     return (
-      getActiveConversation() ||
+      activeConversation() ||
       createConversation()
     );
   }
 
-  function updateConversationTimestamp(
-    conversation
-  ) {
-    conversation.updatedAt = now();
+  function newChat() {
+    pendingAttachments = [];
+    renderAttachments();
 
-    conversations.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() -
-        new Date(a.updatedAt).getTime()
-    );
+    createConversation();
+
+    closeHistoryPanelUI();
+
+    focusInput();
   }
 
-  function generateConversationTitle(text) {
-    const clean = String(text || "")
-      .replace(/\s+/g, " ")
-      .trim();
+  function conversationTitle(text) {
+    const clean =
+      String(text || "")
+        .replace(/\s+/g, " ")
+        .trim();
 
     if (!clean) {
       return "New chat";
     }
 
-    const words = clean.split(" ");
+    let title =
+      clean
+        .split(" ")
+        .slice(0, 8)
+        .join(" ");
 
-    let title = words
-      .slice(0, 8)
-      .join(" ");
-
-    if (title.length > 55) {
-      title = title.slice(0, 55).trim();
+    if (title.length > 60) {
+      title =
+        title.slice(0, 60).trim();
     }
 
-    if (
-      words.length > 8 ||
-      clean.length > title.length
-    ) {
+    if (clean.length > title.length) {
       title += "…";
     }
 
     return title;
   }
 
-  function selectConversation(id) {
-    const conversation = conversations.find(
-      item => item.id === id
-    );
+  /* =========================================================
+     NAVIGATION
+     ========================================================= */
 
-    if (!conversation) {
-      return;
+  function showView(view) {
+    const views = {
+      chat: "#chatView",
+      history: "#historyView",
+      research: "#researchView",
+      vision: "#visionView",
+      settings: "#settingsView"
+    };
+
+    if (!views[view]) {
+      view = "chat";
     }
 
-    activeConversationId = id;
+    currentView = view;
 
-    renderConversationList();
-    renderMessages();
+    $$(".view").forEach(element => {
+      element.classList.remove(
+        "is-active"
+      );
+    });
 
-    closeHistory();
+    const target = $(views[view]);
+
+    if (target) {
+      target.classList.add("is-active");
+    }
+
+    $$("[data-view]").forEach(item => {
+      item.classList.toggle(
+        "is-active",
+        item.dataset.view === view
+      );
+    });
+
+    document.body.classList.remove(
+      "sidebar-open"
+    );
+
+    if (view === "history") {
+      renderConversationList();
+    }
+
+    if (view === "settings") {
+      loadSettings();
+    }
   }
 
-  function deleteConversation(id) {
-    const index = conversations.findIndex(
-      conversation =>
-        conversation.id === id
+  /* =========================================================
+     SIDEBAR
+     ========================================================= */
+
+  function toggleMobileSidebar() {
+    document.body.classList.toggle(
+      "sidebar-open"
+    );
+  }
+
+  function closeMobileSidebar() {
+    document.body.classList.remove(
+      "sidebar-open"
+    );
+  }
+
+  function toggleSidebarCollapse() {
+    document.body.classList.toggle(
+      "sidebar-collapsed"
     );
 
-    if (index === -1) {
-      return;
-    }
-
-    const conversation = conversations[index];
-
-    const confirmed = window.confirm(
-      `Delete "${conversation.title}"?\n\nThis cannot be undone.`
+    setStorage(
+      "ozlind:sidebar-collapsed",
+      document.body.classList.contains(
+        "sidebar-collapsed"
+      )
+        ? "true"
+        : "false"
     );
+  }
 
-    if (!confirmed) {
-      return;
+  function loadSidebarState() {
+    if (
+      getStorage(
+        "ozlind:sidebar-collapsed",
+        "false"
+      ) === "true"
+    ) {
+      document.body.classList.add(
+        "sidebar-collapsed"
+      );
+    }
+  }
+
+  /* =========================================================
+     HISTORY UI
+     ========================================================= */
+
+  function formatDate(value) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
     }
 
-    conversations.splice(index, 1);
+    const today =
+      new Date().toDateString();
 
     if (
-      activeConversationId === id
+      date.toDateString() === today
+    ) {
+      return date.toLocaleTimeString(
+        [],
+        {
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
+    }
+
+    return date.toLocaleDateString(
+      [],
+      {
+        month: "short",
+        day: "numeric"
+      }
+    );
+  }
+
+  function renderConversationList(
+    filter = ""
+  ) {
+    if (!conversationList) return;
+
+    const query =
+      String(filter || "")
+        .trim()
+        .toLowerCase();
+
+    const list =
+      conversations.filter(c => {
+        if (!query) return true;
+
+        return (
+          c.title
+            .toLowerCase()
+            .includes(query) ||
+          c.messages.some(m =>
+            m.content
+              .toLowerCase()
+              .includes(query)
+          )
+        );
+      });
+
+    conversationList.innerHTML = "";
+
+    if (!list.length) {
+      const empty =
+        document.createElement("div");
+
+      empty.style.padding = "30px 15px";
+      empty.style.textAlign = "center";
+      empty.style.color =
+        "var(--text-muted)";
+      empty.textContent =
+        query
+          ? "No conversations found."
+          : "No conversations yet.";
+
+      conversationList.appendChild(empty);
+      return;
+    }
+
+    list.forEach(conversation => {
+      const item =
+        document.createElement("div");
+
+      item.className =
+        "conversation-item" +
+        (conversation.id ===
+        activeConversationId
+          ? " is-active"
+          : "");
+
+      const main =
+        document.createElement("button");
+
+      main.className =
+        "conversation-main";
+
+      main.type = "button";
+
+      main.innerHTML = `
+        <span class="conversation-title">
+          ${escapeHTML(conversation.title)}
+        </span>
+        <span class="conversation-date">
+          ${escapeHTML(
+            formatDate(
+              conversation.updatedAt
+            )
+          )}
+        </span>
+      `;
+
+      main.addEventListener(
+        "click",
+        () => {
+          activeConversationId =
+            conversation.id;
+
+          saveConversations();
+          renderConversationList();
+
+          showView("chat");
+          renderMessages();
+
+          closeHistoryPanelUI();
+        }
+      );
+
+      const deleteBtn =
+        document.createElement("button");
+
+      deleteBtn.className =
+        "conversation-delete";
+
+      deleteBtn.type = "button";
+      deleteBtn.title =
+        "Delete conversation";
+      deleteBtn.setAttribute(
+        "aria-label",
+        "Delete conversation"
+      );
+
+      deleteBtn.textContent = "×";
+
+      deleteBtn.addEventListener(
+        "click",
+        event => {
+          event.stopPropagation();
+
+          deleteConversation(
+            conversation.id
+          );
+        }
+      );
+
+      item.appendChild(main);
+      item.appendChild(deleteBtn);
+
+      conversationList.appendChild(item);
+    });
+  }
+
+  function deleteConversation(idValue) {
+    const conversation =
+      conversations.find(
+        c => c.id === idValue
+      );
+
+    if (!conversation) return;
+
+    if (
+      !window.confirm(
+        `Delete "${conversation.title}"?`
+      )
+    ) {
+      return;
+    }
+
+    conversations =
+      conversations.filter(
+        c => c.id !== idValue
+      );
+
+    if (
+      activeConversationId === idValue
     ) {
       activeConversationId =
         conversations[0]?.id || null;
@@ -630,393 +803,125 @@
     renderConversationList();
     renderMessages();
 
-    toast("Conversation deleted.");
-  }
-
-  function renameConversation(
-    conversation,
-    title
-  ) {
-    if (!conversation) return;
-
-    const clean = String(title || "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 100);
-
-    if (!clean) {
-      return;
-    }
-
-    conversation.title = clean;
-    conversation.updatedAt = now();
-
-    saveConversations();
-    renderConversationList();
+    toast(
+      "Conversation deleted.",
+      "success"
+    );
   }
 
   /* =========================================================
-     MARKDOWN
+     HISTORY PANEL
      ========================================================= */
 
-  function renderMarkdownSafe(source) {
-    let text = escapeHTML(source);
+  function openHistoryPanelUI() {
+    if (!chatHistoryPanel) return;
+
+    chatHistoryPanel.classList.add(
+      "is-open"
+    );
+  }
+
+  function closeHistoryPanelUI() {
+    if (!chatHistoryPanel) return;
+
+    chatHistoryPanel.classList.remove(
+      "is-open"
+    );
+  }
+
+  /* =========================================================
+     MESSAGE RENDERING
+     ========================================================= */
+
+  function markdown(text) {
+    let html =
+      escapeHTML(text || "");
 
     const codeBlocks = [];
 
-    /*
-     * Extract fenced code blocks before processing
-     * any other markdown.
-     */
-    text = text.replace(
-      /```([a-zA-Z0-9_+#.-]*)[ \t]*\n?([\s\S]*?)```/g,
-      (_, language, code) => {
-        const index = codeBlocks.length;
+    html = html.replace(
+      /```([\s\S]*?)```/g,
+      (_, code) => {
+        const index =
+          codeBlocks.push(code) - 1;
 
-        codeBlocks.push({
-          language: language || "",
-          code
-        });
-
-        return `@@CODEBLOCK_${index}@@`;
+        return `@@CODE${index}@@`;
       }
     );
 
-    /*
-     * Inline code.
-     */
-    text = text.replace(
-      /`([^`\n]+)`/g,
-      "<code>$1</code>"
-    );
-
-    /*
-     * Headings.
-     */
-    text = text.replace(
-      /^###[ \t]+(.+)$/gm,
-      "<h4>$1</h4>"
-    );
-
-    text = text.replace(
-      /^##[ \t]+(.+)$/gm,
+    html = html.replace(
+      /^### (.*)$/gm,
       "<h3>$1</h3>"
     );
 
-    text = text.replace(
-      /^#[ \t]+(.+)$/gm,
+    html = html.replace(
+      /^## (.*)$/gm,
       "<h2>$1</h2>"
     );
 
-    /*
-     * Bold.
-     */
-    text = text.replace(
-      /\*\*(.+?)\*\*/g,
+    html = html.replace(
+      /^# (.*)$/gm,
+      "<h1>$1</h1>"
+    );
+
+    html = html.replace(
+      /\*\*(.*?)\*\*/g,
       "<strong>$1</strong>"
     );
 
-    text = text.replace(
-      /__(.+?)__/g,
-      "<strong>$1</strong>"
+    html = html.replace(
+      /`([^`]+)`/g,
+      "<code>$1</code>"
     );
 
-    /*
-     * Italic.
-     */
-    text = text.replace(
-      /(^|[^\*])\*([^*\n]+)\*(?!\*)/g,
-      "$1<em>$2</em>"
+    html = html.replace(
+      /^\s*[-*] (.*)$/gm,
+      "<li>$1</li>"
     );
 
-    text = text.replace(
-      /(^|[^_])_([^_\n]+)_(?!_)/g,
-      "$1<em>$2</em>"
+    html = html.replace(
+      /(<li>.*<\/li>)/gs,
+      "<ul>$1</ul>"
     );
 
-    /*
-     * Build unordered and ordered lists line-by-line.
-     *
-     * This avoids the previous greedy <li> matching bug
-     * where separate lists could accidentally be merged.
-     */
-    const lines = text.split("\n");
-    const output = [];
-
-    let listType = null;
-
-    function closeList() {
-      if (!listType) {
-        return;
-      }
-
-      output.push(
-        listType === "ul"
-          ? "</ul>"
-          : "</ol>"
-      );
-
-      listType = null;
-    }
-
-    for (const line of lines) {
-      const unordered = line.match(
-        /^\s*[-*+]\s+(.+)$/
-      );
-
-      const ordered = line.match(
-        /^\s*\d+\.\s+(.+)$/
-      );
-
-      if (unordered) {
-        if (listType !== "ul") {
-          closeList();
-          output.push("<ul>");
-          listType = "ul";
-        }
-
-        output.push(
-          `<li>${unordered[1]}</li>`
-        );
-
-        continue;
-      }
-
-      if (ordered) {
-        if (listType !== "ol") {
-          closeList();
-          output.push("<ol>");
-          listType = "ol";
-        }
-
-        output.push(
-          `<li>${ordered[1]}</li>`
-        );
-
-        continue;
-      }
-
-      closeList();
-      output.push(line);
-    }
-
-    closeList();
-
-    text = output.join("\n");
-
-    /*
-     * Paragraphs / line breaks.
-     *
-     * Do not wrap block elements inside <p>.
-     */
-    const blocks = text.split(
-      /\n{2,}/
+    html = html.replace(
+      /\n{2,}/g,
+      "</p><p>"
     );
 
-    text = blocks
-      .map(block => {
-        const trimmed = block.trim();
+    html =
+      "<p>" + html + "</p>";
 
-        if (!trimmed) {
-          return "";
-        }
-
-        if (
-          /^<(h2|h3|h4|ul|ol|div|pre)/.test(
-            trimmed
-          ) ||
-          /^@@CODEBLOCK_\d+@@$/.test(
-            trimmed
-          )
-        ) {
-          return trimmed;
-        }
-
-        return `<p>${trimmed.replace(
-          /\n/g,
-          "<br>"
-        )}</p>`;
-      })
-      .filter(Boolean)
-      .join("");
-
-    /*
-     * Restore fenced code blocks.
-     */
-    codeBlocks.forEach(
-      (block, index) => {
-        const languageLabel =
-          block.language
-            ? `<span class="code-lang">${escapeHTML(
-                block.language
-              )}</span>`
-            : "";
-
-        const codeHTML =
-          escapeHTML(block.code);
-
-        const codeMarkup = `
-          <div class="code-block">
-            <div class="code-block__top">
-              ${languageLabel}
-              <button
-                type="button"
-                class="code-copy"
-                data-code="${encodeURIComponent(
-                  block.code
-                )}"
-                aria-label="Copy code"
-              >
-                Copy
-              </button>
-            </div>
-            <pre><code>${codeHTML}</code></pre>
-          </div>
-        `;
-
-        text = text.replace(
-          `@@CODEBLOCK_${index}@@`,
-          codeMarkup
-        );
-      }
-    );
-
-    return text;
-  }
-
-  /* =========================================================
-     RENDER CONVERSATION LIST
-     ========================================================= */
-
-  function renderConversationList(
-    filter = ""
-  ) {
-    if (!conversationList) return;
-
-    const query = String(filter || "")
-      .trim()
-      .toLowerCase();
-
-    const filtered =
-      conversations.filter(
-        conversation =>
-          conversation.title
-            .toLowerCase()
-            .includes(query)
-      );
-
-    conversationList.innerHTML = "";
-
-    if (!filtered.length) {
-      const empty =
-        document.createElement("div");
-
-      empty.className = "history-empty";
-
-      empty.textContent = query
-        ? "No matching conversations."
-        : "No conversations yet.";
-
-      conversationList.appendChild(empty);
-
-      return;
-    }
-
-    filtered.forEach(
-      conversation => {
-        const row =
-          document.createElement("div");
-
-        row.className =
-          "conversation-row" +
-          (conversation.id ===
-          activeConversationId
-            ? " is-active"
-            : "");
-
-        row.dataset.id =
-          conversation.id;
-
-        const info =
-          document.createElement("button");
-
-        info.type = "button";
-        info.className =
-          "conversation-row__main";
-
-        info.innerHTML = `
-          <span class="conversation-row__title">
-            ${escapeHTML(
-              conversation.title
-            )}
-          </span>
-          <span class="conversation-row__date">
-            ${escapeHTML(
-              formatDate(
-                conversation.updatedAt
-              )
-            )}
-          </span>
-        `;
-
-        info.addEventListener(
-          "click",
-          () => {
-            selectConversation(
-              conversation.id
-            );
-          }
-        );
-
-        const deleteBtn =
-          document.createElement(
-            "button"
+    html = html.replace(
+      /@@CODE(\d+)@@/g,
+      (_, index) => {
+        const code =
+          escapeHTML(
+            codeBlocks[
+              Number(index)
+            ] || ""
           );
 
-        deleteBtn.type = "button";
-
-        deleteBtn.className =
-          "conversation-row__delete";
-
-        deleteBtn.setAttribute(
-          "aria-label",
-          `Delete ${conversation.title}`
-        );
-
-        deleteBtn.textContent = "×";
-
-        deleteBtn.addEventListener(
-          "click",
-          event => {
-            event.stopPropagation();
-
-            deleteConversation(
-              conversation.id
-            );
-          }
-        );
-
-        row.append(
-          info,
-          deleteBtn
-        );
-
-        conversationList.appendChild(
-          row
-        );
+        return `
+          <pre><code>${code}</code></pre>
+        `;
       }
     );
+
+    return html;
   }
 
-  /* =========================================================
-     RENDER MESSAGES
-     ========================================================= */
+  function messageAvatar(role) {
+    return role === "user"
+      ? "You"
+      : "O";
+  }
 
   function renderMessages() {
     if (!chatMessages) return;
 
     const conversation =
-      getActiveConversation();
+      activeConversation();
 
     chatMessages.innerHTML = "";
 
@@ -1031,7 +936,6 @@
         );
       }
 
-      updateComposerState();
       return;
     }
 
@@ -1040,12 +944,86 @@
     }
 
     conversation.messages.forEach(
-      (message, index) => {
+      message => {
         const element =
-          createMessageElement(
-            message,
-            index
-          );
+          document.createElement("article");
+
+        element.className =
+          `message message--${message.role}`;
+
+        element.dataset.id =
+          message.id;
+
+        element.innerHTML = `
+          <div class="message-avatar">
+            ${messageAvatar(message.role)}
+          </div>
+
+          <div class="message-content">
+            <div class="message-role">
+              ${
+                message.role === "user"
+                  ? "You"
+                  : "Ozlind AI"
+              }
+            </div>
+
+            <div class="message-text">
+              ${
+                message.content
+                  ? markdown(
+                      message.content
+                    )
+                  : ""
+              }
+            </div>
+
+            <div class="message-actions">
+              ${
+                message.role ===
+                "assistant"
+                  ? `
+                    <button
+                      class="message-action"
+                      data-action="copy"
+                      title="Copy"
+                    >⧉</button>
+
+                    <button
+                      class="message-action"
+                      data-action="regenerate"
+                      title="Regenerate"
+                    >↻</button>
+
+                    <button
+                      class="message-action"
+                      data-action="like"
+                      title="Helpful"
+                    >↑</button>
+
+                    <button
+                      class="message-action"
+                      data-action="dislike"
+                      title="Not helpful"
+                    >↓</button>
+                  `
+                  : `
+                    <button
+                      class="message-action"
+                      data-action="edit"
+                      title="Edit"
+                    >✎</button>
+
+                    <button
+                      class="message-action"
+                      data-action="copy"
+                      title="Copy"
+                    >⧉</button>
+                  `
+              }
+            </div>
+          </div>
+        `;
 
         chatMessages.appendChild(
           element
@@ -1053,598 +1031,204 @@
       }
     );
 
-    scrollChatToBottom(false);
-    updateComposerState();
-  }
-
-  function createMessageElement(
-    message,
-    index
-  ) {
-    const wrapper =
-      document.createElement("article");
-
-    wrapper.className =
-      `msg msg--${message.role}`;
-
-    wrapper.dataset.messageId =
-      message.id;
-
-    const avatar =
-      document.createElement("div");
-
-    avatar.className =
-      "msg__avatar";
-
-    avatar.textContent =
-      message.role === "user"
-        ? "You"
-        : "O";
-
-    const body =
-      document.createElement("div");
-
-    body.className =
-      "msg__body";
-
-    const meta =
-      document.createElement("div");
-
-    meta.className =
-      "msg__meta";
-
-    meta.innerHTML = `
-      <span class="msg__role">
-        ${
-          message.role === "user"
-            ? "You"
-            : "OZLIND AI"
-        }
-      </span>
-      <time class="msg__time">
-        ${escapeHTML(
-          formatTime(
-            message.createdAt
-          )
-        )}
-      </time>
-    `;
-
-    const content =
-      document.createElement("div");
-
-    content.className =
-      "msg__content";
-
-    if (message.role === "assistant") {
-      content.innerHTML =
-        renderMarkdownSafe(
-          message.content || ""
-        );
-    } else {
-      content.textContent =
-        message.content;
-    }
-
-    if (
-      Array.isArray(
-        message.attachments
-      ) &&
-      message.attachments.length
-    ) {
-      const attachmentWrap =
-        document.createElement(
-          "div"
-        );
-
-      attachmentWrap.className =
-        "msg__attachments";
-
-      message.attachments.forEach(
-        attachment => {
-          if (
-            !attachment ||
-            !attachment.dataUrl
-          ) {
-            return;
-          }
-
-          const image =
-            document.createElement(
-              "img"
-            );
-
-          image.src =
-            attachment.dataUrl;
-
-          image.alt =
-            attachment.name ||
-            "Attached image";
-
-          image.loading = "lazy";
-
-          image.decoding = "async";
-
-          attachmentWrap.appendChild(
-            image
-          );
-        }
-      );
-
-      if (
-        attachmentWrap.children
-          .length
-      ) {
-        body.appendChild(
-          attachmentWrap
-        );
-      }
-    }
-
-    const actions =
-      document.createElement(
-        "div"
-      );
-
-    actions.className =
-      "msg__actions";
-
-    if (
-      message.role ===
-      "assistant"
-    ) {
-      actions.appendChild(
-        createActionButton(
-          "copy",
-          "Copy",
-          () =>
-            copyText(
-              message.content
-            )
-        )
-      );
-
-      actions.appendChild(
-        createActionButton(
-          "regenerate",
-          "Regenerate",
-          () =>
-            regenerateMessage(
-              index
-            )
-        )
-      );
-
-      actions.appendChild(
-        createActionButton(
-          "like",
-          "Helpful",
-          () =>
-            setFeedback(
-              message,
-              "like"
-            )
-        )
-      );
-
-      actions.appendChild(
-        createActionButton(
-          "dislike",
-          "Not helpful",
-          () =>
-            setFeedback(
-              message,
-              "dislike"
-            )
-        )
-      );
-    }
-
-    actions.appendChild(
-      createActionButton(
-        "edit",
-        "Edit",
-        () =>
-          editMessage(
-            message,
-            index
-          )
-      )
-    );
-
-    actions.appendChild(
-      createActionButton(
-        "delete",
-        "Delete",
-        () =>
-          deleteMessage(
-            message.id
-          )
-      )
-    );
-
-    body.append(
-      meta,
-      content,
-      actions
-    );
-
-    wrapper.append(
-      avatar,
-      body
-    );
-
-    return wrapper;
-  }
-
-  function createActionButton(
-    type,
-    label,
-    handler
-  ) {
-    const button =
-      document.createElement(
-        "button"
-      );
-
-    button.type = "button";
-
-    button.className =
-      `msg-action msg-action--${type}`;
-
-    button.title = label;
-
-    button.setAttribute(
-      "aria-label",
-      label
-    );
-
-    const icons = {
-      copy: "⧉",
-      regenerate: "↻",
-      like: "♡",
-      dislike: "♧",
-      edit: "✎",
-      delete: "⌫"
-    };
-
-    button.textContent =
-      icons[type] || "•";
-
-    button.addEventListener(
-      "click",
-      handler
-    );
-
-    return button;
-  }
-
-  function refreshSingleMessage(
-    messageId
-  ) {
-    const conversation =
-      getActiveConversation();
-
-    if (!conversation) return;
-
-    const index =
-      conversation.messages.findIndex(
-        message =>
-          message.id === messageId
-      );
-
-    if (index === -1) return;
-
-    const oldElement =
-      chatMessages?.querySelector(
-        `[data-message-id="${CSS.escape(
-          messageId
-        )}"]`
-      );
-
-    if (!oldElement) {
-      renderMessages();
-      return;
-    }
-
-    const newElement =
-      createMessageElement(
-        conversation.messages[index],
-        index
-      );
-
-    oldElement.replaceWith(
-      newElement
-    );
+    chatMessages.scrollTop =
+      chatMessages.scrollHeight;
   }
 
   /* =========================================================
-     FEEDBACK
-     ========================================================= */
-
-  function setFeedback(
-    message,
-    feedback
-  ) {
-    if (!message) return;
-
-    message.feedback =
-      message.feedback === feedback
-        ? null
-        : feedback;
-
-    saveConversations();
-
-    refreshSingleMessage(
-      message.id
-    );
-  }
-
-  /* =========================================================
-     MESSAGE EDIT / DELETE
-     ========================================================= */
-
-  function editMessage(
-    message,
-    index
-  ) {
-    if (!chatInput) return;
-
-    if (
-      !message ||
-      message.role !== "user"
-    ) {
-      return;
-    }
-
-    chatInput.value =
-      message.content;
-
-    /*
-     * Restore attachments to the composer
-     * when editing a user message.
-     */
-    pendingAttachments =
-      Array.isArray(
-        message.attachments
-      )
-        ? message.attachments.slice(
-            0,
-            LIMITS.maxAttachments
-          )
-        : [];
-
-    autoGrowTextarea();
-
-    renderPendingAttachments();
-
-    const conversation =
-      getActiveConversation();
-
-    if (!conversation) return;
-
-    conversation.messages =
-      conversation.messages.slice(
-        0,
-        index
-      );
-
-    conversation.updatedAt =
-      now();
-
-    saveConversations();
-    renderConversationList();
-    renderMessages();
-
-    chatInput.focus();
-
-    toast(
-      "Message loaded for editing."
-    );
-  }
-
-  function deleteMessage(
-    messageId
-  ) {
-    const conversation =
-      getActiveConversation();
-
-    if (!conversation) return;
-
-    const index =
-      conversation.messages.findIndex(
-        message =>
-          message.id === messageId
-      );
-
-    if (index === -1) return;
-
-    conversation.messages.splice(
-      index,
-      1
-    );
-
-    conversation.updatedAt =
-      now();
-
-    if (
-      !conversation.messages.length
-    ) {
-      conversation.title =
-        "New chat";
-    }
-
-    saveConversations();
-    renderConversationList();
-    renderMessages();
-  }
-
-  /* =========================================================
-     COPY
+     MESSAGE ACTIONS
      ========================================================= */
 
   async function copyText(text) {
-    const value =
-      String(text || "");
-
     try {
-      if (
-        navigator.clipboard &&
-        typeof navigator.clipboard.writeText ===
-          "function"
-      ) {
-        await navigator.clipboard.writeText(
-          value
-        );
-
-        toast(
-          "Copied to clipboard."
-        );
-
-        return;
-      }
-    } catch {
-      // Fall back below.
-    }
-
-    const textarea =
-      document.createElement(
-        "textarea"
+      await navigator.clipboard.writeText(
+        text
       );
 
-    textarea.value = value;
-
-    textarea.style.position =
-      "fixed";
-
-    textarea.style.left =
-      "-9999px";
-
-    textarea.style.top =
-      "0";
-
-    textarea.style.opacity =
-      "0";
-
-    document.body.appendChild(
-      textarea
-    );
-
-    textarea.focus();
-    textarea.select();
-
-    try {
-      const copied =
-        document.execCommand(
-          "copy"
-        );
-
-      if (!copied) {
-        throw new Error(
-          "Copy command failed."
-        );
-      }
-
       toast(
-        "Copied to clipboard."
+        "Copied to clipboard.",
+        "success"
       );
     } catch {
       toast(
         "Copy failed.",
         "error"
       );
-    } finally {
-      textarea.remove();
     }
   }
 
-  /* =========================================================
-     CODE COPY
-     ========================================================= */
-
-  function handleCodeCopy(
-    event
+  function handleMessageAction(
+    action,
+    messageId
   ) {
-    const button =
-      event.target.closest(
-        ".code-copy"
+    const conversation =
+      activeConversation();
+
+    if (!conversation) return;
+
+    const index =
+      conversation.messages.findIndex(
+        m => m.id === messageId
       );
 
-    if (!button) return;
+    if (index === -1) return;
 
-    const encoded =
-      button.dataset.code || "";
+    const message =
+      conversation.messages[index];
 
-    let code = "";
-
-    try {
-      code =
-        decodeURIComponent(
-          encoded
-        );
-    } catch {
-      code = encoded;
+    if (action === "copy") {
+      copyText(message.content);
+      return;
     }
 
-    copyText(code);
+    if (
+      action === "like" ||
+      action === "dislike"
+    ) {
+      message.feedback = action;
+
+      saveConversations();
+      renderMessages();
+
+      toast(
+        action === "like"
+          ? "Thanks for the feedback."
+          : "Feedback recorded."
+      );
+
+      return;
+    }
+
+    if (action === "edit") {
+      if (message.role !== "user") {
+        return;
+      }
+
+      chatInput.value =
+        message.content;
+
+      conversation.messages.splice(
+        index
+      );
+
+      saveConversations();
+      renderMessages();
+
+      showView("chat");
+      focusInput();
+
+      return;
+    }
+
+    if (action === "regenerate") {
+      regenerateFrom(messageId);
+    }
+  }
+
+  async function regenerateFrom(
+    assistantMessageId
+  ) {
+    const conversation =
+      activeConversation();
+
+    if (!conversation || generating) {
+      return;
+    }
+
+    const assistantIndex =
+      conversation.messages.findIndex(
+        m =>
+          m.id ===
+          assistantMessageId
+      );
+
+    if (assistantIndex === -1) {
+      return;
+    }
+
+    const previousUser =
+      conversation.messages[
+        assistantIndex - 1
+      ];
+
+    if (
+      !previousUser ||
+      previousUser.role !== "user"
+    ) {
+      return;
+    }
+
+    conversation.messages.splice(
+      assistantIndex
+    );
+
+    saveConversations();
+    renderMessages();
+
+    await sendMessage(
+      previousUser.content,
+      previousUser.attachments || [],
+      true
+    );
   }
 
   /* =========================================================
      ATTACHMENTS
      ========================================================= */
 
-  function isSupportedImage(
-    file
-  ) {
-    return (
-      file &&
-      typeof file.type ===
-        "string" &&
-      file.type.startsWith(
-        "image/"
-      )
+  function renderAttachments() {
+    if (!chatAttachments) return;
+
+    chatAttachments.innerHTML = "";
+
+    pendingAttachments.forEach(
+      (attachment, index) => {
+        const item =
+          document.createElement("div");
+
+        item.className =
+          "attachment-item";
+
+        item.innerHTML = `
+          <span title="${escapeHTML(
+            attachment.name
+          )}">
+            ${escapeHTML(
+              attachment.name
+            )}
+          </span>
+
+          <button
+            class="attachment-remove"
+            type="button"
+            data-index="${index}"
+            aria-label="Remove attachment"
+          >×</button>
+        `;
+
+        chatAttachments.appendChild(
+          item
+        );
+      }
     );
   }
 
-  function validateAttachment(
-    file
-  ) {
-    if (!isSupportedImage(file)) {
-      return (
-        "Only image files are supported."
-      );
-    }
-
-    if (
-      file.size >
-      LIMITS.maxAttachmentSize
-    ) {
-      return (
-        "Image must be smaller than 8 MB."
-      );
-    }
-
-    return null;
-  }
-
-  function readImage(file) {
+  function resizeImage(file) {
     return new Promise(
       (resolve, reject) => {
         const reader =
           new FileReader();
 
+        reader.onerror = () =>
+          reject(
+            new Error(
+              "Could not read image."
+            )
+          );
+
         reader.onload = () => {
           const image =
             new Image();
-
-          image.onload = () => {
-            resolve({
-              file,
-              image,
-              dataUrl:
-                reader.result
-            });
-          };
 
           image.onerror = () =>
             reject(
@@ -1653,180 +1237,134 @@
               )
             );
 
+          image.onload = () => {
+            let width =
+              image.naturalWidth;
+
+            let height =
+              image.naturalHeight;
+
+            const max =
+              LIMITS.maxImageDimension;
+
+            if (
+              width <= max &&
+              height <= max
+            ) {
+              resolve({
+                dataUrl:
+                  reader.result,
+                width,
+                height
+              });
+
+              return;
+            }
+
+            const scale =
+              Math.min(
+                max / width,
+                max / height
+              );
+
+            width =
+              Math.round(
+                width * scale
+              );
+
+            height =
+              Math.round(
+                height * scale
+              );
+
+            const canvas =
+              document.createElement(
+                "canvas"
+              );
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx =
+              canvas.getContext(
+                "2d"
+              );
+
+            ctx.drawImage(
+              image,
+              0,
+              0,
+              width,
+              height
+            );
+
+            resolve({
+              dataUrl:
+                canvas.toDataURL(
+                  "image/jpeg",
+                  0.86
+                ),
+              width,
+              height
+            });
+          };
+
           image.src =
             reader.result;
         };
 
-        reader.onerror = () =>
-          reject(
-            new Error(
-              "Unable to read image."
-            )
-          );
-
-        reader.readAsDataURL(
-          file
-        );
+        reader.readAsDataURL(file);
       }
     );
   }
 
-  async function compressImage(
-    file
-  ) {
-    const loaded =
-      await readImage(file);
-
-    let {
-      width,
-      height
-    } = loaded.image;
-
-    const max =
-      LIMITS.maxAttachmentDimension;
-
-    if (
-      width > max ||
-      height > max
-    ) {
-      const scale =
-        Math.min(
-          max / width,
-          max / height
-        );
-
-      width = Math.max(
-        1,
-        Math.round(
-          width * scale
-        )
-      );
-
-      height = Math.max(
-        1,
-        Math.round(
-          height * scale
-        )
-      );
-    }
-
-    const canvas =
-      document.createElement(
-        "canvas"
-      );
-
-    canvas.width = width;
-    canvas.height = height;
-
-    const context =
-      canvas.getContext(
-        "2d",
-        {
-          alpha: false
-        }
-      );
-
-    if (!context) {
-      throw new Error(
-        "Canvas is unavailable."
-      );
-    }
-
-    context.imageSmoothingEnabled =
-      true;
-
-    context.imageSmoothingQuality =
-      "high";
-
-    context.drawImage(
-      loaded.image,
-      0,
-      0,
-      width,
-      height
-    );
-
-    let dataUrl =
-      canvas.toDataURL(
-        "image/jpeg",
-        0.82
-      );
-
-    /*
-     * Extra safety:
-     * if compression still creates a very large
-     * data URL, lower JPEG quality.
-     */
-    if (
-      dataUrl.length >
-      5_000_000
-    ) {
-      dataUrl =
-        canvas.toDataURL(
-          "image/jpeg",
-          0.68
-        );
-    }
-
-    return {
-      name:
-        typeof file.name ===
-        "string"
-          ? file.name
-          : "image.jpg",
-
-      type: "image/jpeg",
-
-      dataUrl,
-
-      width,
-      height
-    };
-  }
-
-  async function handleFiles(
-    files
-  ) {
-    const selected =
+  async function handleFiles(files) {
+    const incoming =
       Array.from(files || []);
 
-    if (!selected.length) {
-      return;
-    }
+    if (!incoming.length) return;
 
     if (
       pendingAttachments.length >=
       LIMITS.maxAttachments
     ) {
       toast(
-        `Maximum ${LIMITS.maxAttachments} images allowed.`,
+        "Maximum 4 images allowed.",
         "error"
       );
 
       return;
     }
 
-    const available =
-      LIMITS.maxAttachments -
-      pendingAttachments.length;
-
-    const filesToProcess =
-      selected.slice(
-        0,
-        available
-      );
-
     for (
-      const file of filesToProcess
+      const file of incoming
     ) {
-      const error =
-        validateAttachment(
-          file
+      if (
+        pendingAttachments.length >=
+        LIMITS.maxAttachments
+      ) {
+        break;
+      }
+
+      if (
+        !file.type.startsWith(
+          "image/"
+        )
+      ) {
+        toast(
+          `${file.name} is not an image.`,
+          "error"
         );
 
-      if (error) {
+        continue;
+      }
+
+      if (
+        file.size >
+        LIMITS.attachmentSize
+      ) {
         toast(
-          error,
+          `${file.name} is larger than 8 MB.`,
           "error"
         );
 
@@ -1835,18 +1373,21 @@
 
       try {
         const image =
-          await compressImage(
-            file
-          );
+          await resizeImage(file);
 
-        pendingAttachments.push(
-          image
-        );
-      } catch (error) {
-        console.error(
-          error
-        );
-
+        pendingAttachments.push({
+          name: file.name,
+          type:
+            file.type ||
+            "image/jpeg",
+          dataUrl:
+            image.dataUrl,
+          width:
+            image.width,
+          height:
+            image.height
+        });
+      } catch {
         toast(
           `Could not process ${file.name}.`,
           "error"
@@ -1854,128 +1395,25 @@
       }
     }
 
-    renderPendingAttachments();
-
-    if (fileInput) {
-      fileInput.value = "";
-    }
-
-    updateComposerState();
-  }
-
-  function renderPendingAttachments() {
-    if (!chatAttachments) {
-      return;
-    }
-
-    chatAttachments.innerHTML =
-      "";
-
-    pendingAttachments.forEach(
-      (attachment, index) => {
-        const chip =
-          document.createElement(
-            "div"
-          );
-
-        chip.className =
-          "attachment-chip";
-
-        const image =
-          document.createElement(
-            "img"
-          );
-
-        image.src =
-          attachment.dataUrl;
-
-        image.alt = "";
-
-        image.loading =
-          "lazy";
-
-        const name =
-          document.createElement(
-            "span"
-          );
-
-        name.textContent =
-          attachment.name ||
-          "Attached image";
-
-        const remove =
-          document.createElement(
-            "button"
-          );
-
-        remove.type =
-          "button";
-
-        remove.className =
-          "attachment-chip__remove";
-
-        remove.dataset.index =
-          String(index);
-
-        remove.setAttribute(
-          "aria-label",
-          "Remove attachment"
-        );
-
-        remove.textContent =
-          "×";
-
-        chip.append(
-          image,
-          name,
-          remove
-        );
-
-        chatAttachments.appendChild(
-          chip
-        );
-      }
-    );
-
-    chatAttachments.hidden =
-      pendingAttachments.length ===
-      0;
-  }
-
-  function removeAttachment(
-    index
-  ) {
-    if (
-      !Number.isInteger(index) ||
-      index < 0 ||
-      index >=
-        pendingAttachments.length
-    ) {
-      return;
-    }
-
-    pendingAttachments.splice(
-      index,
-      1
-    );
-
-    renderPendingAttachments();
-    updateComposerState();
+    renderAttachments();
   }
 
   /* =========================================================
      VOICE INPUT
      ========================================================= */
 
-  function setupVoiceInput() {
-    if (!voiceBtn) return;
-
+  function setupVoice() {
     const SpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      voiceBtn.hidden = true;
+      if (voiceBtn) {
+        voiceBtn.disabled = true;
+        voiceBtn.title =
+          "Voice input is not supported by this browser";
+      }
+
       return;
     }
 
@@ -1983,94 +1421,63 @@
       new SpeechRecognition();
 
     recognition.continuous = false;
-    recognition.interimResults =
-      true;
-
-    recognition.lang =
-      document.documentElement
-        .lang ||
-      "en-US";
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
 
     recognition.onstart = () => {
-      isListening = true;
+      listening = true;
 
-      voiceBtn.classList.add(
+      voiceBtn?.classList.add(
         "is-active"
       );
 
-      voiceBtn.setAttribute(
-        "aria-label",
-        "Stop voice input"
-      );
-
-      voiceBtn.setAttribute(
-        "aria-pressed",
-        "true"
-      );
+      toast("Listening…");
     };
 
     recognition.onresult = event => {
-      let finalText = "";
+      let text = "";
 
       for (
         let i =
           event.resultIndex;
-        i <
-        event.results.length;
+        i < event.results.length;
         i++
       ) {
-        finalText +=
-          event.results[i][0]
-            .transcript;
+        text +=
+          event.results[i][0].transcript;
       }
 
       if (chatInput) {
         chatInput.value =
-          finalText.trim();
+          text.trim();
 
-        autoGrowTextarea();
-        updateComposerState();
+        autoResizeInput();
       }
     };
 
-    recognition.onerror =
-      event => {
-        console.error(
-          "Speech recognition error:",
-          event.error
-        );
+    recognition.onerror = () => {
+      listening = false;
 
-        if (
-          event.error !==
-          "aborted"
-        ) {
-          toast(
-            "Voice input failed.",
-            "error"
-          );
-        }
-      };
-
-    recognition.onend = () => {
-      isListening = false;
-
-      voiceBtn.classList.remove(
+      voiceBtn?.classList.remove(
         "is-active"
       );
 
-      voiceBtn.setAttribute(
-        "aria-label",
-        "Voice input"
+      toast(
+        "Voice input failed.",
+        "error"
       );
+    };
 
-      voiceBtn.setAttribute(
-        "aria-pressed",
-        "false"
+    recognition.onend = () => {
+      listening = false;
+
+      voiceBtn?.classList.remove(
+        "is-active"
       );
     };
   }
 
-  function toggleVoiceInput() {
+  function toggleVoice() {
     if (!recognition) {
       toast(
         "Voice input is not supported here.",
@@ -2080,160 +1487,44 @@
       return;
     }
 
-    try {
-      if (isListening) {
-        recognition.stop();
-      } else {
-        recognition.start();
-      }
-    } catch (error) {
-      console.error(
-        "Voice input toggle failed:",
-        error
-      );
+    if (listening) {
+      recognition.stop();
+    } else {
+      recognition.start();
     }
   }
 
   /* =========================================================
-     TEXTAREA
-     ========================================================= */
-
-  function autoGrowTextarea() {
-    if (!chatInput) return;
-
-    chatInput.style.height =
-      "auto";
-
-    const maxHeight = 220;
-
-    chatInput.style.height =
-      `${Math.min(
-        chatInput.scrollHeight,
-        maxHeight
-      )}px`;
-  }
-
-  /* =========================================================
-     COMPOSER STATE
-     ========================================================= */
-
-  function updateComposerState() {
-    if (!sendBtn) return;
-
-    const hasText =
-      Boolean(
-        chatInput?.value.trim()
-      );
-
-    const hasAttachments =
-      pendingAttachments.length >
-      0;
-
-    sendBtn.disabled =
-      isGenerating ||
-      (!hasText &&
-        !hasAttachments);
-
-    if (stopBtn) {
-      stopBtn.hidden =
-        !isGenerating;
-    }
-
-    if (chatInput) {
-      chatInput.disabled =
-        isGenerating;
-    }
-
-    if (attachBtn) {
-      attachBtn.disabled =
-        isGenerating;
-    }
-
-    if (voiceBtn) {
-      voiceBtn.disabled =
-        isGenerating;
-    }
-  }
-
-  /* =========================================================
-     SCROLL
-     ========================================================= */
-
-  function scrollChatToBottom(
-    smooth = true
-  ) {
-    if (!chatMessages) return;
-
-    try {
-      chatMessages.scrollTo({
-        top:
-          chatMessages.scrollHeight,
-        behavior:
-          smooth
-            ? "smooth"
-            : "auto"
-      });
-    } catch {
-      chatMessages.scrollTop =
-        chatMessages.scrollHeight;
-    }
-  }
-
-  /* =========================================================
-     REQUEST PAYLOAD
+     API REQUEST
      ========================================================= */
 
   function buildApiMessages(
     conversation
   ) {
-    if (!conversation) {
-      return [];
-    }
-
     return conversation.messages
       .slice(-20)
       .map(message => {
         if (
-          message.role === "user" &&
           message.attachments?.length
         ) {
-          const content = [
-            {
-              type: "text",
-              text:
-                message.content ||
-                "Please analyze the attached image."
-            }
-          ];
+          return {
+            role: message.role,
+            content: [
+              {
+                type: "text",
+                text: message.content
+              },
 
-          message.attachments
-            .slice(
-              0,
-              LIMITS.maxAttachments
-            )
-            .forEach(
-              attachment => {
-                if (
-                  !attachment?.dataUrl
-                ) {
-                  return;
-                }
-
-                content.push({
-                  type:
-                    "image_url",
-
+              ...message.attachments.map(
+                attachment => ({
+                  type: "image_url",
                   image_url: {
                     url:
                       attachment.dataUrl
                   }
-                });
-              }
-            );
-
-          return {
-            role: "user",
-            content
+                })
+              )
+            ]
           };
         }
 
@@ -2245,440 +1536,231 @@
       });
   }
 
-  function calculatePayloadSize(
-    messages
+  function buildRequest(
+    conversation,
+    mode,
+    research
   ) {
-    try {
-      return JSON.stringify(
-        messages
-      ).length;
-    } catch {
-      return Infinity;
-    }
+    return {
+      messages:
+        buildApiMessages(
+          conversation
+        ),
+
+      model:
+        mode || "auto",
+
+      mode:
+        mode || "auto",
+
+      research: Boolean(research),
+
+      memory:
+        getStorage(
+          STORAGE.memory,
+          "true"
+        ) !== "false",
+
+      customInstructions:
+        getStorage(
+          STORAGE.instructions,
+          ""
+        ).slice(
+          0,
+          LIMITS.maxInstructions
+        ),
+
+      responseLength:
+        responseLength?.value ||
+        "balanced",
+
+      responseStyle:
+        responseStyle?.value ||
+        "professional"
+    };
   }
 
   /* =========================================================
      STREAM PARSER
      ========================================================= */
 
-  async function consumeStreamingResponse(
+  async function readResponse(
     response,
-    assistantMessage,
-    assistantElement
+    onToken
   ) {
     if (!response.body) {
-      await consumeJSONResponse(
-        response,
-        assistantMessage,
-        assistantElement
-      );
+      const data =
+        await response.json();
 
-      return;
+      return (
+        data?.message ||
+        data?.content ||
+        data?.choices?.[0]?.message
+          ?.content ||
+        ""
+      );
     }
 
     const reader =
       response.body.getReader();
 
     const decoder =
-      new TextDecoder(
-        "utf-8"
-      );
+      new TextDecoder();
 
     let buffer = "";
+    let fullText = "";
 
-    try {
-      while (true) {
-        const {
-          done,
-          value
-        } = await reader.read();
+    while (true) {
+      const {
+        value,
+        done
+      } = await reader.read();
 
-        if (done) {
-          break;
-        }
+      if (done) break;
 
-        buffer += decoder.decode(
-          value,
-          {
-            stream: true
-          }
-        );
+      buffer += decoder.decode(
+        value,
+        { stream: true }
+      );
 
-        /*
-         * SSE messages are separated by a blank line.
-         * Processing complete events is more reliable than
-         * processing individual network chunks.
-         */
-        const events =
-          buffer.split(
-            /\r?\n\r?\n/
-          );
+      const lines =
+        buffer.split("\n");
 
-        buffer =
-          events.pop() || "";
+      buffer =
+        lines.pop() || "";
 
-        for (
-          const event of events
-        ) {
-          processSSEEvent(
-            event,
-            assistantMessage,
-            assistantElement
-          );
-        }
-      }
-
-      /*
-       * Flush remaining decoder bytes.
-       */
-      buffer += decoder.decode();
-
-      if (buffer.trim()) {
-        processSSEEvent(
-          buffer,
-          assistantMessage,
-          assistantElement
-        );
-      }
-    } finally {
-      try {
-        reader.releaseLock();
-      } catch {
-        // Ignore.
-      }
-    }
-  }
-
-  function processSSEEvent(
-    event,
-    assistantMessage,
-    assistantElement
-  ) {
-    const lines =
-      String(event || "")
-        .split(/\r?\n/);
-
-    const dataLines = [];
-
-    for (
-      const line of lines
-    ) {
-      if (
-        line.startsWith(
-          "data:"
-        )
+      for (
+        const line of lines
       ) {
-        dataLines.push(
-          line
-            .slice(5)
-            .trimStart()
-        );
+        const clean =
+          line.trim();
+
+        if (!clean) continue;
+
+        if (
+          !clean.startsWith(
+            "data:"
+          )
+        ) {
+          continue;
+        }
+
+        const payload =
+          clean.slice(5).trim();
+
+        if (
+          payload ===
+          "[DONE]"
+        ) {
+          continue;
+        }
+
+        try {
+          const data =
+            JSON.parse(payload);
+
+          const token =
+            data?.choices?.[0]
+              ?.delta?.content ??
+            data?.choices?.[0]
+              ?.message?.content ??
+            data?.token ??
+            data?.content ??
+            "";
+
+          if (token) {
+            fullText += token;
+            onToken(token);
+          }
+        } catch {
+          /*
+           * Some backends may send
+           * non-JSON SSE lines.
+           */
+        }
       }
     }
 
-    if (!dataLines.length) {
-      return;
-    }
-
-    const payload =
-      dataLines.join("\n").trim();
-
-    if (
-      !payload ||
-      payload === "[DONE]"
-    ) {
-      return;
-    }
-
-    let parsed;
-
-    try {
-      parsed =
-        JSON.parse(payload);
-    } catch {
-      /*
-       * Some providers may send a raw text payload.
-       * Do not inject arbitrary malformed SSE JSON.
-       */
-      return;
-    }
-
-    const delta =
-      parsed?.choices?.[0]?.delta
-        ?.content ??
-      parsed?.choices?.[0]?.message
-        ?.content ??
-      parsed?.delta ??
-      parsed?.content ??
-      "";
-
-    if (!delta) {
-      return;
-    }
-
-    assistantMessage.content +=
-      String(delta);
-
-    updateAssistantElement(
-      assistantMessage,
-      assistantElement
-    );
-
-    scrollChatToBottom(true);
-  }
-
-  async function consumeJSONResponse(
-    response,
-    assistantMessage,
-    assistantElement
-  ) {
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error ||
-          data?.message ||
-          `Request failed (${response.status})`
-      );
-    }
-
-    const content =
-      data?.message ||
-      data?.content ||
-      data?.response ||
-      data?.choices?.[0]?.message
-        ?.content ||
-      "";
-
-    assistantMessage.content =
-      typeof content === "string"
-        ? content
-        : JSON.stringify(
-            content
-          );
-
-    updateAssistantElement(
-      assistantMessage,
-      assistantElement
-    );
-  }
-
-  /* =========================================================
-     ASSISTANT ELEMENT
-     ========================================================= */
-
-  function createAssistantPlaceholder(
-    message
-  ) {
-    const element =
-      document.createElement(
-        "article"
-      );
-
-    element.className =
-      "msg msg--assistant";
-
-    element.dataset.messageId =
-      message.id;
-
-    element.innerHTML = `
-      <div class="msg__avatar">O</div>
-
-      <div class="msg__body">
-        <div class="msg__meta">
-          <span class="msg__role">
-            OZLIND AI
-          </span>
-
-          <time class="msg__time">
-            Now
-          </time>
-        </div>
-
-        <div class="msg__content msg__content--streaming">
-          <span class="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
-          </span>
-        </div>
-
-        <div class="msg__actions"></div>
-      </div>
-    `;
-
-    if (chatMessages) {
-      chatMessages.appendChild(
-        element
-      );
-    }
-
-    return element;
-  }
-
-  function updateAssistantElement(
-    message,
-    element
-  ) {
-    if (!element) return;
-
-    const content =
-      $(".msg__content", element);
-
-    if (!content) return;
-
-    if (!message.content) {
-      content.classList.add(
-        "msg__content--streaming"
-      );
-
-      content.innerHTML = `
-        <span class="typing-indicator">
-          <span></span>
-          <span></span>
-          <span></span>
-        </span>
-      `;
-
-      return;
-    }
-
-    content.classList.remove(
-      "msg__content--streaming"
-    );
-
-    content.innerHTML =
-      renderMarkdownSafe(
-        message.content
-      );
+    return fullText;
   }
 
   /* =========================================================
      SEND MESSAGE
      ========================================================= */
 
-  async function sendMessage() {
-    if (isGenerating) {
-      return;
-    }
+  async function sendMessage(
+    text,
+    attachments = [],
+    regenerate = false
+  ) {
+    if (generating) return;
 
-    const text =
-      chatInput?.value.trim() ||
-      "";
-
-    const attachments =
-      pendingAttachments.slice();
+    const clean =
+      String(text || "").trim();
 
     if (
-      !text &&
+      !clean &&
       !attachments.length
     ) {
       return;
     }
 
-    const conversation =
-      ensureConversation();
-
-    /*
-     * Validate the current history before adding
-     * the new message.
-     */
-    const currentPayload =
-      buildApiMessages(
-        conversation
-      );
-
     if (
-      calculatePayloadSize(
-        currentPayload
-      ) >
-      LIMITS.maxTotalChars
+      clean.length >
+      LIMITS.messageChars
     ) {
       toast(
-        "This conversation is too large. Start a new chat.",
+        "Message is too long.",
         "error"
       );
 
       return;
     }
 
-    const userMessage = {
-      id: createId("msg"),
+    const conversation =
+      ensureConversation();
 
-      role: "user",
+    if (!regenerate) {
+      conversation.messages.push({
+        id: id("msg"),
+        role: "user",
+        content: clean,
+        createdAt: now(),
+        attachments
+      });
 
-      content: text.slice(
-        0,
-        LIMITS.maxMessageChars
-      ),
-
-      createdAt: now(),
-
-      attachments:
-        attachments.slice(
-          0,
-          LIMITS.maxAttachments
-        ),
-
-      feedback: null
-    };
-
-    conversation.messages.push(
-      userMessage
-    );
-
-    if (
-      conversation.title ===
-      "New chat"
-    ) {
-      conversation.title =
-        generateConversationTitle(
-          text ||
-            attachments[0]
-              ?.name ||
-            "Image chat"
-        );
+      if (
+        conversation.messages.length ===
+        1
+      ) {
+        conversation.title =
+          conversationTitle(clean);
+      }
     }
 
-    conversation.updatedAt =
-      now();
-
-    chatInput.value = "";
-
-    pendingAttachments = [];
-
-    autoGrowTextarea();
-
-    renderPendingAttachments();
-
-    saveConversations();
-
-    renderConversationList();
-
-    renderMessages();
-
-    await requestAssistantReply(
+    updateConversation(
       conversation
     );
-  }
 
-  /* =========================================================
-     REQUEST AI
-     ========================================================= */
+    saveConversations();
+    renderMessages();
 
-  async function requestAssistantReply(
-    conversation
-  ) {
-    if (
-      isGenerating ||
-      !conversation
-    ) {
-      return;
+    pendingAttachments = [];
+    renderAttachments();
+
+    if (chatInput) {
+      chatInput.value = "";
+      autoResizeInput();
     }
 
-    const assistantMessage = {
-      id: createId("msg"),
+    generating = true;
+    controller =
+      new AbortController();
+
+    setGeneratingUI(true);
+
+    const assistant = {
+      id: id("msg"),
       role: "assistant",
       content: "",
       createdAt: now(),
@@ -2687,60 +1769,36 @@
     };
 
     conversation.messages.push(
-      assistantMessage
+      assistant
     );
 
-    isGenerating = true;
-
-    abortController =
-      new AbortController();
-
-    saveConversations();
+    renderMessages();
 
     const assistantElement =
-      createAssistantPlaceholder(
-        assistantMessage
-      );
-
-    updateComposerState();
-
-    scrollChatToBottom(true);
-
-    const apiMessages =
-      buildApiMessages(
-        conversation
-      );
-
-    const payloadSize =
-      calculatePayloadSize(
-        apiMessages
-      );
-
-    if (
-      payloadSize >
-      LIMITS.maxTotalChars
-    ) {
-      conversation.messages.pop();
-
-      isGenerating = false;
-
-      abortController = null;
-
-      saveConversations();
-
-      renderMessages();
-
-      toast(
-        "Message data is too large. Please start a new chat or use a smaller image.",
-        "error"
-      );
-
-      return;
-    }
+      () =>
+        $(
+          `.message[data-id="${assistant.id}"] .message-text`
+        );
 
     try {
-      const controller =
-        abortController;
+      const mode =
+        modelSelect?.value ||
+        "auto";
+
+      const research =
+        Boolean(
+          researchToggle?.getAttribute(
+            "aria-pressed"
+          ) === "true" ||
+            mode === "research"
+        );
+
+      const payload =
+        buildRequest(
+          conversation,
+          mode,
+          research
+        );
 
       const response =
         await fetch(
@@ -2751,464 +1809,251 @@
             headers: {
               "Content-Type":
                 "application/json",
-
               Accept:
-                "text/event-stream, application/json"
+                "text/event-stream"
             },
 
+            body:
+              JSON.stringify(
+                payload
+              ),
+
             signal:
-              controller.signal,
-
-            body: JSON.stringify({
-              messages:
-                apiMessages,
-
-              model:
-                modelSelect?.value ||
-                undefined,
-
-              research:
-                Boolean(
-                  researchToggle?.getAttribute(
-                    "aria-pressed"
-                  ) === "true"
-                ),
-
-              responseLength:
-                chatSettings.responseLength,
-
-              responseStyle:
-                chatSettings.responseStyle,
-
-              customInstructions:
-                getCustomInstructions(),
-
-              memory:
-                getMemoryEnabled()
-            })
+              controller.signal
           }
         );
 
       if (!response.ok) {
-        let errorMessage =
-          `Request failed (${response.status})`;
+        let message =
+          `Request failed (${response.status}).`;
 
         try {
-          const errorData =
+          const error =
             await response.json();
 
-          errorMessage =
-            errorData?.error ||
-            errorData?.message ||
-            errorMessage;
-        } catch {
-          // Ignore invalid JSON.
+          message =
+            error?.error ||
+            error?.message ||
+            message;
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      let liveText = "";
+
+      await readResponse(
+        response,
+        token => {
+          liveText += token;
+
+          assistant.content =
+            liveText;
+
+          const target =
+            assistantElement();
+
+          if (target) {
+            target.innerHTML =
+              markdown(
+                liveText
+              );
+
+            chatMessages.scrollTop =
+              chatMessages.scrollHeight;
+          }
         }
-
-        throw new Error(
-          errorMessage
-        );
-      }
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        ) || "";
-
-      /*
-       * The backend normally streams SSE.
-       * If a response body exists, consume it as a stream.
-       * Otherwise use JSON.
-       */
-      if (
-        contentType.includes(
-          "text/event-stream"
-        ) ||
-        response.body
-      ) {
-        await consumeStreamingResponse(
-          response,
-          assistantMessage,
-          assistantElement
-        );
-      } else {
-        await consumeJSONResponse(
-          response,
-          assistantMessage,
-          assistantElement
-        );
-      }
-
-      if (
-        !assistantMessage.content.trim()
-      ) {
-        throw new Error(
-          "The AI returned an empty response."
-        );
-      }
-
-      conversation.updatedAt =
-        now();
-
-      saveConversations();
-
-      renderConversationList();
-
-      refreshSingleMessage(
-        assistantMessage.id
       );
 
-      scrollChatToBottom(true);
+      if (!assistant.content.trim()) {
+        assistant.content =
+          "I couldn't generate a response.";
+      }
+
+      updateConversation(
+        conversation
+      );
+
+      saveConversations();
+      renderMessages();
+
     } catch (error) {
-      /*
-       * Abort is an intentional user action.
-       */
       if (
         error?.name ===
         "AbortError"
       ) {
-        if (
-          !assistantMessage.content.trim()
-        ) {
-          conversation.messages =
-            conversation.messages.filter(
-              message =>
-                message.id !==
-                assistantMessage.id
-            );
-        } else {
-          /*
-           * Preserve partial output if the
-           * user stopped after tokens arrived.
-           */
-          assistantMessage.content =
-            assistantMessage.content.trim();
-        }
-
-        conversation.updatedAt =
-          now();
+        conversation.messages =
+          conversation.messages.filter(
+            m =>
+              m.id !==
+              assistant.id
+          );
 
         saveConversations();
-
         renderMessages();
+
+        toast(
+          "Generation stopped."
+        );
 
         return;
       }
 
       console.error(
-        "OZLIND chat error:",
+        "OZLIND AI:",
         error
       );
 
-      /*
-       * Preserve any partial response.
-       * If nothing was received, show a useful
-       * fallback message.
-       */
-      if (
-        assistantMessage.content.trim()
-      ) {
-        assistantMessage.content +=
-          "\n\n_[Response interrupted. Please try again if needed.]_";
-      } else {
-        assistantMessage.content =
-          "Sorry, I couldn't complete that request. Please try again.";
-      }
-
-      conversation.updatedAt =
-        now();
+      conversation.messages =
+        conversation.messages.filter(
+          m =>
+            m.id !== assistant.id
+        );
 
       saveConversations();
-
-      updateAssistantElement(
-        assistantMessage,
-        assistantElement
-      );
+      renderMessages();
 
       toast(
         error?.message ||
-          "Unable to connect to OZLIND AI.",
+          "Something went wrong.",
         "error"
       );
+
     } finally {
-      isGenerating = false;
+      generating = false;
+      controller = null;
 
-      abortController = null;
-
-      updateComposerState();
-
-      saveConversations();
+      setGeneratingUI(false);
     }
   }
 
-  /* =========================================================
-     STOP GENERATION
-     ========================================================= */
-
-  function stopGeneration() {
-    if (!abortController) {
-      return;
-    }
-
-    /*
-     * Do not manually set isGenerating to false here.
-     * The request's finally block owns the lifecycle.
-     */
-    abortController.abort();
-  }
-
-  /* =========================================================
-     REGENERATE
-     ========================================================= */
-
-  async function regenerateMessage(
-    index
+  function updateConversation(
+    conversation
   ) {
-    if (isGenerating) {
-      toast(
-        "Please wait for the current response."
-      );
-
-      return;
-    }
-
-    const conversation =
-      getActiveConversation();
-
-    if (!conversation) return;
-
-    const message =
-      conversation.messages[index];
-
-    if (
-      !message ||
-      message.role !==
-        "assistant"
-    ) {
-      return;
-    }
-
-    /*
-     * Remove the selected assistant response
-     * and everything after it.
-     *
-     * This preserves the user message immediately
-     * before the response.
-     */
-    conversation.messages =
-      conversation.messages.slice(
-        0,
-        index
-      );
-
     conversation.updatedAt =
       now();
 
-    saveConversations();
-
-    renderMessages();
-
-    await requestAssistantReply(
-      conversation
+    conversations.sort(
+      (a, b) =>
+        new Date(b.updatedAt) -
+        new Date(a.updatedAt)
     );
   }
 
   /* =========================================================
-     HISTORY PANEL
+     GENERATION UI
      ========================================================= */
 
-  function openHistory() {
-    if (!chatHistoryPanel) {
-      return;
+  function setGeneratingUI(active) {
+    if (sendBtn) {
+      sendBtn.hidden = active;
     }
 
-    chatHistoryPanel.hidden = false;
+    if (stopBtn) {
+      stopBtn.hidden = !active;
+    }
 
-    renderConversationList(
-      conversationSearch?.value ||
-        ""
-    );
+    if (chatInput) {
+      chatInput.disabled =
+        active;
+    }
 
-    requestAnimationFrame(() => {
-      chatHistoryPanel.classList.add(
-        "is-open"
-      );
-    });
+    if (attachBtn) {
+      attachBtn.disabled =
+        active;
+    }
+
+    if (voiceBtn) {
+      voiceBtn.disabled =
+        active;
+    }
+
+    const state =
+      $("#composerState");
+
+    if (state) {
+      state.textContent =
+        active
+          ? "Ozlind is thinking…"
+          : "";
+    }
   }
 
-  function closeHistory() {
-    if (!chatHistoryPanel) {
-      return;
+  function stopGeneration() {
+    if (controller) {
+      controller.abort();
     }
+  }
 
-    chatHistoryPanel.classList.remove(
-      "is-open"
+  /* =========================================================
+     INPUT
+     ========================================================= */
+
+  function autoResizeInput() {
+    if (!chatInput) return;
+
+    chatInput.style.height =
+      "auto";
+
+    chatInput.style.height =
+      Math.min(
+        chatInput.scrollHeight,
+        190
+      ) + "px";
+  }
+
+  function focusInput() {
+    setTimeout(() => {
+      chatInput?.focus();
+    }, 50);
+  }
+
+  function submitChat() {
+    if (generating) return;
+
+    const text =
+      chatInput?.value || "";
+
+    sendMessage(
+      text,
+      [...pendingAttachments]
+    );
+  }
+
+  /* =========================================================
+     RESEARCH TOGGLE
+     ========================================================= */
+
+  function toggleResearch() {
+    if (!researchToggle) return;
+
+    const active =
+      researchToggle.getAttribute(
+        "aria-pressed"
+      ) === "true";
+
+    researchToggle.setAttribute(
+      "aria-pressed",
+      String(!active)
     );
 
-    window.setTimeout(() => {
-      if (
-        !chatHistoryPanel.classList.contains(
-          "is-open"
-        )
+    researchToggle.classList.toggle(
+      "is-active",
+      !active
+    );
+
+    if (modelSelect) {
+      if (!active) {
+        modelSelect.value =
+          "research";
+      } else if (
+        modelSelect.value ===
+        "research"
       ) {
-        chatHistoryPanel.hidden =
-          true;
+        modelSelect.value =
+          "auto";
       }
-    }, 200);
-  }
-
-  /* =========================================================
-     CHAT SETTINGS MODAL
-     ========================================================= */
-
-  function openChatSettings() {
-    openModal(
-      "Chat settings",
-      `
-        <div class="settings-form">
-          <label class="field">
-            <span>Response length</span>
-
-            <select id="modalResponseLength">
-              <option value="short">
-                Short
-              </option>
-
-              <option value="balanced">
-                Balanced
-              </option>
-
-              <option value="detailed">
-                Detailed
-              </option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Response style</span>
-
-            <select id="modalResponseStyle">
-              <option value="professional">
-                Professional
-              </option>
-
-              <option value="friendly">
-                Friendly
-              </option>
-
-              <option value="concise">
-                Concise
-              </option>
-
-              <option value="technical">
-                Technical
-              </option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Custom instructions</span>
-
-            <textarea
-              id="modalCustomInstructions"
-              rows="5"
-              maxlength="5000"
-              placeholder="Tell OZLIND how you want responses written..."
-            ></textarea>
-          </label>
-
-          <div class="modal-actions">
-            <button
-              type="button"
-              class="btn btn--primary"
-              id="saveChatSettings"
-            >
-              Save settings
-            </button>
-          </div>
-        </div>
-      `
-    );
-
-    const lengthSelect =
-      $("#modalResponseLength");
-
-    const styleSelect =
-      $("#modalResponseStyle");
-
-    const instructions =
-      $("#modalCustomInstructions");
-
-    if (lengthSelect) {
-      lengthSelect.value =
-        chatSettings.responseLength;
     }
-
-    if (styleSelect) {
-      styleSelect.value =
-        chatSettings.responseStyle;
-    }
-
-    if (instructions) {
-      instructions.value =
-        getCustomInstructions();
-    }
-
-    const saveBtn =
-      $("#saveChatSettings");
-
-    saveBtn?.addEventListener(
-      "click",
-      () => {
-        const length =
-          lengthSelect?.value ||
-          "balanced";
-
-        const style =
-          styleSelect?.value ||
-          "professional";
-
-        chatSettings.responseLength =
-          [
-            "short",
-            "balanced",
-            "detailed"
-          ].includes(length)
-            ? length
-            : "balanced";
-
-        chatSettings.responseStyle =
-          [
-            "professional",
-            "friendly",
-            "concise",
-            "technical"
-          ].includes(style)
-            ? style
-            : "professional";
-
-        saveSettings();
-
-        storageSet(
-          STORAGE.customInstructions,
-          (
-            instructions?.value ||
-            ""
-          )
-            .trim()
-            .slice(
-              0,
-              LIMITS.maxCustomInstructions
-            )
-        );
-
-        closeModal();
-
-        toast(
-          "Chat settings saved."
-        );
-      }
-    );
   }
 
   /* =========================================================
@@ -3217,73 +2062,42 @@
 
   function openModal(
     title,
-    html
+    content
   ) {
     if (
       !modalOverlay ||
+      !modalTitle ||
       !modalBody
     ) {
       return;
     }
 
-    if (modalTitle) {
-      modalTitle.textContent =
-        title;
-    }
+    modalTitle.textContent =
+      title;
 
-    modalBody.innerHTML = html;
+    modalBody.innerHTML =
+      content;
 
-    modalOverlay.hidden = false;
-
-    requestAnimationFrame(() => {
-      modalOverlay.classList.add(
-        "is-open"
-      );
-    });
-
-    document.body.classList.add(
-      "modal-open"
-    );
-
-    /*
-     * Focus the first interactive field
-     * for accessibility.
-     */
-    requestAnimationFrame(() => {
-      const firstFocusable =
-        modal?.querySelector(
-          "button, input, select, textarea"
-        );
-
-      firstFocusable?.focus();
-    });
-  }
-
-  function closeModal() {
-    if (!modalOverlay) {
-      return;
-    }
-
-    modalOverlay.classList.remove(
+    modalOverlay.classList.add(
       "is-open"
     );
 
-    window.setTimeout(() => {
-      modalOverlay.hidden =
-        true;
-    }, 180);
+    modal?.focus();
+  }
 
-    document.body.classList.remove(
-      "modal-open"
+  function closeModal() {
+    modalOverlay?.classList.remove(
+      "is-open"
     );
   }
 
   /* =========================================================
-     EXPORT / IMPORT
+     IMPORT / EXPORT
      ========================================================= */
 
   function exportHistory() {
-    const data = {
+    const payload = {
+      app: "Ozlind",
       version: 1,
       exportedAt: now(),
       conversations
@@ -3293,7 +2107,7 @@
       new Blob(
         [
           JSON.stringify(
-            data,
+            payload,
             null,
             2
           )
@@ -3309,95 +2123,38 @@
         blob
       );
 
-    const link =
+    const anchor =
       document.createElement(
         "a"
       );
 
-    link.href = url;
-
-    link.download =
-      `ozlind-chat-history-${new Date()
-        .toISOString()
-        .slice(0, 10)}.json`;
+    anchor.href = url;
+    anchor.download =
+      `ozlind-history-${Date.now()}.json`;
 
     document.body.appendChild(
-      link
+      anchor
     );
 
-    link.click();
+    anchor.click();
+    anchor.remove();
 
-    link.remove();
-
-    window.setTimeout(() => {
-      URL.revokeObjectURL(
-        url
-      );
-    }, 1000);
+    URL.revokeObjectURL(url);
 
     toast(
-      "Chat history exported."
+      "Chat history exported.",
+      "success"
     );
   }
 
-  function validateImportedHistory(
-    parsed
-  ) {
-    if (
-      !parsed ||
-      typeof parsed !==
-        "object"
-    ) {
-      return null;
-    }
-
-    if (
-      !Array.isArray(
-        parsed.conversations
-      )
-    ) {
-      return null;
-    }
-
-    const normalized =
-      parsed.conversations
-        .map(
-          normalizeConversation
-        )
-        .filter(Boolean)
-        .slice(
-          0,
-          LIMITS.maxConversations
-        );
-
-    if (!normalized.length) {
-      return null;
-    }
-
-    return normalized;
-  }
-
-  function importHistory(
+  async function importHistory(
     file
   ) {
     if (!file) return;
 
     if (
-      file.type &&
-      file.type !==
-        "application/json"
-    ) {
-      toast(
-        "Please select a JSON history file.",
-        "error"
-      );
-
-      return;
-    }
-
-    if (
       file.size >
-      LIMITS.maxHistoryFileSize
+      10 * 1024 * 1024
     ) {
       toast(
         "History file is too large.",
@@ -3407,121 +2164,118 @@
       return;
     }
 
-    const reader =
-      new FileReader();
+    try {
+      const text =
+        await file.text();
 
-    reader.onload = () => {
-      const parsed =
-        safeJSONParse(
-          String(
-            reader.result || ""
-          ),
-          null
-        );
+      const data =
+        JSON.parse(text);
 
       const imported =
-        validateImportedHistory(
-          parsed
-        );
+        Array.isArray(
+          data
+            ? data.conversations
+            : data
+        )
+          ? (
+              data.conversations ||
+              data
+            )
+          : [];
 
-      if (!imported) {
-        toast(
-          "Invalid OZLIND history file.",
-          "error"
-        );
+      const normalized =
+        imported
+          .map(
+            normalizeConversation
+          )
+          .filter(Boolean);
 
-        return;
+      if (!normalized.length) {
+        throw new Error(
+          "No valid conversations found."
+        );
       }
 
-      const confirmed =
-        window.confirm(
-          "Import this history?\n\nExisting local history will be replaced."
+      const existing =
+        new Map(
+          conversations.map(
+            c => [c.id, c]
+          )
         );
 
-      if (!confirmed) {
-        return;
-      }
+      normalized.forEach(c => {
+        existing.set(c.id, c);
+      });
 
       conversations =
-        imported;
+        Array.from(
+          existing.values()
+        )
+          .sort(
+            (a, b) =>
+              new Date(
+                b.updatedAt
+              ) -
+              new Date(
+                a.updatedAt
+              )
+          )
+          .slice(
+            0,
+            LIMITS.conversations
+          );
 
       activeConversationId =
         conversations[0]?.id ||
         null;
 
       saveConversations();
-
       renderConversationList();
-
       renderMessages();
 
       toast(
-        "Chat history imported."
+        "Chat history imported.",
+        "success"
       );
-    };
 
-    reader.onerror = () => {
+    } catch (error) {
       toast(
-        "Could not read the history file.",
+        error?.message ||
+          "Invalid history file.",
         "error"
       );
-    };
-
-    reader.readAsText(
-      file
-    );
+    }
   }
 
   /* =========================================================
-     CLEAR LOCAL DATA
+     CLEAR HISTORY
      ========================================================= */
 
-  function clearAllChatData() {
-    const confirmed =
-      window.confirm(
-        "Clear all OZLIND local chat data?\n\nThis removes conversations, chat settings and custom instructions from this browser."
-      );
-
-    if (!confirmed) {
+  function clearHistory() {
+    if (!conversations.length) {
+      toast("History is already empty.");
       return;
     }
 
-    storageRemove(
-      STORAGE.conversations
-    );
-
-    storageRemove(
-      STORAGE.settings
-    );
-
-    storageRemove(
-      STORAGE.customInstructions
-    );
-
-    storageRemove(
-      STORAGE.memory
-    );
+    if (
+      !window.confirm(
+        "Delete all conversations?"
+      )
+    ) {
+      return;
+    }
 
     conversations = [];
+    activeConversationId = null;
 
-    activeConversationId =
-      null;
-
-    pendingAttachments = [];
-
-    chatSettings =
-      loadSettings();
-
-    renderPendingAttachments();
+    saveConversations();
 
     renderConversationList();
-
     renderMessages();
 
-    updateComposerState();
-
     toast(
-      "Local chat data cleared."
+      "All conversations deleted.",
+      "success"
     );
   }
 
@@ -3529,100 +2283,109 @@
      EVENT LISTENERS
      ========================================================= */
 
-  function setupEvents() {
-    newChatBtn?.addEventListener(
-      "click",
-      () => {
-        if (isGenerating) {
-          toast(
-            "Please stop the current response first."
-          );
+  function bindEvents() {
+    /* Navigation */
 
-          return;
-        }
+    $$("[data-view]").forEach(
+      element => {
+        element.addEventListener(
+          "click",
+          () => {
+            const view =
+              element.dataset.view;
 
-        createConversation();
+            if (view) {
+              showView(view);
+            }
+          }
+        );
       }
     );
+
+    /* New chat */
+
+    newChatBtn?.addEventListener(
+      "click",
+      newChat
+    );
+
+    /* Mobile sidebar */
+
+    mobileNavBtn?.addEventListener(
+      "click",
+      toggleMobileSidebar
+    );
+
+    sidebarOverlay?.addEventListener(
+      "click",
+      closeMobileSidebar
+    );
+
+    sidebarCollapse?.addEventListener(
+      "click",
+      toggleSidebarCollapse
+    );
+
+    /* Chat */
 
     chatForm?.addEventListener(
       "submit",
       event => {
         event.preventDefault();
-
-        sendMessage();
+        submitChat();
       }
     );
 
     chatInput?.addEventListener(
       "input",
-      () => {
-        autoGrowTextarea();
-        updateComposerState();
-      }
+      autoResizeInput
     );
 
     chatInput?.addEventListener(
       "keydown",
       event => {
         if (
-          event.key ===
-            "Enter" &&
+          event.key === "Enter" &&
           !event.shiftKey &&
           !event.isComposing
         ) {
           event.preventDefault();
-
-          sendMessage();
+          submitChat();
         }
       }
     );
 
     sendBtn?.addEventListener(
       "click",
-      event => {
-        event.preventDefault();
-
-        sendMessage();
-      }
+      submitChat
     );
 
     stopBtn?.addEventListener(
       "click",
-      event => {
-        event.preventDefault();
-
-        stopGeneration();
-      }
+      stopGeneration
     );
+
+    researchToggle?.addEventListener(
+      "click",
+      toggleResearch
+    );
+
+    /* Attachments */
 
     attachBtn?.addEventListener(
       "click",
-      () => {
-        if (isGenerating) {
-          return;
-        }
-
-        fileInput?.click();
-      }
+      () => fileInput?.click()
     );
 
     fileInput?.addEventListener(
       "change",
       event => {
-        if (isGenerating) {
-          return;
-        }
-
         handleFiles(
           event.target.files
         );
-      }
-    );
 
-    voiceBtn?.addEventListener(
-      "click",
-      toggleVoiceInput
+        event.target.value = "";
+      }
     );
 
     chatAttachments?.addEventListener(
@@ -3630,65 +2393,209 @@
       event => {
         const button =
           event.target.closest(
-            ".attachment-chip__remove"
+            ".attachment-remove"
           );
 
-        if (!button) {
-          return;
-        }
+        if (!button) return;
 
         const index =
           Number(
             button.dataset.index
           );
 
-        if (
-          Number.isInteger(
-            index
-          )
-        ) {
-          removeAttachment(
-            index
-          );
-        }
+        pendingAttachments.splice(
+          index,
+          1
+        );
+
+        renderAttachments();
       }
     );
 
-    chatMessages?.addEventListener(
+    /* Voice */
+
+    voiceBtn?.addEventListener(
       "click",
-      handleCodeCopy
+      toggleVoice
     );
 
-    chatHistoryPanel?.addEventListener(
-      "click",
+    /* History */
+
+    conversationSearch?.addEventListener(
+      "input",
       event => {
-        if (
-          event.target ===
-          chatHistoryPanel
-        ) {
-          closeHistory();
-        }
+        renderConversationList(
+          event.target.value
+        );
       }
     );
 
     closeHistoryPanel?.addEventListener(
       "click",
-      closeHistory
+      closeHistoryPanelUI
     );
 
-    conversationSearch?.addEventListener(
-      "input",
-      debounce(event => {
-        renderConversationList(
+    /* History panel buttons */
+
+    $("#chatHistoryBtn")?.addEventListener(
+      "click",
+      openHistoryPanelUI
+    );
+
+    $("#chatHistoryBtn2")?.addEventListener(
+      "click",
+      openHistoryPanelPanelSafe
+    );
+
+    function openHistoryPanelPanelSafe() {
+      openHistoryPanelUI();
+    }
+
+    /* Settings */
+
+    $("#chatSettingsBtn")?.addEventListener(
+      "click",
+      () => showView("settings")
+    );
+
+    saveInstructionsBtn?.addEventListener(
+      "click",
+      () => {
+        const value =
+          customInstructions?.value
+            ?.slice(
+              0,
+              LIMITS.maxInstructions
+            ) || "";
+
+        setStorage(
+          STORAGE.instructions,
+          value
+        );
+
+        saveSettings();
+
+        toast(
+          "Settings saved.",
+          "success"
+        );
+      }
+    );
+
+    responseLength?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    responseStyle?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    memoryToggle?.addEventListener(
+      "click",
+      () => {
+        const active =
+          memoryToggle.getAttribute(
+            "aria-checked"
+          ) === "true";
+
+        memoryToggle.setAttribute(
+          "aria-checked",
+          String(!active)
+        );
+
+        setStorage(
+          STORAGE.memory,
+          String(!active)
+        );
+      }
+    );
+
+    themeSelect?.addEventListener(
+      "change",
+      event => {
+        applyTheme(
           event.target.value
         );
-      }, 150)
+      }
     );
 
-    chatSettingsBtn?.addEventListener(
+    /* Import / export */
+
+    $("#exportHistoryBtn")?.addEventListener(
       "click",
-      openChatSettings
+      exportHistory
     );
+
+    $("#importHistoryBtn")?.addEventListener(
+      "click",
+      () =>
+        $("#historyFileInput")?.click()
+    );
+
+    $("#historyFileInput")?.addEventListener(
+      "change",
+      event => {
+        importHistory(
+          event.target.files?.[0]
+        );
+
+        event.target.value = "";
+      }
+    );
+
+    $("#clearHistoryBtn")?.addEventListener(
+      "click",
+      clearHistory
+    );
+
+    /* Research */
+
+    $("#startResearchBtn")?.addEventListener(
+      "click",
+      () => {
+        showView("chat");
+
+        if (modelSelect) {
+          modelSelect.value =
+            "research";
+        }
+
+        if (researchToggle) {
+          researchToggle.setAttribute(
+            "aria-pressed",
+            "true"
+          );
+
+          researchToggle.classList.add(
+            "is-active"
+          );
+        }
+
+        focusInput();
+      }
+    );
+
+    /* Vision */
+
+    $("#startVisionBtn")?.addEventListener(
+      "click",
+      () => {
+        showView("chat");
+
+        fileInput?.click();
+
+        if (modelSelect) {
+          modelSelect.value =
+            "smart";
+        }
+
+        focusInput();
+      }
+    );
+
+    /* Modal */
 
     modalClose?.addEventListener(
       "click",
@@ -3711,557 +2618,185 @@
       "keydown",
       event => {
         if (
-          event.key ===
-          "Escape"
+          event.key === "Escape"
         ) {
           closeModal();
-          closeHistory();
+          closeHistoryPanelUI();
+          closeMobileSidebar();
         }
       }
     );
 
-    /* =======================================================
-       DRAG & DROP ATTACHMENTS
-       ======================================================= */
+    /* Message actions */
 
-    chatForm?.addEventListener(
-      "dragover",
+    chatMessages?.addEventListener(
+      "click",
       event => {
-        if (isGenerating) {
-          return;
-        }
-
-        event.preventDefault();
-
-        chatForm.classList.add(
-          "is-dragging"
-        );
-      }
-    );
-
-    chatForm?.addEventListener(
-      "dragleave",
-      event => {
-        if (
-          !chatForm.contains(
-            event.relatedTarget
-          )
-        ) {
-          chatForm.classList.remove(
-            "is-dragging"
+        const button =
+          event.target.closest(
+            "[data-action]"
           );
-        }
-      }
-    );
 
-    chatForm?.addEventListener(
-      "drop",
-      event => {
-        event.preventDefault();
+        if (!button) return;
 
-        chatForm.classList.remove(
-          "is-dragging"
-        );
-
-        if (isGenerating) {
-          return;
-        }
-
-        handleFiles(
-          event.dataTransfer
-            ?.files
-        );
-      }
-    );
-
-    /* =======================================================
-       MOBILE SIDEBAR
-       ======================================================= */
-
-    mobileNavBtn?.addEventListener(
-      "click",
-      () => {
-        document.body.classList.toggle(
-          "sidebar-open"
-        );
-      }
-    );
-
-    sidebarOverlay?.addEventListener(
-      "click",
-      () => {
-        document.body.classList.remove(
-          "sidebar-open"
-        );
-      }
-    );
-
-    /* =======================================================
-       GLOBAL NAVIGATION
-       ======================================================= */
-
-    $$(
-      "[data-view]"
-    ).forEach(item => {
-      item.addEventListener(
-        "click",
-        () => {
-          document.body.classList.remove(
-            "sidebar-open"
+        const message =
+          button.closest(
+            ".message"
           );
-        }
-      );
-    });
 
-    /* =======================================================
-       THEME BUTTONS
-       ======================================================= */
+        if (!message) return;
 
-    $("#themeToggleMobile")
-      ?.addEventListener(
-        "click",
-        toggleTheme
-      );
-
-    $("#themeToggleDesktop")
-      ?.addEventListener(
-        "click",
-        toggleTheme
-      );
-
-    /* =======================================================
-       RESEARCH
-       ======================================================= */
-
-    researchToggle?.addEventListener(
-      "click",
-      () => {
-        const active =
-          researchToggle.getAttribute(
-            "aria-pressed"
-          ) === "true";
-
-        researchToggle.setAttribute(
-          "aria-pressed",
-          String(!active)
+        handleMessageAction(
+          button.dataset.action,
+          message.dataset.id
         );
       }
     );
-  }
 
-  /* =========================================================
-     THEME
-     ========================================================= */
+    /* Suggestion cards */
 
-  function getTheme() {
-    const theme =
-      storageGet(
-        STORAGE.theme,
-        "system"
-      );
-
-    return [
-      "system",
-      "light",
-      "dark"
-    ].includes(theme)
-      ? theme
-      : "system";
-  }
-
-  function applyTheme(
-    theme
-  ) {
-    const root =
-      document.documentElement;
-
-    const validTheme = [
-      "system",
-      "light",
-      "dark"
-    ].includes(theme)
-      ? theme
-      : "system";
-
-    if (
-      validTheme === "dark" ||
-      validTheme === "light"
-    ) {
-      root.dataset.theme =
-        validTheme;
-    } else {
-      delete root.dataset.theme;
-    }
-
-    storageSet(
-      STORAGE.theme,
-      validTheme
-    );
-
-    updateThemeButtons(
-      validTheme
-    );
-  }
-
-  function updateThemeButtons(
-    theme
-  ) {
-    const label =
-      theme === "dark"
-        ? "Light mode"
-        : theme === "light"
-        ? "System theme"
-        : "Dark mode";
-
-    $("#themeToggleMobile")
-      ?.setAttribute(
-        "aria-label",
-        label
-      );
-
-    $("#themeToggleDesktop")
-      ?.setAttribute(
-        "aria-label",
-        label
-      );
-  }
-
-  function toggleTheme() {
-    const current =
-      getTheme();
-
-    const next =
-      current === "system"
-        ? "dark"
-        : current === "dark"
-        ? "light"
-        : "system";
-
-    applyTheme(next);
-
-    /*
-     * Also synchronize settings-page theme buttons.
-     */
-    const themeGroup =
-      $("#settingsThemeGroup");
-
-    if (themeGroup) {
-      $$(
-        "button",
-        themeGroup
-      ).forEach(button => {
-        button.classList.toggle(
-          "is-active",
-          button.dataset.theme ===
-            next
-        );
-      });
-    }
-  }
-
-  /* =========================================================
-     SETTINGS PAGE HELPERS
-     ========================================================= */
-
-  function setupSettingsControls() {
-    const themeGroup =
-      $("#settingsThemeGroup");
-
-    if (themeGroup) {
-      const currentTheme =
-        getTheme();
-
-      $$(
-        "button",
-        themeGroup
-      ).forEach(button => {
-        const value =
-          button.dataset.theme;
-
-        button.classList.toggle(
-          "is-active",
-          value ===
-            currentTheme
-        );
-
-        button.addEventListener(
+    $$(".suggestion-card").forEach(
+      card => {
+        card.addEventListener(
           "click",
           () => {
-            if (
-              ![
-                "system",
-                "light",
-                "dark"
-              ].includes(value)
-            ) {
-              return;
+            const prompt =
+              card.dataset.prompt;
+
+            if (!prompt) return;
+
+            showView("chat");
+
+            if (chatInput) {
+              chatInput.value =
+                prompt;
+
+              autoResizeInput();
+              focusInput();
             }
-
-            applyTheme(
-              value
-            );
-
-            $$(
-              "button",
-              themeGroup
-            ).forEach(
-              item => {
-                item.classList.toggle(
-                  "is-active",
-                  item.dataset
-                    .theme ===
-                    value
-                );
-              }
-            );
           }
         );
-      });
-    }
-
-    const customInstructionsBtn =
-      $("#customInstructionsBtn");
-
-    customInstructionsBtn?.addEventListener(
-      "click",
-      openCustomInstructionsModal
-    );
-
-    const memoryToggle =
-      $("#memoryToggle");
-
-    if (memoryToggle) {
-      memoryToggle.checked =
-        getMemoryEnabled();
-
-      memoryToggle.addEventListener(
-        "change",
-        () => {
-          storageSet(
-            STORAGE.memory,
-            String(
-              memoryToggle.checked
-            )
-          );
-
-          toast(
-            memoryToggle.checked
-              ? "Memory enabled."
-              : "Memory disabled."
-          );
-        }
-      );
-    }
-
-    $("#exportHistoryBtn")
-      ?.addEventListener(
-        "click",
-        exportHistory
-      );
-
-    const importHistoryBtn =
-      $("#importHistoryBtn");
-
-    const importHistoryInput =
-      $("#importHistoryInput");
-
-    importHistoryBtn?.addEventListener(
-      "click",
-      () => {
-        importHistoryInput?.click();
       }
     );
 
-    importHistoryInput?.addEventListener(
-      "change",
+    /* Drag & drop */
+
+    document.addEventListener(
+      "dragover",
       event => {
-        importHistory(
-          event.target.files?.[0]
-        );
-
-        event.target.value =
-          "";
+        if (
+          event.dataTransfer?.files
+            ?.length
+        ) {
+          event.preventDefault();
+        }
       }
     );
 
-    $("#clearDataBtn")
-      ?.addEventListener(
-        "click",
-        clearAllChatData
-      );
-  }
+    document.addEventListener(
+      "drop",
+      event => {
+        if (
+          event.dataTransfer?.files
+            ?.length
+        ) {
+          event.preventDefault();
 
-  function openCustomInstructionsModal() {
-    openModal(
-      "Custom instructions",
-      `
-        <div class="settings-form">
-          <label class="field">
-            <span>
-              Instructions for OZLIND AI
-            </span>
-
-            <textarea
-              id="customInstructionEditor"
-              rows="8"
-              maxlength="5000"
-              placeholder="Example: Keep answers concise and explain technical terms simply."
-            ></textarea>
-          </label>
-
-          <div class="modal-actions">
-            <button
-              type="button"
-              class="btn btn--primary"
-              id="saveCustomInstructions"
-            >
-              Save instructions
-            </button>
-          </div>
-        </div>
-      `
-    );
-
-    const textarea =
-      $("#customInstructionEditor");
-
-    if (textarea) {
-      textarea.value =
-        getCustomInstructions();
-    }
-
-    $("#saveCustomInstructions")
-      ?.addEventListener(
-        "click",
-        () => {
-          storageSet(
-            STORAGE.customInstructions,
-            (
-              textarea?.value ||
-              ""
-            )
-              .trim()
-              .slice(
-                0,
-                LIMITS.maxCustomInstructions
-              )
-          );
-
-          closeModal();
-
-          toast(
-            "Custom instructions saved."
+          handleFiles(
+            event.dataTransfer.files
           );
         }
-      );
+      }
+    );
+
+    /* Paste images */
+
+    chatInput?.addEventListener(
+      "paste",
+      event => {
+        const items =
+          Array.from(
+            event.clipboardData
+              ?.items || []
+          );
+
+        const images =
+          items
+            .filter(
+              item =>
+                item.type.startsWith(
+                  "image/"
+                )
+            )
+            .map(
+              item =>
+                item.getAsFile()
+            )
+            .filter(Boolean);
+
+        if (images.length) {
+          handleFiles(images);
+        }
+      }
+    );
   }
 
   /* =========================================================
-     INITIALIZATION
+     INIT
      ========================================================= */
 
   function init() {
-    applyTheme(
-      getTheme()
-    );
+    loadTheme();
+    loadSettings();
+    loadSidebarState();
 
-    setupEvents();
+    setupVoice();
+    bindEvents();
 
-    setupVoiceInput();
-
-    setupSettingsControls();
-
-    renderPendingAttachments();
-
-    if (
-      conversations.length
-    ) {
-      activeConversationId =
-        conversations[0].id;
+    if (!conversations.length) {
+      createConversation();
+    } else {
+      renderConversationList();
+      renderMessages();
     }
 
-    renderConversationList();
+    showView("chat");
 
-    renderMessages();
-
-    autoGrowTextarea();
-
-    updateComposerState();
+    autoResizeInput();
 
     /*
-     * Keep system theme responsive.
+     * Default connection state.
+     * The backend will prove actual availability
+     * when the first request is made.
      */
-    const mediaQuery =
-      window.matchMedia?.(
-        "(prefers-color-scheme: dark)"
-      );
 
-    if (
-      mediaQuery &&
-      typeof mediaQuery.addEventListener ===
-        "function"
-    ) {
-      mediaQuery.addEventListener(
-        "change",
-        () => {
-          if (
-            getTheme() ===
-            "system"
-          ) {
-            applyTheme(
-              "system"
-            );
-          }
-        }
-      );
-    } else if (
-      mediaQuery &&
-      typeof mediaQuery.addListener ===
-        "function"
-    ) {
-      /*
-       * Older browser fallback.
-       */
-      mediaQuery.addListener(
-        () => {
-          if (
-            getTheme() ===
-            "system"
-          ) {
-            applyTheme(
-              "system"
-            );
-          }
-        }
+    const connectionDot =
+      $("#connectionDot");
+
+    const connectionText =
+      $("#connectionText");
+
+    const connectionSubtext =
+      $("#connectionSubtext");
+
+    if (connectionDot) {
+      connectionDot.classList.add(
+        "is-online"
       );
     }
 
-    /*
-     * Clean up any accidental drag state when
-     * the pointer leaves the document.
-     */
-    document.addEventListener(
-      "drop",
-      () => {
-        chatForm?.classList.remove(
-          "is-dragging"
-        );
-      }
-    );
+    if (connectionText) {
+      connectionText.textContent =
+        "Ready";
+    }
 
-    document.addEventListener(
-      "dragend",
-      () => {
-        chatForm?.classList.remove(
-          "is-dragging"
-        );
-      }
-    );
+    if (connectionSubtext) {
+      connectionSubtext.textContent =
+        "AI workspace";
+    }
+
+    focusInput();
   }
-
-  /* =========================================================
-     START
-     ========================================================= */
 
   if (
     document.readyState ===
@@ -4270,9 +2805,7 @@
     document.addEventListener(
       "DOMContentLoaded",
       init,
-      {
-        once: true
-      }
+      { once: true }
     );
   } else {
     init();
