@@ -1,1 +1,1478 @@
-(()=>{"use strict";const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],C={chats:"ozlind_chats_v3",settings:"ozlind_settings_v3",theme:"ozlind_theme_v3"};let chats=load(C.chats,[]),active=chats[0]?.id||null,files=[],controller=null,busy=false,settings={length:"medium",style:"balanced",memory:true,instructions:"",...load(C.settings,{})};function load(k,f){try{const v=localStorage.getItem(k);return v===null?f:JSON.parse(v)}catch{return f}}function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{toast("Browser storage is full.","error")}}function uid(){return crypto?.randomUUID?.()||Date.now()+"-"+Math.random().toString(36).slice(2)}function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}function toast(t,type=""){const n=document.createElement("div");n.className="toast "+type;n.textContent=t;$("#toastStack").append(n);setTimeout(()=>n.remove(),3000)}function current(){return chats.find(c=>c.id===active)}function persist(){chats=chats.slice(0,100);save(C.chats,chats)}function newChat(){const c={id:uid(),title:"New chat",messages:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};chats.unshift(c);active=c.id;persist();render();open("chat");$("#chatInput").focus()}function open(v){$$('.page').forEach(p=>p.classList.toggle('active',p.dataset.page===v));$$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===v));$("#topbarTitle").textContent={chat:"Chat",history:"History",research:"Research",vision:"Vision",settings:"Settings"}[v]||"Ozlind";if(v==='history')history();if(v==='settings')settingsUI();$("#sidebar").classList.remove('open');$("#sidebarOverlay").classList.remove('open')}function resize(){const x=$("#chatInput");x.style.height="auto";x.style.height=Math.min(x.scrollHeight,170)+"px"}function render(){const c=current(),box=$("#chatMessages"),empty=$("#chatEmpty");box.innerHTML="";if(!c||!c.messages.length){empty.classList.remove('hidden');return}empty.classList.add('hidden');c.messages.forEach((m,i)=>{const d=document.createElement('article');d.className='message '+m.role+(m.error?' error':'');d.innerHTML=`<div class="meta">${m.role==='user'?'You':'Ozlind AI'}</div><div class="body">${esc(m.content)}</div>${m.role==='assistant'&&!m.error?`<div class="message-tools"><button data-copy="${i}">Copy</button></div>`:''}`;box.append(d)});$("#chatScroll").scrollTop=$("#chatScroll").scrollHeight}function history(filter=""){const b=$("#conversationList"),q=filter.toLowerCase();b.innerHTML="";chats.filter(c=>(c.title+" "+c.messages.map(m=>m.content).join(" ")).toLowerCase().includes(q)).forEach(c=>{const d=document.createElement('div');d.className='history-item';d.innerHTML=`<div class="history-main"><b>${esc(c.title)}</b><small>${c.messages.length} message${c.messages.length===1?'':'s'}</small></div><button data-open="${c.id}">→</button><button data-delete="${c.id}">×</button>`;b.append(d)})}function settingsUI(){$("#responseLength").value=settings.length;$("#responseStyle").value=settings.style;$("#customInstructions").value=settings.instructions;$("#memoryToggle").setAttribute('aria-pressed',String(settings.memory))}function renderFiles(){$("#chatAttachments").innerHTML=files.map((f,i)=>`<div class="attachment"><img src="${f.dataUrl}" alt=""><button type="button" data-remove="${i}">×</button></div>`).join('');$("#contextIndicator").textContent=files.length?`${files.length} image${files.length>1?'s':''} attached`:'Ready'}function readImage(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)})}async function addFiles(list){for(const f of [...list].filter(x=>x.type.startsWith('image/')).slice(0,4-files.length)){if(f.size>4*1024*1024){toast('Each image must be under 8 MB.','error');continue}files.push({name:f.name,type:f.type,dataUrl:await readImage(f)})}renderFiles()}function requestMessages(c){return(settings.memory?c.messages.slice(-20):c.messages.slice(-1)).map(m=>m.role==='user'&&m.attachments?.length?{role:'user',content:[{type:'text',text:m.content},...m.attachments.map(a=>({type:'image_url',image_url:{url:a.dataUrl}}))]}:{role:m.role,content:m.content})}async function send(){if(busy)return;const input=$("#chatInput"),text=input.value.trim();if(!text&&!files.length)return;let c=current();if(!c){newChat();c=current()}const imgs=files.splice(0,4);renderFiles();c.messages.push({role:'user',content:text,attachments:imgs});if(c.messages.length===1)c.title=(text||'Image analysis').replace(/\s+/g,' ').slice(0,65);c.updatedAt=new Date().toISOString();persist();input.value='';resize();render();const ai={role:'assistant',content:''};c.messages.push(ai);busy=true;controller=new AbortController();$("#sendBtn").classList.add('hidden');$("#stopBtn").classList.remove('hidden');$("#connectionStatus").innerHTML='<i></i> Thinking…';try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({messages:requestMessages(c),model:$("#modelSelect").value,research:$("#researchToggle").getAttribute('aria-pressed')==='true',responseLength:settings.length,responseStyle:settings.style,memory:settings.memory,customInstructions:settings.instructions})});if(!r.ok){let m=`Request failed (${r.status}).`;try{const d=await r.json();if(d.error)m=d.error}catch{}throw Error(m)}if(!r.body)throw Error('No response returned.');const rd=r.body.getReader(),dec=new TextDecoder();let buf='';while(true){const z=await rd.read();if(z.done)break;buf+=dec.decode(z.value,{stream:true});const lines=buf.split('\n');buf=lines.pop()||'';for(const line of lines){if(!line.startsWith('data:'))continue;const raw=line.slice(5).trim();if(!raw||raw==='[DONE]')continue;let d;try{d=JSON.parse(raw)}catch{continue}if(d.type==='delta'){ai.content+=d.content||'';render()}if(d.type==='error')throw Error(d.error||'Generation failed.')}}if(!ai.content)throw Error('The AI returned an empty response.')}catch(e){if(e.name==='AbortError')ai.content='Generation stopped.';else{ai.error=true;ai.content=e.message||'Request failed.';toast(ai.content,'error')}}finally{c.updatedAt=new Date().toISOString();persist();render();busy=false;controller=null;$("#sendBtn").classList.remove('hidden');$("#stopBtn").classList.add('hidden');$("#connectionStatus").innerHTML='<i></i> Ready'}}function theme(){const t=document.body.dataset.theme==='dark'?'light':'dark';document.body.dataset.theme=t;save(C.theme,t);$("#themeToggle").textContent=t==='dark'?'☾':'☀'}document.addEventListener('click',e=>{const v=e.target.closest('[data-view]');if(v)open(v.dataset.view);const p=e.target.closest('[data-prompt]');if(p){open('chat');$("#chatInput").value=p.dataset.prompt;resize();$("#chatInput").focus()}if(e.target.closest('#newChatBtn'))newChat();if(e.target.closest('#themeToggle'))theme();if(e.target.closest('#mobileNavBtn')){$("#sidebar").classList.add('open');$("#sidebarOverlay").classList.add('open')}if(e.target.closest('#sidebarOverlay')){$("#sidebar").classList.remove('open');$("#sidebarOverlay").classList.remove('open')}if(e.target.closest('#attachBtn'))$("#fileInput").click();if(e.target.closest('#stopBtn'))controller?.abort();if(e.target.closest('[data-go-chat]'))open('chat');if(e.target.closest('#researchToggle')){const b=$("#researchToggle"),on=b.getAttribute('aria-pressed')==='true';b.setAttribute('aria-pressed',String(!on));b.querySelector('em').textContent=!on?'ON':'OFF'}const rm=e.target.closest('[data-remove]');if(rm){files.splice(+rm.dataset.remove,1);renderFiles()}const op=e.target.closest('[data-open]');if(op){active=op.dataset.open;render();open('chat')}const dl=e.target.closest('[data-delete]');if(dl){chats=chats.filter(c=>c.id!==dl.dataset.delete);if(active===dl.dataset.delete)active=chats[0]?.id||null;persist();history();render()}const cp=e.target.closest('[data-copy]');if(cp)navigator.clipboard?.writeText(current()?.messages[+cp.dataset.copy]?.content||'').then(()=>toast('Copied','ok')).catch(()=>toast('Copy unavailable','error'));if(e.target.closest('#memoryToggle')){settings.memory=!settings.memory;save(C.settings,settings);settingsUI()}if(e.target.closest('#saveInstructionsBtn')){settings.length=$("#responseLength").value;settings.style=$("#responseStyle").value;settings.instructions=$("#customInstructions").value.slice(0,5000);save(C.settings,settings);toast('Settings saved','ok')}if(e.target.closest('#exportHistoryBtn')){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(chats,null,2)],{type:'application/json'}));a.download='ozlind-history.json';document.body.append(a);a.click();a.remove()}if(e.target.closest('#importHistoryBtn'))$("#historyFileInput").click();if(e.target.closest('#clearHistoryBtn')&&confirm('Clear all local history?')){chats=[];active=null;persist();history();render();toast('History cleared','ok')}});$("#chatForm").addEventListener('submit',e=>{e.preventDefault();send()});$("#chatInput").addEventListener('input',resize);$("#chatInput").addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});$("#fileInput").addEventListener('change',e=>{if(e.target.files?.length)addFiles(e.target.files);e.target.value=''});$("#conversationSearch").addEventListener('input',e=>history(e.target.value));$("#historyFileInput").addEventListener('change',e=>{if(!e.target.files?.[0])return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x))throw 0;chats=x.filter(c=>c?.id&&Array.isArray(c.messages)).slice(0,100);active=chats[0]?.id||null;persist();history();render();toast('History imported','ok')}catch{toast('Invalid history file.','error')}};r.readAsText(e.target.files[0]);e.target.value=''}) ;window.addEventListener('load',()=>{const t=load(C.theme,'dark');document.body.dataset.theme=t;$("#themeToggle").textContent=t==='dark'?'☾':'☀';if(!chats.length)newChat();else render();settingsUI()})})();
+(() => {
+  "use strict";
+
+  /*
+   * ============================================================
+   * OZLIND AI — Chat Client
+   * Phase 1B
+   * ============================================================
+   */
+
+  const $ = (selector, root = document) =>
+    root.querySelector(selector);
+
+  const $$ = (selector, root = document) =>
+    [...root.querySelectorAll(selector)];
+
+  const STORAGE = {
+    chats: "ozlind_chats_v3",
+    settings: "ozlind_settings_v3",
+    theme: "ozlind_theme_v3"
+  };
+
+  let chats = load(STORAGE.chats, []);
+  let active = chats[0]?.id || null;
+
+  let attachments = [];
+  let controller = null;
+  let busy = false;
+
+  let settings = {
+    length: "medium",
+    style: "balanced",
+    memory: true,
+    instructions: "",
+    ...load(STORAGE.settings, {})
+  };
+
+  /*
+   * ------------------------------------------------------------
+   * Storage
+   * ------------------------------------------------------------
+   */
+
+  function load(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+
+      if (value === null) {
+        return fallback;
+      }
+
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      toast("Browser storage is full.", "error");
+    }
+  }
+
+  function persist() {
+    chats = chats
+      .filter(chat => chat && chat.id && Array.isArray(chat.messages))
+      .slice(0, 100);
+
+    save(STORAGE.chats, chats);
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Utilities
+   * ------------------------------------------------------------
+   */
+
+  function uid() {
+    return (
+      crypto?.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? "").replace(
+      /[&<>"']/g,
+      char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char])
+    );
+  }
+
+  function cleanTitle(text) {
+    const value = String(text || "")
+      .replace(/\s+/g, " ")
+      .replace(/^[\s"'`]+|[\s"'`]+$/g, "")
+      .trim();
+
+    if (!value) {
+      return "New chat";
+    }
+
+    /*
+     * Common conversational openings are not useful titles.
+     */
+
+    const cleaned = value
+      .replace(
+        /^(hi|hello|hey|hai|good morning|good afternoon|good evening)[,!.\s]*/i,
+        ""
+      )
+      .trim();
+
+    if (!cleaned) {
+      return "New conversation";
+    }
+
+    /*
+     * Remove common question filler.
+     */
+
+    const title = cleaned
+      .replace(
+        /^(can you|could you|please|help me|i want to|i need to)\s+/i,
+        ""
+      )
+      .trim();
+
+    if (!title) {
+      return "New conversation";
+    }
+
+    /*
+     * Keep history compact.
+     */
+
+    const result =
+      title.charAt(0).toUpperCase() +
+      title.slice(1);
+
+    return result.length > 58
+      ? `${result.slice(0, 58).trim()}…`
+      : result;
+  }
+
+  function toast(message, type = "") {
+    const stack = $("#toastStack");
+
+    if (!stack) {
+      return;
+    }
+
+    const node = document.createElement("div");
+
+    node.className = `toast ${type}`;
+    node.textContent = message;
+
+    stack.append(node);
+
+    setTimeout(() => {
+      node.remove();
+    }, 3000);
+  }
+
+  function currentChat() {
+    return chats.find(chat => chat.id === active);
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Chat lifecycle
+   * ------------------------------------------------------------
+   */
+
+  function newChat() {
+    const chat = {
+      id: uid(),
+      title: "New chat",
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    chats.unshift(chat);
+
+    active = chat.id;
+
+    persist();
+    render();
+
+    openPage("chat");
+
+    requestAnimationFrame(() => {
+      $("#chatInput")?.focus();
+    });
+  }
+
+  function openPage(view) {
+    $$(".page").forEach(page => {
+      page.classList.toggle(
+        "active",
+        page.dataset.page === view
+      );
+    });
+
+    $$(".nav-item").forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.view === view
+      );
+    });
+
+    const titles = {
+      chat: "Chat",
+      history: "History",
+      research: "Research",
+      vision: "Vision",
+      settings: "Settings"
+    };
+
+    const topbar = $("#topbarTitle");
+
+    if (topbar) {
+      topbar.textContent = titles[view] || "OZLIND";
+    }
+
+    if (view === "history") {
+      renderHistory();
+    }
+
+    if (view === "settings") {
+      renderSettings();
+    }
+
+    $("#sidebar")?.classList.remove("open");
+    $("#sidebarOverlay")?.classList.remove("open");
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Input sizing
+   * ------------------------------------------------------------
+   */
+
+  function resizeInput() {
+    const input = $("#chatInput");
+
+    if (!input) {
+      return;
+    }
+
+    input.style.height = "auto";
+
+    input.style.height =
+      `${Math.min(input.scrollHeight, 170)}px`;
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Chat rendering
+   * ------------------------------------------------------------
+   */
+
+  function render() {
+    const chat = currentChat();
+
+    const box = $("#chatMessages");
+    const empty = $("#chatEmpty");
+
+    if (!box || !empty) {
+      return;
+    }
+
+    box.innerHTML = "";
+
+    if (!chat || !chat.messages.length) {
+      empty.classList.remove("hidden");
+      return;
+    }
+
+    empty.classList.add("hidden");
+
+    chat.messages.forEach((message, index) => {
+      const article = document.createElement("article");
+
+      article.className =
+        `message ${message.role}` +
+        (message.error ? " error" : "");
+
+      const roleName =
+        message.role === "user"
+          ? "You"
+          : "OZLIND AI";
+
+      const body = escapeHTML(message.content)
+        .replace(/\n/g, "<br>");
+
+      article.innerHTML = `
+        <div class="meta">
+          ${roleName}
+        </div>
+
+        <div class="body">
+          ${body}
+        </div>
+
+        ${
+          message.role === "assistant" && !message.error
+            ? `
+              <div class="message-tools">
+                <button
+                  type="button"
+                  data-copy="${index}"
+                >
+                  Copy
+                </button>
+              </div>
+            `
+            : ""
+        }
+      `;
+
+      box.append(article);
+    });
+
+    const scroll = $("#chatScroll");
+
+    if (scroll) {
+      requestAnimationFrame(() => {
+        scroll.scrollTop = scroll.scrollHeight;
+      });
+    }
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * History
+   * ------------------------------------------------------------
+   */
+
+  function renderHistory(filter = "") {
+    const list = $("#conversationList");
+
+    if (!list) {
+      return;
+    }
+
+    const query = String(filter)
+      .toLowerCase()
+      .trim();
+
+    list.innerHTML = "";
+
+    const filtered = chats.filter(chat => {
+      const searchable =
+        `${chat.title} ${
+          chat.messages
+            .map(message => message.content)
+            .join(" ")
+        }`.toLowerCase();
+
+      return searchable.includes(query);
+    });
+
+    if (!filtered.length) {
+      list.innerHTML = `
+        <div class="history-empty">
+          <b>No conversations</b>
+          <small>Your saved conversations will appear here.</small>
+        </div>
+      `;
+
+      return;
+    }
+
+    filtered.forEach(chat => {
+      const item = document.createElement("div");
+
+      item.className = "history-item";
+
+      item.innerHTML = `
+        <div class="history-main">
+          <b>${escapeHTML(chat.title)}</b>
+          <small>
+            ${chat.messages.length}
+            message${chat.messages.length === 1 ? "" : "s"}
+          </small>
+        </div>
+
+        <button
+          type="button"
+          data-open="${escapeHTML(chat.id)}"
+          aria-label="Open conversation"
+        >
+          →
+        </button>
+
+        <button
+          type="button"
+          data-delete="${escapeHTML(chat.id)}"
+          aria-label="Delete conversation"
+        >
+          ×
+        </button>
+      `;
+
+      list.append(item);
+    });
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Settings
+   * ------------------------------------------------------------
+   */
+
+  function renderSettings() {
+    const length = $("#responseLength");
+    const style = $("#responseStyle");
+    const instructions = $("#customInstructions");
+    const memory = $("#memoryToggle");
+
+    if (length) {
+      length.value = settings.length;
+    }
+
+    if (style) {
+      style.value = settings.style;
+    }
+
+    if (instructions) {
+      instructions.value = settings.instructions || "";
+    }
+
+    if (memory) {
+      memory.setAttribute(
+        "aria-pressed",
+        String(Boolean(settings.memory))
+      );
+    }
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Attachments / Vision
+   * ------------------------------------------------------------
+   */
+
+  function renderAttachments() {
+    const container = $("#chatAttachments");
+    const indicator = $("#contextIndicator");
+
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = attachments
+      .map(
+        (file, index) => `
+          <div class="attachment">
+            <img
+              src="${escapeHTML(file.dataUrl)}"
+              alt=""
+            >
+
+            <button
+              type="button"
+              data-remove="${index}"
+              aria-label="Remove image"
+            >
+              ×
+            </button>
+          </div>
+        `
+      )
+      .join("");
+
+    if (indicator) {
+      indicator.textContent =
+        attachments.length
+          ? `${attachments.length} image${
+              attachments.length > 1 ? "s" : ""
+            } attached`
+          : "Ready";
+    }
+  }
+
+  function readImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        resolve(reader.result);
+      };
+
+      reader.onerror = reject;
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addFiles(fileList) {
+    const available =
+      Math.max(0, 4 - attachments.length);
+
+    const imageFiles = [...fileList]
+      .filter(file => file.type.startsWith("image/"))
+      .slice(0, available);
+
+    for (const file of imageFiles) {
+      /*
+       * Keep client-side payload reasonable.
+       */
+
+      if (file.size > 8 * 1024 * 1024) {
+        toast(
+          "Each image must be under 8 MB.",
+          "error"
+        );
+
+        continue;
+      }
+
+      attachments.push({
+        name: file.name,
+        type: file.type,
+        dataUrl: await readImage(file)
+      });
+    }
+
+    renderAttachments();
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * API message preparation
+   * ------------------------------------------------------------
+   */
+
+  function requestMessages(chat) {
+    if (!chat) {
+      return [];
+    }
+
+    const source = settings.memory
+      ? chat.messages.slice(-20)
+      : chat.messages.slice(-1);
+
+    return source.map(message => {
+      if (
+        message.role === "user" &&
+        message.attachments?.length
+      ) {
+        return {
+          role: "user",
+
+          content: [
+            {
+              type: "text",
+              text: message.content || ""
+            },
+
+            ...message.attachments.map(image => ({
+              type: "image_url",
+              image_url: {
+                url: image.dataUrl
+              }
+            }))
+          ]
+        };
+      }
+
+      return {
+        role: message.role,
+        content: message.content
+      };
+    });
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Send message
+   * ------------------------------------------------------------
+   */
+
+  async function send() {
+    if (busy) {
+      return;
+    }
+
+    const input = $("#chatInput");
+
+    if (!input) {
+      return;
+    }
+
+    const text = input.value.trim();
+
+    if (!text && !attachments.length) {
+      return;
+    }
+
+    let chat = currentChat();
+
+    if (!chat) {
+      newChat();
+      chat = currentChat();
+    }
+
+    if (!chat) {
+      toast("Unable to create a conversation.", "error");
+      return;
+    }
+
+    const images = attachments.splice(0, 4);
+
+    renderAttachments();
+
+    chat.messages.push({
+      role: "user",
+      content: text,
+      attachments: images
+    });
+
+    /*
+     * Generate a meaningful local title from the
+     * user's first message without making another API call.
+     */
+
+    if (chat.messages.length === 1) {
+      chat.title = cleanTitle(
+        text || "Image analysis"
+      );
+    }
+
+    chat.updatedAt = new Date().toISOString();
+
+    persist();
+
+    input.value = "";
+
+    resizeInput();
+
+    render();
+
+    const assistant = {
+      role: "assistant",
+      content: ""
+    };
+
+    chat.messages.push(assistant);
+
+    busy = true;
+
+    controller = new AbortController();
+
+    $("#sendBtn")?.classList.add("hidden");
+    $("#stopBtn")?.classList.remove("hidden");
+
+    const status = $("#connectionStatus");
+
+    if (status) {
+      status.innerHTML = "<i></i> Thinking…";
+    }
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        signal: controller.signal,
+
+        body: JSON.stringify({
+          messages: requestMessages(chat),
+
+          model:
+            $("#modelSelect")?.value || "auto",
+
+          research:
+            $("#researchToggle")
+              ?.getAttribute("aria-pressed") === "true",
+
+          responseLength: settings.length,
+
+          responseStyle: settings.style,
+
+          memory: settings.memory,
+
+          customInstructions:
+            settings.instructions
+        })
+      });
+
+      if (!response.ok) {
+        let message =
+          `Request failed (${response.status}).`;
+
+        try {
+          const data = await response.json();
+
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {
+          /* Keep default error */
+        }
+
+        throw new Error(message);
+      }
+
+      if (!response.body) {
+        throw new Error(
+          "No response returned from OZLIND."
+        );
+      }
+
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const result = await reader.read();
+
+        if (result.done) {
+          break;
+        }
+
+        buffer += decoder.decode(
+          result.value,
+          { stream: true }
+        );
+
+        const lines =
+          buffer.split("\n");
+
+        buffer =
+          lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) {
+            continue;
+          }
+
+          const raw =
+            line.slice(5).trim();
+
+          if (!raw || raw === "[DONE]") {
+            continue;
+          }
+
+          let data;
+
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            continue;
+          }
+
+          if (data.type === "delta") {
+            assistant.content +=
+              data.content || "";
+
+            render();
+          }
+
+          if (data.type === "error") {
+            throw new Error(
+              data.error || "Generation failed."
+            );
+          }
+        }
+      }
+
+      if (!assistant.content.trim()) {
+        throw new Error(
+          "OZLIND returned an empty response."
+        );
+      }
+
+    } catch (error) {
+
+      if (error?.name === "AbortError") {
+        assistant.content =
+          "Generation stopped.";
+      } else {
+        assistant.error = true;
+
+        assistant.content =
+          error?.message ||
+          "Unable to complete the request.";
+
+        toast(
+          assistant.content,
+          "error"
+        );
+      }
+
+    } finally {
+
+      chat.updatedAt =
+        new Date().toISOString();
+
+      persist();
+
+      render();
+
+      busy = false;
+      controller = null;
+
+      $("#sendBtn")?.classList.remove("hidden");
+      $("#stopBtn")?.classList.add("hidden");
+
+      if (status) {
+        status.innerHTML =
+          "<i></i> Ready";
+      }
+    }
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Theme
+   * ------------------------------------------------------------
+   */
+
+  function toggleTheme() {
+    const current =
+      document.body.dataset.theme === "dark"
+        ? "dark"
+        : "light";
+
+    const next =
+      current === "dark"
+        ? "light"
+        : "dark";
+
+    document.body.dataset.theme = next;
+
+    save(STORAGE.theme, next);
+
+    const button = $("#themeToggle");
+
+    if (button) {
+      button.textContent =
+        next === "dark"
+          ? "☾"
+          : "☀";
+    }
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Copy
+   * ------------------------------------------------------------
+   */
+
+  async function copyMessage(index) {
+    const chat = currentChat();
+
+    const message =
+      chat?.messages?.[index];
+
+    if (
+      !message ||
+      message.role !== "assistant"
+    ) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        message.content || ""
+      );
+
+      toast("Copied", "ok");
+
+    } catch {
+      toast(
+        "Copy unavailable.",
+        "error"
+      );
+    }
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * Events
+   * ------------------------------------------------------------
+   */
+
+  document.addEventListener("click", event => {
+
+    /*
+     * Navigation
+     */
+
+    const navigation =
+      event.target.closest("[data-view]");
+
+    if (navigation) {
+      openPage(
+        navigation.dataset.view
+      );
+
+      return;
+    }
+
+    /*
+     * Suggested prompts
+     */
+
+    const prompt =
+      event.target.closest("[data-prompt]");
+
+    if (prompt) {
+      openPage("chat");
+
+      const input = $("#chatInput");
+
+      if (input) {
+        input.value =
+          prompt.dataset.prompt || "";
+
+        resizeInput();
+        input.focus();
+      }
+
+      return;
+    }
+
+    /*
+     * New chat
+     */
+
+    if (
+      event.target.closest("#newChatBtn")
+    ) {
+      newChat();
+      return;
+    }
+
+    /*
+     * Theme
+     */
+
+    if (
+      event.target.closest("#themeToggle")
+    ) {
+      toggleTheme();
+      return;
+    }
+
+    /*
+     * Mobile sidebar
+     */
+
+    if (
+      event.target.closest("#mobileNavBtn")
+    ) {
+      $("#sidebar")?.classList.add("open");
+      $("#sidebarOverlay")?.classList.add("open");
+      return;
+    }
+
+    if (
+      event.target.closest("#sidebarOverlay")
+    ) {
+      $("#sidebar")?.classList.remove("open");
+      $("#sidebarOverlay")?.classList.remove("open");
+      return;
+    }
+
+    /*
+     * Attach image
+     */
+
+    if (
+      event.target.closest("#attachBtn")
+    ) {
+      $("#fileInput")?.click();
+      return;
+    }
+
+    /*
+     * Stop generation
+     */
+
+    if (
+      event.target.closest("#stopBtn")
+    ) {
+      controller?.abort();
+      return;
+    }
+
+    /*
+     * Open chat from feature pages
+     */
+
+    if (
+      event.target.closest("[data-go-chat]")
+    ) {
+      openPage("chat");
+      return;
+    }
+
+    /*
+     * Research toggle
+     */
+
+    if (
+      event.target.closest("#researchToggle")
+    ) {
+      const button =
+        $("#researchToggle");
+
+      if (!button) {
+        return;
+      }
+
+      const enabled =
+        button.getAttribute("aria-pressed") ===
+        "true";
+
+      const next = !enabled;
+
+      button.setAttribute(
+        "aria-pressed",
+        String(next)
+      );
+
+      const label =
+        button.querySelector("em");
+
+      if (label) {
+        label.textContent =
+          next ? "ON" : "OFF";
+      }
+
+      return;
+    }
+
+    /*
+     * Remove attachment
+     */
+
+    const remove =
+      event.target.closest("[data-remove]");
+
+    if (remove) {
+      const index =
+        Number(remove.dataset.remove);
+
+      if (
+        Number.isInteger(index) &&
+        index >= 0 &&
+        index < attachments.length
+      ) {
+        attachments.splice(index, 1);
+        renderAttachments();
+      }
+
+      return;
+    }
+
+    /*
+     * Open history item
+     */
+
+    const openHistory =
+      event.target.closest("[data-open]");
+
+    if (openHistory) {
+      active =
+        openHistory.dataset.open;
+
+      render();
+
+      openPage("chat");
+
+      return;
+    }
+
+    /*
+     * Delete history item
+     */
+
+    const deleteHistory =
+      event.target.closest("[data-delete]");
+
+    if (deleteHistory) {
+
+      const id =
+        deleteHistory.dataset.delete;
+
+      if (
+        confirm(
+          "Delete this conversation?"
+        )
+      ) {
+        chats =
+          chats.filter(
+            chat => chat.id !== id
+          );
+
+        if (active === id) {
+          active =
+            chats[0]?.id || null;
+        }
+
+        persist();
+
+        renderHistory();
+        render();
+
+        toast(
+          "Conversation deleted.",
+          "ok"
+        );
+      }
+
+      return;
+    }
+
+    /*
+     * Copy assistant response
+     */
+
+    const copy =
+      event.target.closest("[data-copy]");
+
+    if (copy) {
+      copyMessage(
+        Number(copy.dataset.copy)
+      );
+
+      return;
+    }
+
+    /*
+     * Memory toggle
+     */
+
+    if (
+      event.target.closest("#memoryToggle")
+    ) {
+      settings.memory =
+        !settings.memory;
+
+      save(
+        STORAGE.settings,
+        settings
+      );
+
+      renderSettings();
+
+      return;
+    }
+
+    /*
+     * Save settings
+     */
+
+    if (
+      event.target.closest(
+        "#saveInstructionsBtn"
+      )
+    ) {
+      settings.length =
+        $("#responseLength")?.value ||
+        "medium";
+
+      settings.style =
+        $("#responseStyle")?.value ||
+        "balanced";
+
+      settings.instructions =
+        (
+          $("#customInstructions")?.value ||
+          ""
+        ).slice(0, 5000);
+
+      save(
+        STORAGE.settings,
+        settings
+      );
+
+      toast(
+        "Settings saved.",
+        "ok"
+      );
+
+      return;
+    }
+
+    /*
+     * Export history
+     */
+
+    if (
+      event.target.closest("#exportHistoryBtn")
+    ) {
+      try {
+        const blob = new Blob(
+          [
+            JSON.stringify(
+              chats,
+              null,
+              2
+            )
+          ],
+          {
+            type: "application/json"
+          }
+        );
+
+        const url =
+          URL.createObjectURL(blob);
+
+        const link =
+          document.createElement("a");
+
+        link.href = url;
+        link.download =
+          "ozlind-history.json";
+
+        document.body.append(link);
+
+        link.click();
+
+        link.remove();
+
+        URL.revokeObjectURL(url);
+
+      } catch {
+        toast(
+          "Unable to export history.",
+          "error"
+        );
+      }
+
+      return;
+    }
+
+    /*
+     * Import history
+     */
+
+    if (
+      event.target.closest("#importHistoryBtn")
+    ) {
+      $("#historyFileInput")?.click();
+      return;
+    }
+
+    /*
+     * Clear history
+     */
+
+    if (
+      event.target.closest("#clearHistoryBtn")
+    ) {
+      if (
+        confirm(
+          "Clear all local history?"
+        )
+      ) {
+        chats = [];
+        active = null;
+
+        persist();
+
+        renderHistory();
+        render();
+
+        toast(
+          "History cleared.",
+          "ok"
+        );
+      }
+
+      return;
+    }
+  });
+
+  /*
+   * ------------------------------------------------------------
+   * Form / keyboard events
+   * ------------------------------------------------------------
+   */
+
+  $("#chatForm")?.addEventListener(
+    "submit",
+    event => {
+      event.preventDefault();
+      send();
+    }
+  );
+
+  $("#chatInput")?.addEventListener(
+    "input",
+    resizeInput
+  );
+
+  $("#chatInput")?.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+
+        send();
+      }
+    }
+  );
+
+  /*
+   * Image input
+   */
+
+  $("#fileInput")?.addEventListener(
+    "change",
+    event => {
+
+      if (event.target.files?.length) {
+        addFiles(
+          event.target.files
+        );
+      }
+
+      event.target.value = "";
+    }
+  );
+
+  /*
+   * History search
+   */
+
+  $("#conversationSearch")?.addEventListener(
+    "input",
+    event => {
+      renderHistory(
+        event.target.value
+      );
+    }
+  );
+
+  /*
+   * History import
+   */
+
+  $("#historyFileInput")?.addEventListener(
+    "change",
+    event => {
+
+      const file =
+        event.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      const reader =
+        new FileReader();
+
+      reader.onload = () => {
+
+        try {
+
+          const imported =
+            JSON.parse(
+              reader.result
+            );
+
+          if (!Array.isArray(imported)) {
+            throw new Error(
+              "Invalid history"
+            );
+          }
+
+          chats =
+            imported
+              .filter(
+                chat =>
+                  chat?.id &&
+                  Array.isArray(
+                    chat.messages
+                  )
+              )
+              .slice(0, 100);
+
+          active =
+            chats[0]?.id || null;
+
+          persist();
+
+          renderHistory();
+          render();
+
+          toast(
+            "History imported.",
+            "ok"
+          );
+
+        } catch {
+          toast(
+            "Invalid history file.",
+            "error"
+          );
+        }
+      };
+
+      reader.readAsText(file);
+
+      event.target.value = "";
+    }
+  );
+
+  /*
+   * ------------------------------------------------------------
+   * Initialisation
+   * ------------------------------------------------------------
+   */
+
+  window.addEventListener(
+    "load",
+    () => {
+
+      const savedTheme =
+        load(
+          STORAGE.theme,
+          "dark"
+        );
+
+      document.body.dataset.theme =
+        savedTheme === "light"
+          ? "light"
+          : "dark";
+
+      const themeButton =
+        $("#themeToggle");
+
+      if (themeButton) {
+        themeButton.textContent =
+          document.body.dataset.theme === "dark"
+            ? "☾"
+            : "☀";
+      }
+
+      if (!chats.length) {
+        newChat();
+      } else {
+        render();
+      }
+
+      renderSettings();
+      renderAttachments();
+      resizeInput();
+    }
+  );
+
+})();
