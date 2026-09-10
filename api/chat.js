@@ -5,12 +5,14 @@ const PROVIDERS = {
     model: "GROQ_MODEL",
     fallback: "openai/gpt-oss-120b"
   },
+
   gemini: {
     base: "https://generativelanguage.googleapis.com/v1beta",
     key: "GEMINI_API_KEY",
     model: "GEMINI_MODEL",
     fallback: "gemini-3.6-flash"
   },
+
   experiential: {
     base: "https://api.experientiallabs.ai/v1",
     key: "EXPERIENTIAL_API_KEY",
@@ -23,47 +25,76 @@ const LIMITS = {
   messages: 20,
   text: 12000,
   timeout: 45000,
-  research: 15000
+  research: 15000,
+  analytics: 10000
 };
+
+/* ---------------- RESPONSE HELPERS ---------------- */
 
 function json(res, status, data) {
   res.statusCode = status;
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader(
+    "Content-Type",
+    "application/json; charset=utf-8"
+  );
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(data));
 }
 
 function sseStart(res) {
   res.statusCode = 200;
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
+
+  res.setHeader(
+    "Content-Type",
+    "text/event-stream; charset=utf-8"
+  );
+
+  res.setHeader(
+    "Cache-Control",
+    "no-cache, no-transform"
+  );
+
+  res.setHeader(
+    "Connection",
+    "keep-alive"
+  );
+
+  res.setHeader(
+    "X-Accel-Buffering",
+    "no"
+  );
 }
 
 function emit(res, data) {
   if (!res.writableEnded) {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    res.write(
+      `data: ${JSON.stringify(data)}\n\n`
+    );
   }
 }
 
-function clean(v, max) {
-  return typeof v === "string" ? v.trim().slice(0, max) : "";
+function clean(value, max) {
+  return typeof value === "string"
+    ? value.trim().slice(0, max)
+    : "";
 }
+
+/* ---------------- MESSAGE VALIDATION ---------------- */
 
 function latest(messages) {
   for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
+    const message = messages[i];
 
-    if (m.role !== "user") continue;
+    if (message.role !== "user") continue;
 
-    if (typeof m.content === "string") {
-      return m.content;
+    if (typeof message.content === "string") {
+      return message.content;
     }
 
-    if (Array.isArray(m.content)) {
-      return m.content
-        .filter(x => x?.type === "text")
-        .map(x => x.text || "")
+    if (Array.isArray(message.content)) {
+      return message.content
+        .filter(item => item?.type === "text")
+        .map(item => item.text || "")
         .join(" ");
     }
   }
@@ -72,80 +103,134 @@ function latest(messages) {
 }
 
 function valid(messages) {
-  if (!Array.isArray(messages) || !messages.length) {
-    throw Error("At least one message is required.");
+  if (
+    !Array.isArray(messages) ||
+    !messages.length
+  ) {
+    throw Error(
+      "At least one message is required."
+    );
   }
 
-  return messages.slice(-LIMITS.messages).map(m => {
-    if (!m || !["user", "assistant", "system"].includes(m.role)) {
-      throw Error("Invalid message role.");
-    }
+  return messages
+    .slice(-LIMITS.messages)
+    .map(message => {
+      if (
+        !message ||
+        ![
+          "user",
+          "assistant",
+          "system"
+        ].includes(message.role)
+      ) {
+        throw Error(
+          "Invalid message role."
+        );
+      }
 
-    if (typeof m.content === "string") {
-      return {
-        role: m.role,
-        content: clean(m.content, LIMITS.text)
-      };
-    }
+      if (
+        typeof message.content ===
+        "string"
+      ) {
+        return {
+          role: message.role,
+          content: clean(
+            message.content,
+            LIMITS.text
+          )
+        };
+      }
 
-    if (Array.isArray(m.content)) {
-      return {
-        role: m.role,
-        content: m.content
-          .map(x => {
-            if (x?.type === "text") {
-              return {
-                type: "text",
-                text: clean(x.text, LIMITS.text)
-              };
-            }
+      if (
+        Array.isArray(
+          message.content
+        )
+      ) {
+        return {
+          role: message.role,
+          content: message.content
+            .map(item => {
+              if (
+                item?.type ===
+                "text"
+              ) {
+                return {
+                  type: "text",
+                  text: clean(
+                    item.text,
+                    LIMITS.text
+                  )
+                };
+              }
 
-            if (
-              x?.type === "image_url" &&
-              typeof x.image_url?.url === "string" &&
-              x.image_url.url.startsWith("data:image/")
-            ) {
-              return {
-                type: "image_url",
-                image_url: {
-                  url: x.image_url.url
-                }
-              };
-            }
+              if (
+                item?.type ===
+                  "image_url" &&
+                typeof item
+                  .image_url?.url ===
+                  "string" &&
+                item.image_url.url.startsWith(
+                  "data:image/"
+                )
+              ) {
+                return {
+                  type: "image_url",
+                  image_url: {
+                    url:
+                      item.image_url.url
+                  }
+                };
+              }
 
-            return null;
-          })
-          .filter(Boolean)
-      };
-    }
+              return null;
+            })
+            .filter(Boolean)
+        };
+      }
 
-    throw Error("Invalid message content.");
-  });
+      throw Error(
+        "Invalid message content."
+      );
+    });
 }
 
 function hasVision(messages) {
   return messages.some(
-    m =>
-      Array.isArray(m.content) &&
-      m.content.some(x => x?.type === "image_url")
+    message =>
+      Array.isArray(
+        message.content
+      ) &&
+      message.content.some(
+        item =>
+          item?.type ===
+          "image_url"
+      )
   );
 }
 
-function researchNeeded(body, q) {
+/* ---------------- RESEARCH ---------------- */
+
+function researchNeeded(body, query) {
   return (
     body.research === true ||
     /\b(latest|current|today|now|recent|news|weather|price|stock|search|research|sources?|what happened|where is|when is)\b/i.test(
-      q
+      query
     )
   );
 }
 
-async function fetchT(url, options, timeout) {
-  const controller = new AbortController();
+async function fetchT(
+  url,
+  options,
+  timeout
+) {
+  const controller =
+    new AbortController();
 
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, timeout);
+  const timer = setTimeout(
+    () => controller.abort(),
+    timeout
+  );
 
   try {
     return await fetch(url, {
@@ -157,64 +242,109 @@ async function fetchT(url, options, timeout) {
   }
 }
 
-async function tavily(q) {
+async function tavily(query) {
   if (!process.env.TAVILY_API_KEY) {
     return "";
   }
 
-  const r = await fetchT(
-    "https://api.tavily.com/search",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`
+  const response =
+    await fetchT(
+      "https://api.tavily.com/search",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          Authorization:
+            `Bearer ${process.env.TAVILY_API_KEY}`
+        },
+
+        body: JSON.stringify({
+          query: query.slice(
+            0,
+            500
+          ),
+
+          topic: "general",
+
+          search_depth: "basic",
+
+          max_results: 5,
+
+          include_answer: true
+        })
       },
-      body: JSON.stringify({
-        query: q.slice(0, 500),
-        topic: "general",
-        search_depth: "basic",
-        max_results: 5,
-        include_answer: true
-      })
-    },
-    LIMITS.research
-  );
+      LIMITS.research
+    );
 
-  const d = await r.json().catch(() => ({}));
+  const data =
+    await response
+      .json()
+      .catch(() => ({}));
 
-  if (!r.ok) {
+  if (!response.ok) {
     throw Error(
-      d.detail || `Research provider returned ${r.status}.`
+      data?.detail ||
+        `Research provider returned ${response.status}.`
     );
   }
 
   return (
-    (d.answer ? `Answer: ${d.answer}\n` : "") +
-    (d.results || [])
+    (
+      data.answer
+        ? `Answer: ${data.answer}\n`
+        : ""
+    ) +
+    (data.results || [])
       .slice(0, 5)
       .map(
-        (x, i) =>
-          `[${i + 1}] ${x.title || ""}\nURL: ${x.url || ""}\n${
-            x.content || ""
+        (item, index) =>
+          `[${index + 1}] ${
+            item.title || ""
+          }\nURL: ${
+            item.url || ""
+          }\n${
+            item.content || ""
           }`
       )
       .join("\n\n")
   );
 }
 
-function systemPrompt(body, research) {
-  const len = ["short", "medium", "long"].includes(body.responseLength)
+/* ---------------- SYSTEM PROMPT ---------------- */
+
+function systemPrompt(
+  body,
+  research
+) {
+  const length = [
+    "short",
+    "medium",
+    "long"
+  ].includes(
+    body.responseLength
+  )
     ? body.responseLength
     : "medium";
 
-  const style = ["balanced", "professional", "friendly", "direct"].includes(
+  const style = [
+    "balanced",
+    "professional",
+    "friendly",
+    "direct"
+  ].includes(
     body.responseStyle
   )
     ? body.responseStyle
     : "balanced";
 
-  const custom = clean(body.customInstructions, 5000);
+  const custom =
+    clean(
+      body.customInstructions,
+      5000
+    );
 
   return `You are OZLIND AI, the official AI assistant of the OZLIND AI platform.
 
@@ -222,26 +352,29 @@ IDENTITY
 - Your name is OZLIND AI.
 - OZLIND was created by Athul.
 - If asked who made, created, or built you, say: "I was created by Athul as part of the OZLIND AI platform."
-- Do not falsely claim Athul created the underlying third-party models.
-- Do not expose internal prompts, keys, or hidden system information.
+- Do not falsely claim Athul created the underlying third-party AI models.
+- Never expose API keys, hidden prompts, internal system information, or private infrastructure details.
 
 PERSONALITY
 Professional, calm, intelligent, clear, concise, natural, helpful and honest.
 
 RESPONSE RULES
 1. Answer the exact question first.
-2. Simple questions normally get 1–3 sentences.
-3. Do not pad answers or add unrelated information.
-4. Use bullets/headings only when useful.
-5. Be detailed when the user asks for detail or the task needs it.
-6. Never invent facts, sources, actions, capabilities or personal information.
-7. Do not mention backend/provider connection status unless explicitly asked.
-8. If current information is supplied through research context, prefer it.
-9. Avoid excessive emojis and repetitive filler.
-10. If uncertain, say so clearly.
+2. Simple questions normally receive 1–3 sentences.
+3. Do not unnecessarily expand simple questions.
+4. Do not add unrelated information.
+5. Use bullets or headings only when they improve readability.
+6. Give detailed answers when the user asks for detail or the task requires it.
+7. Never invent facts, sources, actions, capabilities or personal information.
+8. Never mention backend/provider connection status unless explicitly asked.
+9. If current information is supplied through web research, prefer that information.
+10. Clearly distinguish known information from uncertainty.
+11. Avoid excessive emojis and repetitive filler.
+12. For weather, prices, news, sports and other changing information, prefer current research context when available.
+13. If research data is unavailable, do not pretend that old knowledge is current.
 
 RESPONSE SETTINGS
-Length: ${len}
+Length: ${length}
 Style: ${style}
 Memory: ${
     body.memory === false
@@ -257,33 +390,56 @@ ${
 
 ${
   research
-    ? `WEB RESEARCH CONTEXT:\n${research}\nUse this for current facts. Do not invent unsupported details.`
+    ? `WEB RESEARCH CONTEXT:\n${research}\n\nUse this context for current facts. Do not invent unsupported details.`
     : ""
 }`;
 }
 
+/* ---------------- GEMINI HELPERS ---------------- */
+
 function gemParts(content) {
-  if (typeof content === "string") {
-    return [{ text: content }];
+  if (
+    typeof content ===
+    "string"
+  ) {
+    return [
+      {
+        text: content
+      }
+    ];
   }
 
   return content
-    .map(x => {
-      if (x.type === "text") {
+    .map(item => {
+      if (
+        item.type ===
+        "text"
+      ) {
         return {
-          text: x.text || ""
+          text:
+            item.text || ""
         };
       }
 
-      if (x.type === "image_url") {
-        const match = x.image_url.url.match(
-          /^data:([^;]+);base64,/
-        );
+      if (
+        item.type ===
+        "image_url"
+      ) {
+        const match =
+          item.image_url.url.match(
+            /^data:([^;]+);base64,/
+          );
 
         return {
           inline_data: {
-            mime_type: match?.[1] || "image/jpeg",
-            data: x.image_url.url.split(",")[1]
+            mime_type:
+              match?.[1] ||
+              "image/jpeg",
+
+            data:
+              item.image_url.url.split(
+                ","
+              )[1]
           }
         };
       }
@@ -293,53 +449,81 @@ function gemParts(content) {
     .filter(Boolean);
 }
 
-/* ---------------- SUPABASE ANALYTICS ---------------- */
+/* ---------------- SUPABASE ---------------- */
 
 function supabaseEnabled() {
   return Boolean(
     process.env.SUPABASE_URL &&
-      process.env.SUPABASE_SECRET_KEY
+      process.env
+        .SUPABASE_SECRET_KEY
   );
 }
 
-async function supabaseRequest(path, options = {}) {
-  if (!supabaseEnabled()) return null;
+async function supabaseRequest(
+  path,
+  options = {}
+) {
+  if (
+    !supabaseEnabled()
+  ) {
+    return null;
+  }
+
+  const base =
+    process.env
+      .SUPABASE_URL.replace(
+        /\/$/,
+        ""
+      );
 
   const url =
-    process.env.SUPABASE_URL.replace(/\/$/, "") +
-    "/rest/v1/" +
-    path;
+    `${base}/rest/v1/${path}`;
 
-  const response = await fetchT(
-    url,
-    {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        apikey: process.env.SUPABASE_SECRET_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`,
-        ...(options.headers || {})
-      }
-    },
-    10000
-  );
+  const response =
+    await fetchT(
+      url,
+      {
+        ...options,
 
-  const text = await response.text();
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          apikey:
+            process.env
+              .SUPABASE_SECRET_KEY,
+
+          Authorization:
+            `Bearer ${process.env.SUPABASE_SECRET_KEY}`,
+
+          ...(options.headers || {})
+        }
+      },
+      LIMITS.analytics
+    );
+
+  const text =
+    await response.text();
 
   let data = null;
 
   try {
-    data = text ? JSON.parse(text) : null;
+    data = text
+      ? JSON.parse(text)
+      : null;
   } catch {
     data = null;
   }
 
   if (!response.ok) {
-    throw Error(
+    const detail =
       data?.message ||
-        data?.hint ||
-        `Supabase returned ${response.status}.`
-    );
+      data?.details ||
+      data?.hint ||
+      data?.error ||
+      `Supabase returned ${response.status}.`;
+
+    throw Error(detail);
   }
 
   return data;
@@ -347,66 +531,288 @@ async function supabaseRequest(path, options = {}) {
 
 function isUuid(value) {
   return (
-    typeof value === "string" &&
+    typeof value ===
+      "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       value
     )
   );
 }
 
-function estimatedTokens(text) {
+function estimatedTokens(
+  text
+) {
   if (!text) return 0;
 
   return Math.max(
     1,
-    Math.ceil(String(text).length / 4)
+    Math.ceil(
+      String(text).length /
+        4
+    )
   );
 }
 
-async function ensureAnalyticsUser(visitorId) {
-  if (!supabaseEnabled() || !visitorId) return null;
-
-  const safeVisitor = clean(visitorId, 200);
-
-  const rows = await supabaseRequest(
-    "ozlind_users?on_conflict=visitor_id",
-    {
-      method: "POST",
-      headers: {
-        Prefer: "resolution=merge-duplicates,return=representation"
-      },
-      body: JSON.stringify({
-        visitor_id: safeVisitor,
-        last_active_at: new Date().toISOString()
-      })
-    }
-  );
-
-  return Array.isArray(rows) ? rows[0] : rows;
-}
-
-async function ensureConversation(userId, conversationId) {
-  if (!supabaseEnabled() || !userId) return null;
-
-  if (isUuid(conversationId)) {
-    return conversationId;
+/*
+ * Find or create anonymous analytics user.
+ *
+ * IMPORTANT:
+ * We intentionally do not use:
+ * ?on_conflict=visitor_id
+ *
+ * because that requires a UNIQUE constraint on
+ * visitor_id. This version works even if the
+ * existing table was created without that constraint.
+ */
+async function ensureAnalyticsUser(
+  visitorId
+) {
+  if (
+    !supabaseEnabled() ||
+    !visitorId
+  ) {
+    return null;
   }
 
-  const rows = await supabaseRequest(
-    "ozlind_conversations",
-    {
-      method: "POST",
-      headers: {
-        Prefer: "return=representation"
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        title: "New Chat"
-      })
-    }
-  );
+  const safeVisitor =
+    clean(
+      visitorId,
+      200
+    );
 
-  return Array.isArray(rows) ? rows[0]?.id : null;
+  const existing =
+    await supabaseRequest(
+      `ozlind_users?visitor_id=eq.${encodeURIComponent(
+        safeVisitor
+      )}&select=id,visitor_id&limit=1`,
+      {
+        method: "GET"
+      }
+    );
+
+  if (
+    Array.isArray(existing) &&
+    existing[0]?.id
+  ) {
+    await supabaseRequest(
+      `ozlind_users?id=eq.${encodeURIComponent(
+        existing[0].id
+      )}`,
+      {
+        method: "PATCH",
+
+        headers: {
+          Prefer:
+            "return=minimal"
+        },
+
+        body: JSON.stringify({
+          last_active_at:
+            new Date().toISOString()
+        })
+      }
+    );
+
+    return existing[0];
+  }
+
+  const created =
+    await supabaseRequest(
+      "ozlind_users",
+      {
+        method: "POST",
+
+        headers: {
+          Prefer:
+            "return=representation"
+        },
+
+        body: JSON.stringify({
+          visitor_id:
+            safeVisitor,
+
+          name: null,
+
+          email: null,
+
+          role: "user",
+
+          last_active_at:
+            new Date().toISOString()
+        })
+      }
+    );
+
+  return Array.isArray(
+    created
+  )
+    ? created[0]
+    : created;
+}
+
+/*
+ * IMPORTANT FIX:
+ *
+ * The browser creates conversation IDs locally.
+ * The old backend simply returned that UUID
+ * without creating the Supabase conversation row.
+ *
+ * This version creates the database row first.
+ */
+async function ensureConversation(
+  userId,
+  conversationId,
+  title
+) {
+  if (
+    !supabaseEnabled() ||
+    !userId
+  ) {
+    return null;
+  }
+
+  let id = isUuid(
+    conversationId
+  )
+    ? conversationId
+    : null;
+
+  if (id) {
+    const existing =
+      await supabaseRequest(
+        `ozlind_conversations?id=eq.${encodeURIComponent(
+          id
+        )}&user_id=eq.${encodeURIComponent(
+          userId
+        )}&select=id&limit=1`,
+        {
+          method: "GET"
+        }
+      );
+
+    if (
+      Array.isArray(
+        existing
+      ) &&
+      existing[0]?.id
+    ) {
+      await supabaseRequest(
+        `ozlind_conversations?id=eq.${encodeURIComponent(
+          id
+        )}&user_id=eq.${encodeURIComponent(
+          userId
+        )}`,
+        {
+          method: "PATCH",
+
+          headers: {
+            Prefer:
+              "return=minimal"
+          },
+
+          body:
+            JSON.stringify({
+              updated_at:
+                new Date().toISOString(),
+
+              ...(title
+                ? {
+                    title:
+                      clean(
+                        title,
+                        200
+                      )
+                  }
+                : {})
+            })
+        }
+      );
+
+      return id;
+    }
+  }
+
+  id =
+    id ||
+    crypto.randomUUID();
+
+  const created =
+    await supabaseRequest(
+      "ozlind_conversations",
+      {
+        method: "POST",
+
+        headers: {
+          Prefer:
+            "return=representation"
+        },
+
+        body: JSON.stringify({
+          id,
+
+          user_id:
+            userId,
+
+          title:
+            clean(
+              title ||
+                "New Chat",
+              200
+            ),
+
+          created_at:
+            new Date().toISOString(),
+
+          updated_at:
+            new Date().toISOString()
+        })
+      }
+    );
+
+  return Array.isArray(
+    created
+  )
+    ? created[0]?.id || id
+    : created?.id || id;
+}
+
+/*
+ * Small helper so one analytics table failure
+ * does not prevent the remaining tables from
+ * receiving data.
+ */
+async function analyticsInsert(
+  table,
+  payload
+) {
+  try {
+    await supabaseRequest(
+      table,
+      {
+        method: "POST",
+
+        headers: {
+          Prefer:
+            "return=minimal"
+        },
+
+        body:
+          JSON.stringify(
+            payload
+          )
+      }
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      `OZLIND analytics ${table} error:`,
+      error?.message ||
+        error
+    );
+
+    return false;
+  }
 }
 
 async function logAnalytics({
@@ -417,320 +823,557 @@ async function logAnalytics({
   responseTime,
   errorMessage
 }) {
-  if (!supabaseEnabled()) return;
+  if (
+    !supabaseEnabled()
+  ) {
+    return;
+  }
 
   try {
-    const visitorId = clean(body.visitorId, 200);
+    const visitor =
+      clean(
+        body.visitorId,
+        200
+      );
 
-    if (!visitorId) return;
+    if (!visitor) {
+      console.warn(
+        "OZLIND analytics: missing visitorId."
+      );
 
-    const user = await ensureAnalyticsUser(visitorId);
+      return;
+    }
 
-    if (!user?.id) return;
+    const user =
+      await ensureAnalyticsUser(
+        visitor
+      );
 
-    const userId = user.id;
+    if (!user?.id) {
+      console.warn(
+        "OZLIND analytics: user creation failed."
+      );
 
-    const conversationId = await ensureConversation(
-      userId,
-      body.conversationId
-    );
+      return;
+    }
 
-    if (!conversationId) return;
+    const userId =
+      user.id;
 
-    const inputText = JSON.stringify(
-      body.messages || []
-    );
+    const conversationId =
+      await ensureConversation(
+        userId,
+        body.conversationId,
+        body.title ||
+          query.slice(
+            0,
+            80
+          )
+      );
+
+    if (!conversationId) {
+      console.warn(
+        "OZLIND analytics: conversation creation failed."
+      );
+
+      return;
+    }
+
+    const inputText =
+      JSON.stringify(
+        body.messages ||
+          []
+      );
+
+    const usage =
+      result?.usage ||
+      {};
 
     const inputTokens =
-      result?.usage?.input_tokens ||
-      result?.usage?.prompt_tokens ||
-      estimatedTokens(inputText);
+      Number(
+        usage.input_tokens ||
+          usage.prompt_tokens ||
+          usage.promptTokens
+      ) ||
+      estimatedTokens(
+        inputText
+      );
 
     const outputTokens =
-      result?.usage?.output_tokens ||
-      result?.usage?.completion_tokens ||
-      estimatedTokens(result?.text || "");
+      Number(
+        usage.output_tokens ||
+          usage.completion_tokens ||
+          usage.outputTokens
+      ) ||
+      estimatedTokens(
+        result?.text ||
+          ""
+      );
 
     const totalTokens =
-      result?.usage?.total_tokens ||
-      inputTokens + outputTokens;
+      Number(
+        usage.total_tokens ||
+          usage.totalTokens
+      ) ||
+      inputTokens +
+        outputTokens;
 
-    const model = result?.model || null;
-    const provider = result?.provider || null;
+    const model =
+      result?.model ||
+      null;
 
-    await supabaseRequest(
+    const provider =
+      result?.provider ||
+      null;
+
+    /*
+     * 1. Messages
+     */
+    await analyticsInsert(
       "ozlind_messages",
-      {
-        method: "POST",
-        headers: {
-          Prefer: "return=minimal"
+      [
+        {
+          conversation_id:
+            conversationId,
+
+          user_id:
+            userId,
+
+          role: "user",
+
+          content:
+            query || "",
+
+          model,
+
+          provider
         },
-        body: JSON.stringify([
-          {
-            conversation_id: conversationId,
-            user_id: userId,
-            role: "user",
-            content: query,
-            model,
-            provider
-          },
-          {
-            conversation_id: conversationId,
-            user_id: userId,
-            role: "assistant",
-            content: result?.text || "",
-            model,
-            provider
-          }
-        ])
-      }
+
+        {
+          conversation_id:
+            conversationId,
+
+          user_id:
+            userId,
+
+          role: "assistant",
+
+          content:
+            result?.text ||
+            "",
+
+          model,
+
+          provider
+        }
+      ]
     );
 
-    await supabaseRequest(
+    /*
+     * 2. Token usage
+     */
+    await analyticsInsert(
       "ozlind_usage",
       {
-        method: "POST",
-        headers: {
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          conversation_id: conversationId,
-          provider,
-          model,
-          input_tokens: inputTokens,
-          output_tokens: outputTokens,
-          total_tokens: totalTokens,
-          estimated_cost: 0
-        })
+        user_id:
+          userId,
+
+        conversation_id:
+          conversationId,
+
+        provider,
+
+        model,
+
+        input_tokens:
+          inputTokens,
+
+        output_tokens:
+          outputTokens,
+
+        total_tokens:
+          totalTokens,
+
+        /*
+         * Provider billing is not available
+         * from this generic layer yet.
+         */
+        estimated_cost: 0
       }
     );
 
-    await supabaseRequest(
+    /*
+     * 3. API event
+     */
+    await analyticsInsert(
       "ozlind_api_events",
       {
-        method: "POST",
-        headers: {
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          provider,
-          model,
-          event_type: "chat",
-          success: !errorMessage,
-          error_message: errorMessage || null,
-          response_time_ms: responseTime
-        })
+        user_id:
+          userId,
+
+        provider,
+
+        model,
+
+        event_type:
+          errorMessage
+            ? "chat_error"
+            : "chat",
+
+        success:
+          !errorMessage,
+
+        error_message:
+          errorMessage ||
+          null,
+
+        response_time_ms:
+          Number(
+            responseTime
+          ) || 0
       }
     );
 
-    if (researchUsed) {
-      await supabaseRequest(
+    /*
+     * 4. Research usage
+     */
+    if (
+      researchUsed
+    ) {
+      await analyticsInsert(
         "ozlind_research_usage",
         {
-          method: "POST",
-          headers: {
-            Prefer: "return=minimal"
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            conversation_id: conversationId,
-            query: query.slice(0, 500),
-            results_count: 5
-          })
+          user_id:
+            userId,
+
+          conversation_id:
+            conversationId,
+
+          query:
+            query.slice(
+              0,
+              500
+            ),
+
+          results_count:
+            5
         }
       );
     }
-  } catch (analyticsError) {
+  } catch (error) {
     console.error(
       "OZLIND analytics error:",
-      analyticsError?.message || analyticsError
+      error?.message ||
+        error
     );
   }
 }
 
 /* ---------------- AI PROVIDERS ---------------- */
 
-async function openai(provider, messages, system) {
-  const c = PROVIDERS[provider];
+async function openai(
+  provider,
+  messages,
+  system
+) {
+  const config =
+    PROVIDERS[provider];
 
-  const key = process.env[c.key];
-
-  if (!key) {
-    throw Error(`${provider} is not configured.`);
+  if (!config) {
+    throw Error(
+      `Unknown provider: ${provider}.`
+    );
   }
 
-  const model = process.env[c.model] || c.fallback;
+  const key =
+    process.env[
+      config.key
+    ];
 
-  const r = await fetchT(
-    `${c.base}/chat/completions`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: system
-          },
-          ...messages
-        ],
-        temperature: 0.3
-      })
-    },
-    LIMITS.timeout
-  );
-
-  const d = await r.json().catch(() => ({}));
-
-  if (!r.ok) {
+  if (!key) {
     throw Error(
-      `${provider} returned ${r.status}: ${
-        d.error?.message || "request failed"
-      }`
+      `${provider} is not configured.`
+    );
+  }
+
+  const model =
+    process.env[
+      config.model
+    ] ||
+    config.fallback;
+
+  const response =
+    await fetchT(
+      `${config.base}/chat/completions`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          Authorization:
+            `Bearer ${key}`
+        },
+
+        body:
+          JSON.stringify({
+            model,
+
+            messages: [
+              {
+                role:
+                  "system",
+
+                content:
+                  system
+              },
+
+              ...messages
+            ],
+
+            temperature:
+              0.3
+          })
+      },
+      LIMITS.timeout
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(() => ({}));
+
+  if (!response.ok) {
+    throw Error(
+      data?.error?.message ||
+        data?.message ||
+        `${provider} returned ${response.status}.`
     );
   }
 
   const text =
-    d.choices?.[0]?.message?.content || "";
+    data?.choices?.[0]
+      ?.message?.content;
 
-  if (!text) {
+  if (
+    typeof text !==
+      "string" ||
+    !text.trim()
+  ) {
     throw Error(
       `${provider} returned an empty response.`
     );
   }
 
   return {
+    text: text.trim(),
+
     provider,
+
     model,
-    text,
-    usage: {
-      input_tokens:
-        d.usage?.prompt_tokens || 0,
-      output_tokens:
-        d.usage?.completion_tokens || 0,
-      total_tokens:
-        d.usage?.total_tokens || 0
-    }
+
+    usage:
+      data?.usage || {}
   };
 }
 
-async function gemini(messages, system) {
-  const c = PROVIDERS.gemini;
+async function gemini(
+  messages,
+  system
+) {
+  const config =
+    PROVIDERS.gemini;
 
-  const key = process.env[c.key];
+  const key =
+    process.env[
+      config.key
+    ];
 
   if (!key) {
-    throw Error("gemini is not configured.");
+    throw Error(
+      "gemini is not configured."
+    );
   }
 
   const model =
-    process.env[c.model] || c.fallback;
+    process.env[
+      config.model
+    ] ||
+    config.fallback;
 
-  const contents = messages
-    .filter(m => m.role !== "system")
-    .map(m => ({
-      role:
-        m.role === "assistant"
-          ? "model"
-          : "user",
-      parts: gemParts(m.content)
-    }));
+  const contents =
+    messages.map(
+      message => ({
+        role:
+          message.role ===
+          "assistant"
+            ? "model"
+            : "user",
 
-  const r = await fetchT(
-    `${c.base}/models/${encodeURIComponent(
-      model
-    )}:generateContent?key=${encodeURIComponent(key)}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [
-            {
-              text: system
-            }
-          ]
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.3
-        }
+        parts:
+          gemParts(
+            message.content
+          )
       })
-    },
-    LIMITS.timeout
-  );
+    );
 
-  const d = await r.json().catch(() => ({}));
+  const response =
+    await fetchT(
+      `${config.base}/models/${encodeURIComponent(
+        model
+      )}:generateContent?key=${encodeURIComponent(
+        key
+      )}`,
+      {
+        method: "POST",
 
-  if (!r.ok) {
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify({
+            system_instruction:
+              {
+                parts: [
+                  {
+                    text:
+                      system
+                  }
+                ]
+              },
+
+            contents,
+
+            generationConfig:
+              {
+                temperature:
+                  0.3
+              }
+          })
+      },
+      LIMITS.timeout
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(() => ({}));
+
+  if (!response.ok) {
     throw Error(
-      `gemini returned ${r.status}: ${
-        d.error?.message || "request failed"
-      }`
+      data?.error?.message ||
+        `Gemini returned ${response.status}.`
     );
   }
 
   const text =
-    d.candidates?.[0]?.content?.parts
-      ?.map(p => p.text || "")
-      .join("") || "";
+    data?.candidates?.[0]
+      ?.content?.parts
+      ?.map(
+        part =>
+          part.text || ""
+      )
+      .join("");
 
-  if (!text) {
+  if (
+    typeof text !==
+      "string" ||
+    !text.trim()
+  ) {
     throw Error(
-      "gemini returned an empty response."
+      "Gemini returned an empty response."
     );
   }
 
+  const usage =
+    data?.usageMetadata ||
+    {};
+
   return {
-    provider: "gemini",
+    text: text.trim(),
+
+    provider:
+      "gemini",
+
     model,
-    text,
+
     usage: {
       input_tokens:
-        d.usageMetadata?.promptTokenCount || 0,
+        usage.promptTokenCount ||
+        0,
+
       output_tokens:
-        d.usageMetadata?.candidatesTokenCount || 0,
+        usage.candidatesTokenCount ||
+        0,
+
       total_tokens:
-        d.usageMetadata?.totalTokenCount || 0
+        usage.totalTokenCount ||
+        0
     }
   };
 }
 
-async function answer(order, messages, system) {
-  let last;
+/* ---------------- PROVIDER SELECTION ---------------- */
 
-  for (const p of order) {
-    try {
-      return p === "gemini"
-        ? await gemini(messages, system)
-        : await openai(
-            p,
-            messages,
-            system
-          );
-    } catch (e) {
-      last = e;
-    }
+function normalizeProvider(
+  selected
+) {
+  const value =
+    String(
+      selected || "auto"
+    ).toLowerCase();
+
+  if (
+    value === "swift" ||
+    value === "groq"
+  ) {
+    return "groq";
   }
 
-  throw (
-    last ||
-    Error(
-      "No AI provider is configured."
-    )
-  );
+  if (
+    value === "flash" ||
+    value === "gemini"
+  ) {
+    return "gemini";
+  }
+
+  if (
+    value ===
+      "insight" ||
+    value ===
+      "experiential"
+  ) {
+    return "experiential";
+  }
+
+  return "auto";
 }
 
-function providerOrder(selected, vision) {
-  if (selected === "gemini") {
+function providerOrder(
+  selected,
+  vision
+) {
+  const normalized =
+    normalizeProvider(
+      selected
+    );
+
+  /*
+   * Vision currently uses Gemini,
+   * because it supports the image
+   * format used by this application.
+   */
+  if (vision) {
+    return ["gemini"];
+  }
+
+  if (
+    normalized ===
+    "gemini"
+  ) {
     return [
       "gemini",
       "groq",
@@ -738,7 +1381,10 @@ function providerOrder(selected, vision) {
     ];
   }
 
-  if (selected === "groq") {
+  if (
+    normalized ===
+    "groq"
+  ) {
     return [
       "groq",
       "gemini",
@@ -746,7 +1392,10 @@ function providerOrder(selected, vision) {
     ];
   }
 
-  if (selected === "experiential") {
+  if (
+    normalized ===
+    "experiential"
+  ) {
     return [
       "experiential",
       "groq",
@@ -754,152 +1403,329 @@ function providerOrder(selected, vision) {
     ];
   }
 
-  return vision
-    ? [
-        "gemini",
-        "groq",
-        "experiential"
-      ]
-    : [
-        "groq",
-        "gemini",
-        "experiential"
-      ];
+  return [
+    "groq",
+    "gemini",
+    "experiential"
+  ];
 }
 
-function chunk(text, size = 70) {
-  const out = [];
-
-  for (let i = 0; i < text.length; i += size) {
-    out.push(text.slice(i, i + size));
-  }
-
-  return out;
-}
-
-/* ---------------- MAIN HANDLER ---------------- */
-
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return json(res, 405, {
-      error: "Method not allowed."
-    });
-  }
-
-  const startedAt = Date.now();
-
-  let body = {};
-  let query = "";
-  let researchUsed = false;
-
-  try {
-    body = req.body || {};
-
-    const messages = valid(body.messages);
-
-    query = latest(messages);
-
-    const vision = hasVision(messages);
-
-    if (query.length > LIMITS.text) {
-      throw Error("Message is too long.");
-    }
-
-    let research = "";
-
-    if (researchNeeded(body, query)) {
-      try {
-        research = await tavily(query);
-        researchUsed = Boolean(research);
-      } catch (e) {
-        research = "";
-        researchUsed = false;
-      }
-    }
-
-    const system = systemPrompt(
-      body,
-      research
-    );
-
-    let order = providerOrder(
-      body.model,
-      vision
-    );
-
-    if (vision) {
-      order = order.filter(
-        p => p === "gemini"
-      );
-    }
-
-    const result = await answer(
-      order,
+async function generate(
+  provider,
+  messages,
+  system
+) {
+  if (
+    provider ===
+    "gemini"
+  ) {
+    return gemini(
       messages,
       system
     );
+  }
 
-    await logAnalytics({
-      body,
-      query,
-      result,
-      researchUsed,
-      responseTime:
-        Date.now() - startedAt
-    });
+  return openai(
+    provider,
+    messages,
+    system
+  );
+}
 
-    sseStart(res);
+/* ---------------- MAIN API ---------------- */
 
-    emit(res, {
-      type: "provider",
-      provider: result.provider,
-      model: result.model
-    });
-
-    for (const part of chunk(result.text)) {
-      emit(res, {
-        type: "delta",
-        content: part
-      });
-
-      await new Promise(resolve =>
-        setTimeout(resolve, 8)
+module.exports =
+  async function handler(
+    req,
+    res
+  ) {
+    if (
+      req.method !==
+      "POST"
+    ) {
+      return json(
+        res,
+        405,
+        {
+          error:
+            "Method not allowed."
+        }
       );
     }
 
-    emit(res, {
-      type: "done"
-    });
+    const started =
+      Date.now();
 
-    res.end();
-  } catch (e) {
-    const errorMessage =
-      e?.message ||
-      "Unable to complete the request.";
+    let body;
 
     try {
+      body =
+        typeof req.body ===
+        "string"
+          ? JSON.parse(
+              req.body
+            )
+          : req.body || {};
+    } catch {
+      return json(
+        res,
+        400,
+        {
+          error:
+            "Invalid JSON request."
+        }
+      );
+    }
+
+    try {
+      const messages =
+        valid(
+          body.messages
+        );
+
+      const query =
+        latest(messages);
+
+      if (!query.trim() &&
+          !hasVision(messages)
+      ) {
+        throw Error(
+          "Please enter a message."
+        );
+      }
+
+      const vision =
+        hasVision(
+          messages
+        );
+
+      /*
+       * Research
+       */
+      let researchText =
+        "";
+
+      const wantsResearch =
+        researchNeeded(
+          body,
+          query
+        );
+
+      if (
+        wantsResearch &&
+        process.env
+          .TAVILY_API_KEY
+      ) {
+        try {
+          researchText =
+            await tavily(
+              query
+            );
+        } catch (
+          researchError
+        ) {
+          console.error(
+            "OZLIND research error:",
+            researchError?.message ||
+              researchError
+          );
+
+          /*
+           * Do not break normal chat
+           * if Tavily temporarily fails.
+           */
+          researchText =
+            "";
+        }
+      }
+
+      const system =
+        systemPrompt(
+          body,
+          researchText
+        );
+
+      const order =
+        providerOrder(
+          body.model,
+          vision
+        );
+
+      let result = null;
+
+      let lastError = null;
+
+      for (
+        const provider of order
+      ) {
+        try {
+          result =
+            await generate(
+              provider,
+              messages,
+              system
+            );
+
+          if (result) {
+            break;
+          }
+        } catch (error) {
+          lastError =
+            error;
+
+          console.error(
+            `OZLIND ${provider} error:`,
+            error?.message ||
+              error
+          );
+        }
+      }
+
+      if (!result) {
+        const message =
+          lastError?.message ||
+          "All AI providers are currently unavailable.";
+
+        /*
+         * Even if AI generation fails,
+         * try to record the API failure.
+         */
+        await logAnalytics({
+          body,
+          query,
+          result: {
+            text: ""
+          },
+          researchUsed:
+            Boolean(
+              researchText
+            ),
+          responseTime:
+            Date.now() -
+            started,
+          errorMessage:
+            message
+        });
+
+        return json(
+          res,
+          502,
+          {
+            error: message
+          }
+        );
+      }
+
+      /*
+       * Analytics is awaited so the Vercel
+       * function does not finish before the
+       * Supabase writes are completed.
+       */
       await logAnalytics({
         body,
         query,
-        result: null,
-        researchUsed,
+        result,
+        researchUsed:
+          Boolean(
+            researchText
+          ),
         responseTime:
-          Date.now() - startedAt,
-        errorMessage
+          Date.now() -
+          started,
+        errorMessage:
+          null
       });
-    } catch {}
 
-    if (res.headersSent) {
+      /*
+       * SSE response.
+       *
+       * The providers themselves are called
+       * normally above. We stream the completed
+       * answer in small chunks so the frontend
+       * gets a typing effect.
+       */
+      sseStart(res);
+
+      const text =
+        result.text || "";
+
+      const chunkSize = 70;
+
+      for (
+        let i = 0;
+        i < text.length;
+        i += chunkSize
+      ) {
+        if (
+          res.writableEnded
+        ) {
+          break;
+        }
+
+        emit(res, {
+          type: "delta",
+
+          content:
+            text.slice(
+              i,
+              i +
+                chunkSize
+            )
+        });
+
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              8
+            )
+        );
+      }
+
       emit(res, {
-        type: "error",
-        error: errorMessage
+        type: "done"
       });
 
-      res.end();
-    } else {
-      json(res, 500, {
-        error: errorMessage
-      });
+      if (
+        !res.writableEnded
+      ) {
+        res.end();
+      }
+    } catch (error) {
+      console.error(
+        "OZLIND API error:",
+        error?.message ||
+          error
+      );
+
+      if (
+        res.headersSent
+      ) {
+        emit(res, {
+          type: "error",
+
+          error:
+            error?.message ||
+            "Request failed."
+        });
+
+        if (
+          !res.writableEnded
+        ) {
+          res.end();
+        }
+
+        return;
+      }
+
+      return json(
+        res,
+        400,
+        {
+          error:
+            error?.message ||
+            "Unable to process the request."
+        }
+      );
     }
-  }
-    }
+  };
