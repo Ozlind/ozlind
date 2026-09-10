@@ -182,27 +182,14 @@ function vision(messages) {
   );
 }
 
+/*
+ * Detect questions that benefit from
+ * current web research.
+ */
 function researchNeeded(body, query) {
   return (
     body.research === true ||
-    /\b(
-      latest|
-      current|
-      today|
-      now|
-      recent|
-      news|
-      weather|
-      price|
-      stock|
-      search|
-      research|
-      sources?|
-      what happened|
-      who is|
-      where is|
-      when is
-    )\b/ix.test(query)
+    /\b(latest|current|today|now|recent|news|weather|price|stock|search|research|sources?|what happened|who is|where is|when is)\b/i.test(query)
   );
 }
 
@@ -938,4 +925,4 @@ export default async function handler(
       );
     }
   }
-      }
+                  }
