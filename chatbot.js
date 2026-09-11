@@ -1,1052 +1,1446 @@
 (() => {
-"use strict";
+  "use strict";
 
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-const STORAGE = {
-  chats: "ozlind_chats_v4",
-  settings: "ozlind_settings_v4",
-  theme: "ozlind_theme_v4",
-  visitor: "ozlind_visitor_v1"
-};
+  const K = {
+    chats: "ozlind:v3:chats",
+    settings: "ozlind:v3:settings",
+    theme: "ozlind:v3:theme",
+    visitor: "ozlind:v1:visitor"
+  };
 
-let chats = load(STORAGE.chats, []);
-let active = chats[0]?.id || null;
-let attachments = [];
-let controller = null;
-let busy = false;
+  const MAX_CHATS = 100;
+  const MAX_ATTACHMENTS = 4;
+  const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
+  const MAX_CONTEXT_MESSAGES = 20;
 
-let settings = {
-  length: "medium",
-  style: "balanced",
-  memory: true,
-  instructions: "",
-  ...load(STORAGE.settings, {})
-};
+  let chats = load(K.chats, []);
+  let active = chats[0]?.id || null;
+  let files = [];
+  let controller = null;
+  let generating = false;
 
-function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value === null ? fallback : JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
+  let settings = {
+    responseLength: "medium",
+    responseStyle: "balanced",
+    memory: true,
+    instructions: "",
+    mode: "auto",
+    ...load(K.settings, {})
+  };
 
-function save(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    toast("Browser storage is full.", "error");
-  }
-}
-
-function persist() {
-  chats = chats
-    .filter(c => c?.id && Array.isArray(c.messages))
-    .slice(0, 100);
-
-  save(STORAGE.chats, chats);
-}
-
-function uid() {
-  return (
-    crypto?.randomUUID?.() ||
-    `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
-}
-
-/* Anonymous visitor ID.
-   This identifies a browser/device session without collecting
-   name, email, password or other personal information.
-*/
-function visitorId() {
-  let id = localStorage.getItem(STORAGE.visitor);
-
-  if (!id) {
-    id = uid();
-    localStorage.setItem(STORAGE.visitor, id);
+  function load(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : JSON.parse(value);
+    } catch {
+      return fallback;
+    }
   }
 
-  return id;
-}
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      toast("Local storage is full.", "error");
+    }
+  }
 
-function esc(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    c => ({
+  function uid() {
+    return crypto?.randomUUID?.() ||
+      `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+
+  function visitorId() {
+    let value = localStorage.getItem(K.visitor);
+
+    if (!value) {
+      value = uid();
+      localStorage.setItem(K.visitor, value);
+    }
+
+    return value;
+  }
+
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;",
       "<": "&lt;",
       ">": "&gt;",
       '"': "&quot;",
       "'": "&#039;"
-    })[c]
-  );
-}
+    }[char]));
+  }
 
-function toast(message, type = "") {
-  const stack = $("#toastStack");
-  if (!stack) return;
+  function toast(message, type = "") {
+    const stack = $("#toastStack");
+    if (!stack) return;
 
-  const node = document.createElement("div");
-  node.className = `toast ${type}`;
-  node.textContent = message;
+    const item = document.createElement("div");
+    item.className = `toast ${type}`;
+    item.textContent = message;
 
-  stack.append(node);
+    stack.appendChild(item);
 
-  setTimeout(() => node.remove(), 2800);
-}
+    setTimeout(() => item.remove(), 3200);
+  }
 
-function current() {
-  return chats.find(c => c.id === active);
-}
+  function current() {
+    return chats.find(chat => chat.id === active);
+  }
 
-function titleOf(text) {
-  let title = String(text || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(
-      /^(hi|hello|hey|hai|good morning|good afternoon|good evening)[,!. ]*/i,
-      ""
-    )
-    .replace(
-      /^(can you|could you|please|help me|i want to|i need to)\s+/i,
-      ""
-    )
-    .trim();
-
-  if (!title) return "New conversation";
-
-  title = title[0].toUpperCase() + title.slice(1);
-
-  return title.length > 58
-    ? title.slice(0, 58).trim() + "…"
-    : title;
-}
-
-function newChat() {
-  const conversation = {
-    id: uid(),
-    title: "New chat",
-    messages: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  chats.unshift(conversation);
-  active = conversation.id;
-
-  persist();
-  render();
-  openPage("chat");
-
-  setTimeout(() => {
-    $("#chatInput")?.focus();
-  }, 0);
-}
-
-function openPage(view) {
-  $$(".page").forEach(page => {
-    page.classList.toggle(
-      "active",
-      page.dataset.page === view
+  function persist() {
+    chats.sort(
+      (a, b) =>
+        new Date(b.updatedAt || 0) -
+        new Date(a.updatedAt || 0)
     );
-  });
 
-  $$(".nav-item").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.view === view
-    );
-  });
+    chats = chats.slice(0, MAX_CHATS);
 
-  const titles = {
-    chat: "Chat",
-    history: "History",
-    research: "Research",
-    vision: "Vision",
-    settings: "Settings"
-  };
-
-  if ($("#topbarTitle")) {
-    $("#topbarTitle").textContent =
-      titles[view] || "OZLIND";
+    save(K.chats, chats);
   }
 
-  if (view === "history") {
-    renderHistory();
-  }
-
-  if (view === "settings") {
-    renderSettings();
-  }
-
-  $("#sidebar")?.classList.remove("open");
-  $("#sidebarOverlay")?.classList.remove("open");
-}
-
-function resize() {
-  const input = $("#chatInput");
-  if (!input) return;
-
-  input.style.height = "auto";
-  input.style.height =
-    Math.min(input.scrollHeight, 170) + "px";
-}
-
-function render() {
-  const conversation = current();
-  const box = $("#chatMessages");
-  const empty = $("#chatEmpty");
-
-  if (!box || !empty) return;
-
-  box.innerHTML = "";
-
-  if (
-    !conversation ||
-    !conversation.messages.length
-  ) {
-    empty.classList.remove("hidden");
-    return;
-  }
-
-  empty.classList.add("hidden");
-
-  conversation.messages.forEach((message, index) => {
-    const article = document.createElement("article");
-
-    article.className =
-      `message ${message.role}` +
-      (message.error ? " error" : "");
-
-    const body = esc(message.content)
-      .replace(/\n/g, "<br>");
-
-    const tools =
-      message.role === "assistant" && !message.error
-        ? `
-          <div class="message-tools">
-            <button data-copy="${index}">Copy</button>
-            <button data-regenerate="${index}">Regenerate</button>
-            <button data-delete-message="${index}">Delete</button>
-          </div>
-        `
-        : message.role === "user"
-        ? `
-          <div class="message-tools">
-            <button data-edit="${index}">Edit</button>
-            <button data-delete-message="${index}">Delete</button>
-          </div>
-        `
-        : "";
-
-    const images = message.attachments?.length
-      ? `
-        <div class="message-images">
-          ${message.attachments
-            .map(
-              image =>
-                `<img src="${esc(image.dataUrl)}" alt="">`
-            )
-            .join("")}
-        </div>
-      `
-      : "";
-
-    article.innerHTML = `
-      <div class="meta">
-        ${message.role === "user" ? "You" : "OZLIND AI"}
-      </div>
-
-      <div class="body">
-        ${
-          body ||
-          (!message.error ? "Thinking…" : "")
-        }
-      </div>
-
-      ${images}
-      ${tools}
-    `;
-
-    box.append(article);
-  });
-
-  requestAnimationFrame(() => {
-    const scroll = $("#chatScroll");
-
-    if (scroll) {
-      scroll.scrollTop = scroll.scrollHeight;
+  function newChat() {
+    if (generating) {
+      toast("Please stop the current response first.", "error");
+      return;
     }
-  });
-}
 
-function renderHistory(filter = "") {
-  const list = $("#conversationList");
+    const chat = {
+      id: uid(),
+      title: "New chat",
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-  if (!list) return;
+    chats.unshift(chat);
+    active = chat.id;
 
-  const query = filter.toLowerCase().trim();
+    files = [];
+    renderFiles();
+    persist();
+    renderMessages();
+    renderHistory();
+    showView("chat");
 
-  const rows = chats.filter(conversation =>
-    `${conversation.title} ${
-      conversation.messages
-        .map(message => message.content)
-        .join(" ")
-    }`
-      .toLowerCase()
-      .includes(query)
-  );
+    setTimeout(() => $("#chatInput")?.focus(), 50);
+  }
 
-  list.innerHTML = rows.length
-    ? rows
-        .map(
-          conversation => `
-            <div class="history-item">
-              <div class="history-main">
-                <b>${esc(conversation.title)}</b>
-                <small>
-                  ${conversation.messages.length}
-                  message${
-                    conversation.messages.length === 1
-                      ? ""
-                      : "s"
-                  }
-                </small>
-              </div>
+  function ensureChat() {
+    if (!current()) newChat();
+    return current();
+  }
 
-              <button data-open="${esc(
-                conversation.id
-              )}">→</button>
+  function showView(view) {
+    $$(".page").forEach(page => {
+      page.classList.toggle("active", page.dataset.page === view);
+    });
 
-              <button data-delete="${esc(
-                conversation.id
-              )}">×</button>
-            </div>
-          `
-        )
-        .join("")
-    : `
-      <div class="history-empty">
-        <b>No conversations</b>
-        <small>
-          Your saved conversations will appear here.
-        </small>
+    $$(".nav-item").forEach(button => {
+      button.classList.toggle("active", button.dataset.view === view);
+    });
+
+    const titles = {
+      chat: "AI Chat",
+      history: "History",
+      research: "Research",
+      vision: "Vision",
+      settings: "Settings"
+    };
+
+    if ($("#topbarTitle")) {
+      $("#topbarTitle").textContent = titles[view] || "OZLIND";
+    }
+
+    if (view === "history") renderHistory();
+    if (view === "settings") loadSettingsUI();
+
+    $(".sidebar")?.classList.remove("open");
+    $("#sidebarOverlay")?.classList.remove("open");
+  }
+
+  function formatText(text) {
+    const safe = esc(text);
+
+    return safe
+      .replace(/```([\s\S]*?)```/g, (_, code) => {
+        return `
+          <pre class="code-block">
+            <code>${code.trim()}</code>
+          </pre>
+        `;
+      })
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br>");
+  }
+
+  function renderMessageActions(index) {
+    return `
+      <div class="message-actions">
+        <button type="button" data-copy="${index}" title="Copy">
+          Copy
+        </button>
+
+        <button type="button" data-edit="${index}" title="Edit">
+          Edit
+        </button>
+
+        <button type="button" data-regenerate="${index}" title="Regenerate">
+          Regenerate
+        </button>
+
+        <button type="button" data-delete-message="${index}" title="Delete">
+          Delete
+        </button>
       </div>
     `;
-}
-
-function renderSettings() {
-  if ($("#responseLength")) {
-    $("#responseLength").value = settings.length;
   }
 
-  if ($("#responseStyle")) {
-    $("#responseStyle").value = settings.style;
-  }
+  function renderMessageImages(attachments) {
+    if (!Array.isArray(attachments) || !attachments.length) {
+      return "";
+    }
 
-  if ($("#customInstructions")) {
-    $("#customInstructions").value =
-      settings.instructions || "";
-  }
-
-  if ($("#memoryToggle")) {
-    $("#memoryToggle").setAttribute(
-      "aria-pressed",
-      String(!!settings.memory)
-    );
-  }
-}
-
-function renderAttachments() {
-  const container = $("#chatAttachments");
-
-  if (!container) return;
-
-  container.innerHTML = attachments
-    .map(
-      (file, index) => `
-        <div class="attachment">
-          <img
-            src="${esc(file.dataUrl)}"
-            alt=""
+    return `
+      <div class="message-images">
+        ${attachments.map((image, index) => `
+          <button
+            type="button"
+            class="message-image"
+            data-image-preview="${index}"
+            data-image-src="${esc(image.dataUrl)}"
+            aria-label="Open image"
           >
+            <img
+              src="${esc(image.dataUrl)}"
+              alt="${esc(image.name || "Uploaded image")}"
+              loading="lazy"
+            >
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function renderMessages() {
+    const box = $("#chatMessages");
+    const empty = $("#chatEmpty");
+    const chat = current();
+
+    if (!box || !empty) return;
+
+    box.innerHTML = "";
+
+    if (!chat || !chat.messages.length) {
+      empty.classList.remove("hidden");
+      return;
+    }
+
+    empty.classList.add("hidden");
+
+    chat.messages.forEach((message, index) => {
+      const article = document.createElement("article");
+
+      article.className =
+        `message ${message.role}` +
+        (message.error ? " error" : "") +
+        (message.pending ? " pending" : "");
+
+      const isUser = message.role === "user";
+      const isAssistant = message.role === "assistant";
+
+      const body = message.content
+        ? formatText(message.content)
+        : message.pending
+          ? `<div class="typing-indicator">
+               <span></span><span></span><span></span>
+             </div>`
+          : "";
+
+      article.innerHTML = `
+        <div class="message-meta">
+          ${isUser ? "You" : "OZLIND AI"}
+        </div>
+
+        ${body ? `<div class="message-body">${body}</div>` : ""}
+
+        ${isUser ? renderMessageImages(message.attachments) : ""}
+
+        ${
+          isAssistant && !message.pending && !message.error
+            ? renderMessageActions(index)
+            : ""
+        }
+
+        ${
+          message.error
+            ? `<div class="message-error">
+                 ${esc(message.content || "Something went wrong.")}
+               </div>`
+            : ""
+        }
+      `;
+
+      box.appendChild(article);
+    });
+
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function renderHistory(filter = "") {
+    const box = $("#conversationList");
+    if (!box) return;
+
+    box.innerHTML = "";
+
+    const query = filter.trim().toLowerCase();
+
+    const filtered = chats.filter(chat => {
+      const searchable = [
+        chat.title,
+        ...chat.messages.map(message => message.content || "")
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(query);
+    });
+
+    if (!filtered.length) {
+      box.innerHTML = `
+        <div class="history-empty">
+          No conversations found.
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(chat => {
+      const item = document.createElement("div");
+      item.className =
+        `history-item ${chat.id === active ? "active" : ""}`;
+
+      item.innerHTML = `
+        <div class="history-main">
+          <b>${esc(chat.title || "New chat")}</b>
+          <small>
+            ${chat.messages.length} message${chat.messages.length === 1 ? "" : "s"}
+          </small>
+        </div>
+
+        <div class="history-actions">
+          <button
+            type="button"
+            class="icon-btn"
+            data-open="${chat.id}"
+            aria-label="Open conversation"
+          >→</button>
 
           <button
-            data-remove="${index}"
-            aria-label="Remove image"
-          >
-            ×
-          </button>
+            type="button"
+            class="icon-btn"
+            data-delete="${chat.id}"
+            aria-label="Delete conversation"
+          >×</button>
         </div>
-      `
-    )
-    .join("");
+      `;
 
-  if ($("#contextIndicator")) {
-    $("#contextIndicator").textContent =
-      attachments.length
-        ? `${attachments.length} image${
-            attachments.length > 1 ? "s" : ""
-          } attached`
-        : "Ready";
-  }
-}
-
-function readImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-
-    reader.readAsDataURL(file);
-  });
-}
-
-async function addFiles(files) {
-  const selected = [...files]
-    .filter(file =>
-      file.type.startsWith("image/")
-    )
-    .slice(0, 4 - attachments.length);
-
-  for (const file of selected) {
-    if (file.size > 8 * 1024 * 1024) {
-      toast(
-        "Each image must be under 8 MB.",
-        "error"
-      );
-      continue;
-    }
-
-    attachments.push({
-      name: file.name,
-      type: file.type,
-      dataUrl: await readImage(file)
+      box.appendChild(item);
     });
   }
 
-  renderAttachments();
-}
+  function titleFrom(text) {
+    const clean = String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-function requestMessages(conversation) {
-  const source = settings.memory
-    ? conversation.messages.slice(-20)
-    : conversation.messages.slice(-1);
+    if (!clean) return "New chat";
 
-  return source.map(message => {
-    if (
-      message.role === "user" &&
-      message.attachments?.length
-    ) {
-      return {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: message.content || ""
-          },
-          ...message.attachments.map(image => ({
-            type: "image_url",
-            image_url: {
-              url: image.dataUrl
-            }
-          }))
-        ]
-      };
+    return clean
+      .replace(/[?.!]+$/, "")
+      .slice(0, 58);
+  }
+
+  function resizeInput() {
+    const input = $("#chatInput");
+    if (!input) return;
+
+    input.style.height = "auto";
+    input.style.height =
+      Math.min(input.scrollHeight, 180) + "px";
+  }
+
+  function renderFiles() {
+    const box = $("#chatAttachments");
+    if (!box) return;
+
+    box.innerHTML = "";
+
+    files.forEach((file, index) => {
+      const item = document.createElement("div");
+
+      item.className = "attachment";
+
+      item.innerHTML = `
+        <div class="attachment-preview">
+          <img
+            src="${esc(file.dataUrl)}"
+            alt="${esc(file.name || "Attachment")}"
+          >
+        </div>
+
+        <div class="attachment-info">
+          <span>${esc(file.name || "Image")}</span>
+        </div>
+
+        <button
+          type="button"
+          data-file="${index}"
+          aria-label="Remove attachment"
+        >×</button>
+      `;
+
+      box.appendChild(item);
+    });
+
+    const indicator = $("#contextIndicator");
+
+    if (indicator) {
+      indicator.textContent =
+        `${files.length} attachment${files.length === 1 ? "" : "s"}`;
     }
-
-    return {
-      role: message.role,
-      content: message.content
-    };
-  });
-}
-
-function setBusy(value) {
-  busy = value;
-
-  $("#sendBtn")?.classList.toggle(
-    "hidden",
-    value
-  );
-
-  $("#stopBtn")?.classList.toggle(
-    "hidden",
-    !value
-  );
-
-  if ($("#connectionStatus")) {
-    $("#connectionStatus").innerHTML = value
-      ? "<i></i> Thinking…"
-      : "<i></i> Ready";
-  }
-}
-
-async function copyMessage(index) {
-  const message = current()?.messages[index];
-
-  if (!message) return;
-
-  try {
-    await navigator.clipboard.writeText(
-      message.content || ""
-    );
-
-    toast("Copied", "ok");
-  } catch {
-    toast("Copy unavailable.", "error");
-  }
-}
-
-function deleteMessage(index) {
-  const conversation = current();
-
-  if (!conversation) return;
-
-  conversation.messages.splice(index, 1);
-  conversation.updatedAt =
-    new Date().toISOString();
-
-  persist();
-  render();
-}
-
-function editMessage(index) {
-  const conversation = current();
-  const message = conversation?.messages[index];
-
-  if (!message || message.role !== "user") {
-    return;
   }
 
-  $("#chatInput").value =
-    message.content || "";
+  function dataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-  attachments = message.attachments
-    ? [...message.attachments]
-    : [];
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
 
-  conversation.messages.splice(index);
-
-  persist();
-  renderAttachments();
-  resize();
-  openPage("chat");
-
-  $("#chatInput").focus();
-}
-
-async function regenerate(index) {
-  const conversation = current();
-
-  if (
-    !conversation ||
-    busy ||
-    conversation.messages[index]?.role !==
-      "assistant"
-  ) {
-    return;
+      reader.readAsDataURL(file);
+    });
   }
 
-  const previous =
-    conversation.messages[index - 1];
+  async function addFiles(list) {
+    const incoming = [...(list || [])];
 
-  if (!previous || previous.role !== "user") {
-    return;
-  }
+    if (!incoming.length) return;
 
-  conversation.messages.splice(index, 1);
-
-  persist();
-
-  await generate(
-    conversation,
-    previous
-  );
-}
-
-async function send() {
-  if (busy) return;
-
-  const input = $("#chatInput");
-  const text = input?.value.trim() || "";
-
-  if (!text && !attachments.length) {
-    return;
-  }
-
-  let conversation = current();
-
-  if (!conversation) {
-    newChat();
-    conversation = current();
-  }
-
-  const images = attachments.splice(0, 4);
-
-  renderAttachments();
-
-  conversation.messages.push({
-    role: "user",
-    content: text,
-    attachments: images
-  });
-
-  if (conversation.messages.length === 1) {
-    conversation.title =
-      titleOf(text || "Image analysis");
-  }
-
-  conversation.updatedAt =
-    new Date().toISOString();
-
-  persist();
-
-  input.value = "";
-
-  resize();
-  render();
-
-  await generate(
-    conversation,
-    conversation.messages[
-      conversation.messages.length - 1
-    ]
-  );
-}
-
-async function generate(
-  conversation,
-  userMessage
-) {
-  const assistant = {
-    role: "assistant",
-    content: ""
-  };
-
-  conversation.messages.push(assistant);
-
-  setBusy(true);
-
-  controller = new AbortController();
-
-  persist();
-  render();
-
-  try {
-    const model =
-      $("#modelSelect")?.value || "auto";
-
-    const research =
-      $("#researchToggle")?.getAttribute(
-        "aria-pressed"
-      ) === "true";
-
-    const response = await fetch(
-      "/api/chat",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          messages:
-            requestMessages(conversation),
-
-          model,
-
-          research,
-
-          responseLength:
-            settings.length,
-
-          responseStyle:
-            settings.style,
-
-          memory:
-            settings.memory,
-
-          customInstructions:
-            settings.instructions,
-
-          /* Supabase analytics */
-          visitorId: visitorId(),
-
-          conversationId:
-            conversation.id
-        })
+    for (
+      const file of incoming.slice(
+        0,
+        MAX_ATTACHMENTS - files.length
+      )
+    ) {
+      if (!file.type.startsWith("image/")) {
+        toast("Only image files are supported.", "error");
+        continue;
       }
-    );
 
-    if (!response.ok) {
-      let message =
-        `Request failed (${response.status}).`;
+      if (file.size > MAX_IMAGE_SIZE) {
+        toast("Image must be smaller than 8MB.", "error");
+        continue;
+      }
 
       try {
-        const data =
-          await response.json();
+        const dataUrl = await dataURL(file);
 
-        if (data?.error) {
-          message = data.error;
-        }
-      } catch {}
-
-      throw Error(message);
+        files.push({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          dataUrl
+        });
+      } catch {
+        toast(`Could not read ${file.name}.`, "error");
+      }
     }
 
-    if (!response.body) {
-      throw Error(
-        "No response returned from OZLIND."
-      );
+    if (incoming.length + files.length > MAX_ATTACHMENTS) {
+      toast("Maximum 4 images per message.", "error");
     }
 
-    const reader =
-      response.body.getReader();
+    renderFiles();
+  }
 
-    const decoder =
-      new TextDecoder();
+  /*
+   * IMPORTANT:
+   * Never send the temporary assistant placeholder.
+   *
+   * The old flow added:
+   *
+   * user
+   * assistant ""
+   *
+   * and then serialized both.
+   *
+   * Some providers reject that request with:
+   * "Requests ending with a model turn are not supported."
+   *
+   * This function explicitly removes the pending assistant
+   * before constructing the API payload.
+   */
+  function payloadMessages(chat) {
+    if (!chat) return [];
 
-    let buffer = "";
+    let source = Array.isArray(chat.messages)
+      ? [...chat.messages]
+      : [];
 
-    while (true) {
-      const {
-        value,
-        done
-      } = await reader.read();
+    const last = source[source.length - 1];
 
-      if (done) break;
+    if (
+      last &&
+      last.role === "assistant" &&
+      (last.pending || !String(last.content || "").trim())
+    ) {
+      source.pop();
+    }
 
-      buffer += decoder.decode(
-        value,
-        { stream: true }
-      );
+    if (settings.memory) {
+      source = source.slice(-MAX_CONTEXT_MESSAGES);
+    } else {
+      source = source.slice(-1);
+    }
 
-      const lines =
-        buffer.split("\n");
-
-      buffer =
-        lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data:")) {
-          continue;
-        }
-
-        const raw =
-          line.slice(5).trim();
-
+    return source
+      .filter(message =>
+        message &&
+        (message.role === "user" || message.role === "assistant")
+      )
+      .map(message => {
         if (
-          !raw ||
-          raw === "[DONE]"
+          message.role === "user" &&
+          Array.isArray(message.attachments) &&
+          message.attachments.length
         ) {
-          continue;
+          return {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: message.content || "Please analyse this image."
+              },
+
+              ...message.attachments
+                .slice(0, MAX_ATTACHMENTS)
+                .map(attachment => ({
+                  type: "image_url",
+                  image_url: {
+                    url: attachment.dataUrl
+                  }
+                }))
+            ]
+          };
         }
 
-        let data;
+        return {
+          role: message.role,
+          content: String(message.content || "")
+        };
+      });
+  }
+
+  function selectedMode() {
+    return $("#modeSelect")?.value ||
+      $("#aiMode")?.value ||
+      settings.mode ||
+      "auto";
+  }
+
+  function isResearchEnabled() {
+    return $("#researchToggle")
+      ?.getAttribute("aria-pressed") === "true";
+  }
+
+  function setGeneratingState(value) {
+    generating = value;
+
+    $("#sendBtn")?.classList.toggle("hidden", value);
+    $("#stopBtn")?.classList.toggle("hidden", !value);
+
+    const status = $("#connectionStatus");
+
+    if (status) {
+      status.innerHTML = value
+        ? "<i></i> Generating…"
+        : "<i></i> Ready";
+    }
+
+    $("#chatInput")?.toggleAttribute("disabled", value);
+  }
+
+  async function send() {
+    if (generating) return;
+
+    const input = $("#chatInput");
+    const text = input?.value.trim() || "";
+
+    if (!text && !files.length) return;
+
+    const chat = ensureChat();
+
+    const attachments = files.splice(
+      0,
+      MAX_ATTACHMENTS
+    );
+
+    renderFiles();
+
+    const userMessage = {
+      role: "user",
+      content: text,
+      attachments,
+      createdAt: new Date().toISOString()
+    };
+
+    chat.messages.push(userMessage);
+
+    if (
+      chat.messages.length === 1 ||
+      chat.title === "New chat"
+    ) {
+      chat.title = titleFrom(text || "Image analysis");
+    }
+
+    chat.updatedAt = new Date().toISOString();
+
+    if (input) {
+      input.value = "";
+      resizeInput();
+    }
+
+    persist();
+    renderMessages();
+
+    /*
+     * Create the assistant placeholder only AFTER
+     * the user message has been stored.
+     *
+     * payloadMessages() will explicitly remove this
+     * placeholder before sending the request.
+     */
+    const assistant = {
+      role: "assistant",
+      content: "",
+      pending: true,
+      createdAt: new Date().toISOString()
+    };
+
+    chat.messages.push(assistant);
+
+    setGeneratingState(true);
+    controller = new AbortController();
+
+    renderMessages();
+
+    try {
+      const payload = {
+        messages: payloadMessages(chat),
+
+        model:
+          $("#modelSelect")?.value ||
+          "auto",
+
+        mode: selectedMode(),
+
+        research: isResearchEnabled(),
+
+        responseLength:
+          settings.responseLength,
+
+        responseStyle:
+          settings.responseStyle,
+
+        memory:
+          settings.memory,
+
+        customInstructions:
+          settings.instructions,
+
+        visitorId:
+          visitorId(),
+
+        conversationId:
+          chat.id
+      };
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream"
+        },
+
+        signal: controller.signal,
+
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let message =
+          `Request failed (${response.status})`;
 
         try {
-          data = JSON.parse(raw);
-        } catch {
-          continue;
-        }
+          const data = await response.json();
 
-        if (data.type === "delta") {
-          assistant.content +=
-            data.content || "";
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {}
 
-          render();
-        }
+        throw new Error(message);
+      }
 
-        if (data.type === "error") {
-          throw Error(
-            data.error ||
+      if (!response.body) {
+        throw new Error("The server returned no response stream.");
+      }
+
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const { value, done } =
+          await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(
+          value,
+          { stream: true }
+        );
+
+        const lines =
+          buffer.split("\n");
+
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) {
+            continue;
+          }
+
+          const raw =
+            line.slice(5).trim();
+
+          if (!raw || raw === "[DONE]") {
+            continue;
+          }
+
+          let event;
+
+          try {
+            event = JSON.parse(raw);
+          } catch {
+            continue;
+          }
+
+          /*
+           * Current backend sends:
+           * { event:"message", type:"delta", content:"..." }
+           */
+          if (
+            event.type === "delta" &&
+            typeof event.content === "string"
+          ) {
+            assistant.content += event.content;
+            assistant.pending = false;
+
+            renderMessages();
+            continue;
+          }
+
+          if (event.type === "error") {
+            throw new Error(
+              event.error ||
               "Generation failed."
-          );
+            );
+          }
+
+          /*
+           * Some future/alternate stream formats
+           * may send event:"delta".
+           */
+          if (
+            event.event === "delta" &&
+            typeof event.content === "string"
+          ) {
+            assistant.content += event.content;
+            assistant.pending = false;
+
+            renderMessages();
+          }
         }
       }
-    }
 
-    if (!assistant.content.trim()) {
-      throw Error(
-        "OZLIND returned an empty response."
-      );
-    }
-  } catch (error) {
-    if (
-      error?.name === "AbortError"
-    ) {
       if (!assistant.content.trim()) {
         assistant.content =
-          "Generation stopped.";
-      } else {
-        assistant.content +=
-          "\n\nGeneration stopped.";
+          "No response was returned.";
       }
-    } else {
-      assistant.error = true;
 
-      assistant.content =
-        error?.message ||
-        "Unable to complete the request.";
+      assistant.pending = false;
+      assistant.error = false;
 
-      toast(
-        assistant.content,
-        "error"
-      );
+    } catch (error) {
+      assistant.pending = false;
+
+      if (error?.name === "AbortError") {
+        assistant.content =
+          assistant.content.trim()
+            ? `${assistant.content}\n\nGeneration stopped.`
+            : "Generation stopped.";
+      } else {
+        assistant.error = true;
+        assistant.content =
+          error?.message ||
+          "Something went wrong. Please try again.";
+
+        toast(
+          assistant.content,
+          "error"
+        );
+      }
+    } finally {
+      assistant.pending = false;
+
+      chat.updatedAt =
+        new Date().toISOString();
+
+      persist();
+      renderMessages();
+
+      setGeneratingState(false);
+      controller = null;
     }
-  } finally {
-    conversation.updatedAt =
+  }
+
+  function stopGeneration() {
+    if (!generating) return;
+
+    controller?.abort();
+  }
+
+  async function copyMessage(index) {
+    const chat = current();
+    const message = chat?.messages[index];
+
+    if (!message?.content) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        message.content
+      );
+
+      toast("Copied to clipboard.", "success");
+    } catch {
+      toast("Could not copy the response.", "error");
+    }
+  }
+
+  function editMessage(index) {
+    if (generating) return;
+
+    const chat = current();
+    const message = chat?.messages[index];
+
+    if (!message || message.role !== "user") {
+      return;
+    }
+
+    const input = $("#chatInput");
+    if (!input) return;
+
+    input.value = message.content || "";
+
+    files = Array.isArray(message.attachments)
+      ? [...message.attachments]
+      : [];
+
+    chat.messages.splice(index);
+
+    chat.updatedAt =
       new Date().toISOString();
 
     persist();
-    render();
+    renderFiles();
+    renderMessages();
+    showView("chat");
 
-    setBusy(false);
-
-    controller = null;
+    input.focus();
+    resizeInput();
   }
-}
 
-function toggleTheme() {
-  const next =
-    document.body.dataset.theme === "dark"
-      ? "light"
-      : "dark";
+  function deleteMessage(index) {
+    if (generating) {
+      toast("Stop generation before deleting messages.", "error");
+      return;
+    }
 
-  document.body.dataset.theme = next;
+    const chat = current();
 
-  save(STORAGE.theme, next);
+    if (!chat) return;
 
-  if ($("#themeToggle")) {
-    $("#themeToggle").textContent =
-      next === "dark" ? "☾" : "☀";
+    chat.messages.splice(index, 1);
+
+    if (!chat.messages.length) {
+      chat.title = "New chat";
+    }
+
+    chat.updatedAt =
+      new Date().toISOString();
+
+    persist();
+    renderMessages();
+    renderHistory();
   }
-}
 
-function toggleResearch() {
-  const button =
-    $("#researchToggle");
+  function regenerate(index) {
+    if (generating) return;
 
-  if (!button) return;
+    const chat = current();
 
-  const enabled =
-    button.getAttribute(
-      "aria-pressed"
-    ) === "true";
+    if (!chat) return;
 
-  button.setAttribute(
-    "aria-pressed",
-    String(!enabled)
-  );
+    const assistant = chat.messages[index];
 
-  const label =
-    button.querySelector("em");
+    if (
+      !assistant ||
+      assistant.role !== "assistant"
+    ) {
+      return;
+    }
 
-  if (label) {
-    label.textContent =
-      !enabled ? "ON" : "OFF";
+    const userIndex = index - 1;
+
+    const userMessage =
+      chat.messages[userIndex];
+
+    if (
+      !userMessage ||
+      userMessage.role !== "user"
+    ) {
+      toast("Unable to regenerate this response.", "error");
+      return;
+    }
+
+    chat.messages.splice(index);
+
+    sendExistingConversation(chat);
   }
-}
 
-/* ---------------- EVENTS ---------------- */
+  async function sendExistingConversation(chat) {
+    if (generating) return;
 
-document.addEventListener(
-  "click",
-  async event => {
-    const nav =
-      event.target.closest(
-        "[data-view]"
+    const assistant = {
+      role: "assistant",
+      content: "",
+      pending: true,
+      createdAt: new Date().toISOString()
+    };
+
+    chat.messages.push(assistant);
+
+    setGeneratingState(true);
+    controller = new AbortController();
+
+    renderMessages();
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream"
+        },
+
+        signal: controller.signal,
+
+        body: JSON.stringify({
+          messages: payloadMessages(chat),
+          model: $("#modelSelect")?.value || "auto",
+          mode: selectedMode(),
+          research: isResearchEnabled(),
+          responseLength: settings.responseLength,
+          responseStyle: settings.responseStyle,
+          memory: settings.memory,
+          customInstructions: settings.instructions,
+          visitorId: visitorId(),
+          conversationId: chat.id
+        })
+      });
+
+      if (!response.ok) {
+        let message =
+          `Request failed (${response.status})`;
+
+        try {
+          const data = await response.json();
+          message = data?.error || message;
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      if (!response.body) {
+        throw new Error("No response stream.");
+      }
+
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const { value, done } =
+          await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(
+          value,
+          { stream: true }
+        );
+
+        const lines =
+          buffer.split("\n");
+
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+
+          const raw =
+            line.slice(5).trim();
+
+          if (!raw || raw === "[DONE]") continue;
+
+          try {
+            const event =
+              JSON.parse(raw);
+
+            if (
+              event.type === "delta" &&
+              typeof event.content === "string"
+            ) {
+              assistant.content +=
+                event.content;
+
+              assistant.pending = false;
+
+              renderMessages();
+            }
+
+            if (event.type === "error") {
+              throw new Error(
+                event.error ||
+                "Generation failed."
+              );
+            }
+          } catch (error) {
+            if (
+              error instanceof SyntaxError
+            ) {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+      }
+
+      if (!assistant.content.trim()) {
+        assistant.content =
+          "No response was returned.";
+      }
+
+      assistant.pending = false;
+
+    } catch (error) {
+      assistant.pending = false;
+      assistant.error = true;
+
+      assistant.content =
+        error?.name === "AbortError"
+          ? "Generation stopped."
+          : error?.message ||
+            "Request failed.";
+
+      if (error?.name !== "AbortError") {
+        toast(
+          assistant.content,
+          "error"
+        );
+      }
+    } finally {
+      assistant.pending = false;
+
+      chat.updatedAt =
+        new Date().toISOString();
+
+      persist();
+      renderMessages();
+
+      setGeneratingState(false);
+      controller = null;
+    }
+  }
+
+  function previewImage(src) {
+    if (!src) return;
+
+    let modal = $("#imagePreviewModal");
+
+    if (!modal) {
+      modal = document.createElement("div");
+
+      modal.id = "imagePreviewModal";
+      modal.className = "image-preview-modal";
+
+      modal.innerHTML = `
+        <button
+          type="button"
+          class="image-preview-close"
+          aria-label="Close image"
+        >×</button>
+
+        <div class="image-preview-stage">
+          <img alt="Image preview">
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      modal.addEventListener("click", event => {
+        if (
+          event.target === modal ||
+          event.target.closest(".image-preview-close")
+        ) {
+          modal.classList.remove("open");
+        }
+      });
+    }
+
+    const image = modal.querySelector("img");
+
+    if (image) {
+      image.src = src;
+    }
+
+    modal.classList.add("open");
+  }
+
+  function loadSettingsUI() {
+    if ($("#responseLength")) {
+      $("#responseLength").value =
+        settings.responseLength;
+    }
+
+    if ($("#responseStyle")) {
+      $("#responseStyle").value =
+        settings.responseStyle;
+    }
+
+    if ($("#customInstructions")) {
+      $("#customInstructions").value =
+        settings.instructions;
+    }
+
+    $("#memoryToggle")
+      ?.setAttribute(
+        "aria-checked",
+        String(settings.memory)
       );
 
-    if (nav) {
-      openPage(nav.dataset.view);
+    if ($("#modeSelect")) {
+      $("#modeSelect").value =
+        settings.mode || "auto";
+    }
+
+    if ($("#aiMode")) {
+      $("#aiMode").value =
+        settings.mode || "auto";
+    }
+  }
+
+  function saveSettings() {
+    settings.responseLength =
+      $("#responseLength")?.value ||
+      settings.responseLength;
+
+    settings.responseStyle =
+      $("#responseStyle")?.value ||
+      settings.responseStyle;
+
+    settings.instructions =
+      ($("#customInstructions")?.value || "")
+        .slice(0, 5000);
+
+    settings.mode =
+      $("#modeSelect")?.value ||
+      $("#aiMode")?.value ||
+      settings.mode;
+
+    save(K.settings, settings);
+
+    toast(
+      "Settings saved.",
+      "success"
+    );
+  }
+
+  function toggleMemory() {
+    settings.memory = !settings.memory;
+
+    save(K.settings, settings);
+    loadSettingsUI();
+
+    toast(
+      settings.memory
+        ? "Conversation memory enabled."
+        : "Conversation memory disabled.",
+      "success"
+    );
+  }
+
+  function exportData() {
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          chats,
+          null,
+          2
+        )
+      ],
+      {
+        type: "application/json"
+      }
+    );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+    link.download =
+      "ozlind-history.json";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+
+    toast(
+      "History exported.",
+      "success"
+    );
+  }
+
+  function importData(file) {
+    if (!file) return;
+
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+      try {
+        const imported =
+          JSON.parse(reader.result);
+
+        if (!Array.isArray(imported)) {
+          throw new Error();
+        }
+
+        const valid =
+          imported
+            .filter(chat =>
+              chat &&
+              chat.id &&
+              Array.isArray(chat.messages)
+            )
+            .slice(0, MAX_CHATS);
+
+        chats = valid;
+        active = chats[0]?.id || null;
+
+        persist();
+        renderMessages();
+        renderHistory();
+
+        toast(
+          "History imported.",
+          "success"
+        );
+
+      } catch {
+        toast(
+          "Invalid history file.",
+          "error"
+        );
+      }
+    };
+
+    reader.readAsText(file);
+  }
+
+  function toggleTheme() {
+    const currentTheme =
+      document.body.dataset.theme ||
+      "dark";
+
+    const next =
+      currentTheme === "light"
+        ? "dark"
+        : "light";
+
+    document.body.dataset.theme = next;
+
+    save(K.theme, next);
+
+    if ($("#themeToggle")) {
+      $("#themeToggle").textContent =
+        next === "dark"
+          ? "☾"
+          : "☀";
+    }
+  }
+
+  function initializeTheme() {
+    const theme =
+      load(K.theme, "dark");
+
+    document.body.dataset.theme =
+      theme === "light"
+        ? "light"
+        : "dark";
+
+    if ($("#themeToggle")) {
+      $("#themeToggle").textContent =
+        document.body.dataset.theme === "dark"
+          ? "☾"
+          : "☀";
+    }
+  }
+
+  document.addEventListener("click", event => {
+    const view =
+      event.target.closest("[data-view]");
+
+    if (view) {
+      showView(view.dataset.view);
       return;
     }
 
     const prompt =
-      event.target.closest(
-        "[data-prompt]"
-      );
+      event.target.closest("[data-prompt]");
 
     if (prompt) {
-      openPage("chat");
+      const input = $("#chatInput");
 
-      $("#chatInput").value =
-        prompt.dataset.prompt;
+      if (input) {
+        input.value =
+          prompt.dataset.prompt || "";
 
-      resize();
-      $("#chatInput").focus();
-
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#newChatBtn"
-      )
-    ) {
-      newChat();
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#themeToggle"
-      )
-    ) {
-      toggleTheme();
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#mobileNavBtn"
-      )
-    ) {
-      $("#sidebar")?.classList.add(
-        "open"
-      );
-
-      $("#sidebarOverlay")?.classList.add(
-        "open"
-      );
-
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#sidebarOverlay"
-      )
-    ) {
-      $("#sidebar")?.classList.remove(
-        "open"
-      );
-
-      $("#sidebarOverlay")?.classList.remove(
-        "open"
-      );
-
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#attachBtn"
-      )
-    ) {
-      $("#fileInput")?.click();
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#stopBtn"
-      )
-    ) {
-      controller?.abort();
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "[data-go-chat]"
-      )
-    ) {
-      openPage("chat");
-      return;
-    }
-
-    if (
-      event.target.closest(
-        "#researchToggle"
-      )
-    ) {
-      toggleResearch();
-      return;
-    }
-
-    const remove =
-      event.target.closest(
-        "[data-remove]"
-      );
-
-    if (remove) {
-      attachments.splice(
-        Number(remove.dataset.remove),
-        1
-      );
-
-      renderAttachments();
+        resizeInput();
+        showView("chat");
+        input.focus();
+      }
 
       return;
     }
 
     const open =
-      event.target.closest(
-        "[data-open]"
-      );
+      event.target.closest("[data-open]");
 
     if (open) {
       active = open.dataset.open;
 
-      render();
-      openPage("chat");
+      persist();
+      renderMessages();
+      renderHistory();
+      showView("chat");
 
       return;
     }
 
-    const deleteConversation =
-      event.target.closest(
-        "[data-delete]"
-      );
+    const deleteChat =
+      event.target.closest("[data-delete]");
 
-    if (deleteConversation) {
-      if (
-        confirm(
-          "Delete this conversation?"
-        )
-      ) {
-        const id =
-          deleteConversation.dataset.delete;
-
-        chats = chats.filter(
-          chat => chat.id !== id
-        );
-
-        if (active === id) {
-          active =
-            chats[0]?.id || null;
-        }
-
-        persist();
-        renderHistory();
-        render();
-
+    if (deleteChat) {
+      if (generating) {
         toast(
-          "Conversation deleted.",
-          "ok"
+          "Stop generation first.",
+          "error"
         );
+        return;
       }
+
+      const id =
+        deleteChat.dataset.delete;
+
+      chats =
+        chats.filter(chat =>
+          chat.id !== id
+        );
+
+      if (active === id) {
+        active =
+          chats[0]?.id || null;
+      }
+
+      persist();
+      renderMessages();
+      renderHistory();
 
       return;
     }
 
     const copy =
-      event.target.closest(
-        "[data-copy]"
-      );
+      event.target.closest("[data-copy]");
 
     if (copy) {
       copyMessage(
         Number(copy.dataset.copy)
       );
+      return;
+    }
 
+    const edit =
+      event.target.closest("[data-edit]");
+
+    if (edit) {
+      editMessage(
+        Number(edit.dataset.edit)
+      );
+      return;
+    }
+
+    const regenerateButton =
+      event.target.closest("[data-regenerate]");
+
+    if (regenerateButton) {
+      regenerate(
+        Number(
+          regenerateButton.dataset.regenerate
+        )
+      );
       return;
     }
 
@@ -1058,308 +1452,297 @@ document.addEventListener(
     if (deleteMessageButton) {
       deleteMessage(
         Number(
-          deleteMessageButton.dataset
-            .deleteMessage
+          deleteMessageButton.dataset.deleteMessage
         )
       );
-
       return;
     }
 
-    const edit =
-      event.target.closest(
-        "[data-edit]"
+    const removeFile =
+      event.target.closest("[data-file]");
+
+    if (removeFile) {
+      files.splice(
+        Number(removeFile.dataset.file),
+        1
       );
 
-    if (edit) {
-      editMessage(
-        Number(edit.dataset.edit)
-      );
-
+      renderFiles();
       return;
     }
 
-    const regenerateButton =
-      event.target.closest(
-        "[data-regenerate]"
-      );
+    const image =
+      event.target.closest("[data-image-src]");
 
-    if (regenerateButton) {
-      await regenerate(
-        Number(
-          regenerateButton.dataset
-            .regenerate
-        )
+    if (image) {
+      previewImage(
+        image.dataset.imageSrc
       );
-
       return;
     }
 
     if (
-      event.target.closest(
-        "#memoryToggle"
-      )
+      event.target.closest("#newChatBtn")
     ) {
-      settings.memory =
-        !settings.memory;
-
-      save(
-        STORAGE.settings,
-        settings
-      );
-
-      renderSettings();
-
+      newChat();
       return;
     }
 
     if (
-      event.target.closest(
-        "#saveInstructionsBtn"
-      )
+      event.target.closest("#themeToggle")
     ) {
-      settings.length =
-        $("#responseLength")?.value ||
-        "medium";
-
-      settings.style =
-        $("#responseStyle")?.value ||
-        "balanced";
-
-      settings.instructions =
-        (
-          $("#customInstructions")
-            ?.value || ""
-        ).slice(0, 5000);
-
-      save(
-        STORAGE.settings,
-        settings
-      );
-
-      toast(
-        "Settings saved.",
-        "ok"
-      );
-
+      toggleTheme();
       return;
     }
 
     if (
-      event.target.closest(
-        "#exportHistoryBtn"
-      )
+      event.target.closest("#researchToggle")
     ) {
-      const link =
-        document.createElement("a");
+      const button =
+        $("#researchToggle");
 
-      const url =
-        URL.createObjectURL(
-          new Blob(
-            [
-              JSON.stringify(
-                chats,
-                null,
-                2
-              )
-            ],
-            {
-              type:
-                "application/json"
-            }
-          )
-        );
+      const enabled =
+        button.getAttribute(
+          "aria-pressed"
+        ) === "true";
 
-      link.href = url;
-      link.download =
-        "ozlind-history.json";
+      button.setAttribute(
+        "aria-pressed",
+        String(!enabled)
+      );
 
-      link.click();
+      const label =
+        button.querySelector("span");
 
-      URL.revokeObjectURL(url);
+      if (label) {
+        label.textContent =
+          !enabled
+            ? "ON"
+            : "OFF";
+      }
 
       return;
     }
 
     if (
-      event.target.closest(
-        "#importHistoryBtn"
-      )
+      event.target.closest("#mobileNavBtn")
+    ) {
+      $(".sidebar")
+        ?.classList.add("open");
+
+      $("#sidebarOverlay")
+        ?.classList.add("open");
+
+      return;
+    }
+
+    if (
+      event.target.closest("#sidebarOverlay")
+    ) {
+      $(".sidebar")
+        ?.classList.remove("open");
+
+      $("#sidebarOverlay")
+        ?.classList.remove("open");
+
+      return;
+    }
+
+    if (
+      event.target.closest("#attachBtn")
+    ) {
+      $("#fileInput")?.click();
+      return;
+    }
+
+    if (
+      event.target.closest("#stopBtn")
+    ) {
+      stopGeneration();
+      return;
+    }
+
+    if (
+      event.target.closest("#memoryToggle")
+    ) {
+      toggleMemory();
+      return;
+    }
+
+    if (
+      event.target.closest("#saveInstructionsBtn")
+    ) {
+      saveSettings();
+      return;
+    }
+
+    if (
+      event.target.closest("#exportHistoryBtn")
+    ) {
+      exportData();
+      return;
+    }
+
+    if (
+      event.target.closest("#importHistoryBtn")
     ) {
       $("#historyFileInput")?.click();
       return;
     }
 
     if (
-      event.target.closest(
-        "#clearHistoryBtn"
-      )
+      event.target.closest("#clearHistoryBtn")
     ) {
       if (
-        confirm(
-          "Clear all local history?"
+        generating ||
+        !confirm(
+          "Delete all local conversation history?"
         )
       ) {
-        chats = [];
-        active = null;
-
-        persist();
-        renderHistory();
-        render();
-
-        toast(
-          "History cleared.",
-          "ok"
-        );
+        return;
       }
+
+      chats = [];
+      active = null;
+
+      persist();
+      renderMessages();
+      renderHistory();
+
+      toast(
+        "History cleared.",
+        "success"
+      );
 
       return;
     }
-  }
-);
 
-/* ---------------- FORM ---------------- */
-
-$("#chatForm")?.addEventListener(
-  "submit",
-  event => {
-    event.preventDefault();
-    send();
-  }
-);
-
-$("#chatInput")?.addEventListener(
-  "input",
-  resize
-);
-
-$("#chatInput")?.addEventListener(
-  "keydown",
-  event => {
     if (
-      event.key === "Enter" &&
-      !event.shiftKey
+      event.target.closest("[data-focus-chat]")
     ) {
+      showView("chat");
+      return;
+    }
+  });
+
+  $("#chatForm")?.addEventListener(
+    "submit",
+    event => {
       event.preventDefault();
       send();
     }
-  }
-);
+  );
 
-$("#fileInput")?.addEventListener(
-  "change",
-  event => {
-    if (event.target.files?.length) {
-      addFiles(event.target.files);
-    }
+  $("#chatInput")?.addEventListener(
+    "input",
+    resizeInput
+  );
 
-    event.target.value = "";
-  }
-);
-
-$("#conversationSearch")?.addEventListener(
-  "input",
-  event => {
-    renderHistory(
-      event.target.value
-    );
-  }
-);
-
-$("#historyFileInput")?.addEventListener(
-  "change",
-  event => {
-    const file =
-      event.target.files?.[0];
-
-    if (!file) return;
-
-    const reader =
-      new FileReader();
-
-    reader.onload = () => {
-      try {
-        const data =
-          JSON.parse(
-            reader.result
-          );
-
-        if (!Array.isArray(data)) {
-          throw Error();
-        }
-
-        chats = data
-          .filter(
-            chat =>
-              chat?.id &&
-              Array.isArray(
-                chat.messages
-              )
-          )
-          .slice(0, 100);
-
-        active =
-          chats[0]?.id || null;
-
-        persist();
-        renderHistory();
-        render();
-
-        toast(
-          "History imported.",
-          "ok"
-        );
-      } catch {
-        toast(
-          "Invalid history file.",
-          "error"
-        );
+  $("#chatInput")?.addEventListener(
+    "keydown",
+    event => {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.isComposing
+      ) {
+        event.preventDefault();
+        send();
       }
-    };
+    }
+  );
 
-    reader.readAsText(file);
+  $("#fileInput")?.addEventListener(
+    "change",
+    event => {
+      addFiles(event.target.files);
 
-    event.target.value = "";
-  }
-);
+      /*
+       * Reset input so the same image can
+       * be selected again after removal.
+       */
+      event.target.value = "";
+    }
+  );
 
-/* ---------------- INIT ---------------- */
-
-window.addEventListener(
-  "load",
-  () => {
-    const theme =
-      load(
-        STORAGE.theme,
-        "dark"
+  $("#conversationSearch")?.addEventListener(
+    "input",
+    event => {
+      renderHistory(
+        event.target.value
       );
-
-    document.body.dataset.theme =
-      theme === "light"
-        ? "light"
-        : "dark";
-
-    if ($("#themeToggle")) {
-      $("#themeToggle").textContent =
-        document.body.dataset.theme ===
-        "dark"
-          ? "☾"
-          : "☀";
     }
+  );
 
-    /* Create anonymous analytics ID */
-    visitorId();
+  $("#historyFileInput")?.addEventListener(
+    "change",
+    event => {
+      const file =
+        event.target.files?.[0];
 
-    if (!chats.length) {
-      newChat();
-    } else {
-      render();
+      if (file) {
+        importData(file);
+      }
+
+      event.target.value = "";
     }
+  );
 
-    renderSettings();
-    renderAttachments();
-    resize();
-  }
-);
+  $("#voiceBtn")?.addEventListener(
+    "click",
+    () => {
+      toast(
+        "Voice input will be enabled in the Voice AI module.",
+        "success"
+      );
+    }
+  );
+
+  $("#modelSelect")?.addEventListener(
+    "change",
+    () => {
+      save(
+        "ozlind:v3:model",
+        $("#modelSelect").value
+      );
+    }
+  );
+
+  $("#modeSelect")?.addEventListener(
+    "change",
+    event => {
+      settings.mode =
+        event.target.value;
+
+      save(K.settings, settings);
+    }
+  );
+
+  window.addEventListener(
+    "beforeunload",
+    () => {
+      if (generating) {
+        controller?.abort();
+      }
+    }
+  );
+
+  window.addEventListener(
+    "load",
+    () => {
+      initializeTheme();
+
+      if (!chats.length) {
+        newChat();
+      } else {
+        renderMessages();
+        renderHistory();
+      }
+
+      loadSettingsUI();
+      renderFiles();
+      resizeInput();
+    }
+  );
 
 })();
