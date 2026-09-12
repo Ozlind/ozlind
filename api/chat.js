@@ -30,11 +30,11 @@ const PROVIDERS = {
 
     // Normal text model.
     model: "GEMINI_MODEL",
-    fallback: "gemini-3.6-flash",
+    fallback: "gemini-3.8-flash",
 
     // IMAGE ANALYSIS MODEL.
     visionModel: "GEMINI_VISION_MODEL",
-    visionFallback: "gemini-3.6-flash"
+    visionFallback: "gemini-3.8-flash"
   },
 
   experiential: {
