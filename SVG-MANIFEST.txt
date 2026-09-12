@@ -1,0 +1,11 @@
+OZLIND SVG MANIFEST
+Brand: ozl-mark, ozl-node
+Semantic: sym-insight, sym-research, sym-discovery, sym-creation, sym-conversation, sym-sources, sym-active, sym-thinking, sym-processing, sym-success, sym-warning
+Navigation: i-ai-chat, i-home, i-new-conversation, i-search, i-menu, i-settings, i-profile, i-history, i-forward, i-close
+Tools: i-research, i-web-research, i-sources, i-image-generator, i-photo-editor, i-code-assistant, i-documents, i-voice-ai
+Compose: i-send, i-attach, i-microphone, i-stop
+Status: i-error, i-information
+Actions: i-copy, i-edit, i-regenerate, i-delete, i-more, i-expand, i-collapse, i-open-external, i-clear, i-refresh, i-check, i-arrow-up
+Sources: src-fallback
+
+The active public UI intentionally exposes only implemented features. The complete identity vocabulary is retained in the local SVG asset for future modules.

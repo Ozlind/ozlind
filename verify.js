@@ -1,0 +1,10 @@
+const fs=require("fs");
+const req=["index.html","style.css","chatbot.js","api/chat.js","ozlind-icons.svg",".env.example",".gitignore"];
+for(const f of req)if(!fs.existsSync(f))throw Error("Missing "+f);
+const h=fs.readFileSync("index.html","utf8"),j=fs.readFileSync("chatbot.js","utf8"),a=fs.readFileSync("api/chat.js","utf8"),s=fs.readFileSync("ozlind-icons.svg","utf8");
+if(/openrouter/i.test(h+j+a))throw Error("OpenRouter leak");
+for(const x of ["Image Generator","Photo Editor","Documents","Voice AI"])if(h.includes(x))throw Error("Unimplemented UI leak: "+x);
+for(const x of ["chatForm","chatInput","chatMessages","chatAttachments","modelTrigger","researchToggle","sendBtn","stopBtn","conversationList","memoryToggle"])if(!new RegExp(`id="${x}"`).test(h))throw Error("Missing hook "+x);
+const refs=[...h.matchAll(/href="#([^"]+)"/g)].map(x=>x[1]);for(const x of refs)if(!new RegExp(`id="${x}"`).test(s+h))throw Error("Missing SVG "+x);
+new Function(j);if(!/module\.exports/.test(a))throw Error("API export missing");
+console.log("OZLIND STATIC VERIFY: PASS");
