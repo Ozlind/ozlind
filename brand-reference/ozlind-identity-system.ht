@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OZLIND — Visual Identity System</title>
+<style>
+  :root{
+    --bg:#0B0C0E;
+    --surface:#151719;
+    --surface-2:#1C1F22;
+    --surface-3:#25282C;
+    --border:#2A2D31;
+    --text:#F2F3F4;
+    --text-dim:#9AA0A6;
+    --text-faint:#5B6066;
+    --accent:#C98A52;
+    --radius-card:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  }
+  body{padding:0 0 100px;}
+  .wrap{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 32px;
+  }
+
+  svg.oi{
+    width:24px;
+    height:24px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:1.75;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    overflow:visible;
+  }
+
+  header.hero{
+    padding:88px 0 56px;
+    border-bottom:1px solid var(--border);
+  }
+
+  .kicker{
+    font-size:12px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--accent);
+    font-weight:600;
+    margin-bottom:22px;
+  }
+
+  .hero-mark-row{
+    display:flex;
+    align-items:center;
+    gap:22px;
+    margin-bottom:10px;
+  }
+
+  .hero-tile{
+    width:76px;
+    height:76px;
+    border-radius:20px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .hero-tile svg{
+    width:40px;
+    height:40px;
+    color:var(--text);
+  }
+
+  .hero-word{
+    font-size:40px;
+    font-weight:800;
+    letter-spacing:.5px;
+  }
+
+  .hero-word .dot{
+    color:var(--accent);
+  }
+
+  .hero-sub{
+    color:var(--text-dim);
+    font-size:15px;
+    max-width:560px;
+    line-height:1.7;
+    margin-top:18px;
+  }
+
+  section{
+    padding:64px 0;
+    border-bottom:1px solid var(--border);
+  }
+
+  section:last-of-type{
+    border-bottom:none;
+  }
+
+  h2.section-title{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:1.8px;
+    margin:0 0 8px;
+  }
+
+  h3.section-sub{
+    font-size:22px;
+    font-weight:700;
+    margin:0 0 28px;
+  }
+
+  p.lede{
+    color:var(--text-dim);
+    font-size:14.5px;
+    line-height:1.75;
+    max-width:680px;
+    margin:0 0 32px;
+  }
+
+  .grid-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:16px;
+  }
+
+  .lcard{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-card);
+    padding:28px 20px 18px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:150px;
+    text-align:center;
+  }
+
+  .lcard.on-dark{
+    background:#000;
+  }
+
+  .lcard.on-light{
+    background:#EFEFEC;
+  }
+
+  .lcard.on-light svg{
+    color:#0B0C0E;
+  }
+
+  .lcard-label{
+    margin-top:14px;
+    font-size:12px;
+    color:var(--text-dim);
+  }
+
+  .lcard-sub{
+    font-size:11px;
+    color:var(--text-faint);
+    margin-top:2px;
+  }
+
+  .lockup-h{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+
+  .lockup-h svg{
+    width:34px;
+    height:34px;
+    color:var(--text);
+  }
+
+  .lockup-h span{
+    font-size:21px;
+    font-weight:800;
+    letter-spacing:.3px;
+  }
+
+  .lockup-v{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+
+  .lockup-v svg{
+    width:36px;
+    height:36px;
+    color:var(--text);
+  }
+
+  .lockup-v span{
+    font-size:16px;
+    font-weight:800;
+    letter-spacing:1.5px;
+  }
+
+  .word-accentdot{
+    color:var(--accent);
+  }
+
+  .size-row{
+    display:flex;
+    align-items:flex-end;
+    gap:22px;
+  }
+
+  .size-row .sizeitem{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+
+  .size-row svg{
+    color:var(--text);
+  }
+
+  .size-row .sizelabel{
+    font-size:10.5px;
+    color:var(--text-faint);
+  }
+
+  .geo-row{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    align-items:flex-start;
+  }
+
+  .geo-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-card);
+    padding:22px;
+    flex:1 1 260px;
+  }
+
+  .geo-card h4{
+    margin:0 0 6px;
+    font-size:13.5px;
+  }
+
+  .geo-card p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.65;
+  }
+
+  .geo-diagram{
+    width:100%;
+    height:auto;
+    margin-bottom:14px;
+  }
+
+  .token-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:14px;
+  }
+
+  .swatch{
+    border-radius:10px;
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
+
+  .swatch .chip{
+    height:58px;
+  }
+
+  .swatch .meta{
+    padding:10px 12px;
+    background:var(--surface);
+  }
+
+  .swatch .meta .name{
+    font-size:11.5px;
+    font-weight:600;
+  }
+
+  .swatch .meta .hex{
+    font-size:11px;
+    color:var(--text-dim);
+  }
+
+  .cat-heading{
+    font-size:12px;
+    font-weight:700;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+    margin:36px 0 14px;
+  }
+
+  .cat-heading:first-of-type{
+    margin-top:0;
+  }
+
+  .icon-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
+    gap:10px;
+  }
+
+  .icon-tile{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:16px 6px 12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:9px;
+    transition:border-color .15s ease,transform .15s ease;
+  }
+
+  .icon-tile:hover{
+    border-color:var(--accent);
+    transform:translateY(-2px);
+  }
+
+  .icon-tile .label{
+    font-size:10px;
+    color:var(--text-dim);
+    text-align:center;
+    line-height:1.3;
+  }
+
+  .sym-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:12px;
+  }
+
+  .sym-tile{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:22px 12px 16px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+
+  .sym-tile svg{
+    width:30px;
+    height:30px;
+  }
+
+  .sym-tile .label{
+    font-size:12px;
+    font-weight:600;
+  }
+
+  .sym-tile .desc{
+    font-size:10.5px;
+    color:var(--text-faint);
+    text-align:center;
+    line-height:1.5;
+  }
+
+  .source-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px 14px;
+    width:fit-content;
+  }
+
+  .src-slot{
+    width:30px;
+    height:30px;
+    border-radius:9px;
+    background:var(--surface-3);
+    border:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:9.5px;
+    font-weight:700;
+    color:var(--text-dim);
+    letter-spacing:.2px;
+  }
+
+  .src-overflow{
+    width:30px;
+    height:30px;
+    border-radius:9px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10.5px;
+    font-weight:700;
+    color:var(--text);
+  }
+
+  .src-note{
+    font-size:12px;
+    color:var(--text-dim);
+    margin-top:14px;
+    line-height:1.7;
+    max-width:640px;
+  }
+
+  .src-expand{
+    margin-top:22px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+    width:fit-content;
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+
+  .src-expand .src-slot{
+    width:36px;
+    height:36px;
+    border-radius:10px;
+  }
+
+  .src-expand-meta .title{
+    font-size:13px;
+    font-weight:600;
+  }
+
+  .src-expand-meta .domain{
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-top:2px;
+  }
+
+  .src-expand svg.openicon{
+    width:16px;
+    height:16px;
+    color:var(--text-faint);
+    margin-left:8px;
+  }
+
+  .fallback-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-top:22px;
+  }
+
+  .fallback-row .src-slot{
+    width:36px;
+    height:36px;
+    border-radius:10px;
+  }
+
+  .fallback-row .src-slot svg{
+    width:18px;
+    height:18px;
+    color:var(--text-dim);
+  }
+
+  table.naming{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+
+  table.naming th,
+  table.naming td{
+    text-align:left;
+    padding:10px 14px;
+    border-bottom:1px solid var(--border);
+  }
+
+  table.naming th{
+    color:var(--text-dim);
+    font-weight:600;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+  }
+
+  table.naming td code{
+    background:var(--surface-2);
+    padding:2px 7px;
+    border-radius:5px;
+    font-size:11.5px;
+  }
+
+  ul.rules{
+    margin:0;
+    padding-left:20px;
+    color:var(--text-dim);
+    font-size:13px;
+    line-height:2;
+  }
+
+  .dodont{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+  }
+
+  .dodont .col h4{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin:0 0 10px;
+  }
+
+  .dodont .col.do h4{
+    color:#8FD19E;
+  }
+
+  .dodont .col.dont h4{
+    color:#E28B8B;
+  }
+
+  .dodont ul{
+    margin:0;
+    padding-left:18px;
+    font-size:13px;
+    color:var(--text-dim);
+    line-height:1.9;
+  }
+
+  .code-box{
+    background:#000;
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px 20px;
+    overflow-x:auto;
+    font-family:'Consolas','Courier New',monospace;
+    font-size:12px;
+    line-height:1.7;
+    color:#D9C7B0;
+    white-space:pre;
+    margin-top:14px;
+  }
+
+  footer{
+    padding-top:44px;
+    font-size:12px;
+    color:var(--text-faint);
+  }
+
+  @media(max-width:700px){
+    .wrap{
+      padding:0 18px;
+    }
+
+    header.hero{
+      padding:56px 0 40px;
+    }
+
+    .hero-mark-row{
+      gap:14px;
+    }
+
+    .hero-tile{
+      width:62px;
+      height:62px;
+      border-radius:16px;
+    }
+
+    .hero-tile svg{
+      width:34px;
+      height:34px;
+    }
+
+    .hero-word{
+      font-size:30px;
+    }
+
+    section{
+      padding:44px 0;
+    }
+
+    h3.section-sub{
+      font-size:20px;
+    }
+
+    .size-row{
+      gap:12px;
+    }
+
+    .dodont{
+      grid-template-columns:1fr;
+    }
+
+    .source-row,
+    .src-expand{
+      width:100%;
+    }
+
+    .src-expand{
+      gap:10px;
+    }
+
+    .src-expand-meta{
+      min-width:0;
+    }
+
+    .src-expand-meta .title{
+      overflow-wrap:anywhere;
+    }
+
+    table.naming{
+      display:block;
+      overflow-x:auto;
+      white-space:nowrap;
+    }
+
+    .icon-grid{
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    .sym-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+
+  <symbol id="ozl-mark" viewBox="0 0 96 96">
+    <path d="M78.07 37.06 A32 32 0 1 1 58.94 17.93 L78.55 17.45 Z" fill="currentColor"/>
+    <circle cx="84.2" cy="11.8" r="4.6" fill="var(--dot-color, currentColor)"/>
+  </symbol>
+
+  <symbol id="ozl-node" viewBox="0 0 10 10">
+    <circle cx="5" cy="5" r="5" fill="currentColor"/>
+  </symbol>
+
+  <symbol id="sym-insight" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <circle cx="16.6" cy="7.6" r="1.6" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="sym-research" viewBox="0 0 24 24">
+    <circle cx="10" cy="10" r="6.5"/>
+    <path d="M14.6 14.6 19 19"/>
+    <path d="M9 2.6a8 8 0 0 1 7.2 4.4" stroke-width="1.4" opacity=".6"/>
+  </symbol>
+
+  <symbol id="sym-discovery" viewBox="0 0 24 24">
+    <circle cx="10" cy="13" r="7"/>
+    <path d="M16.2 8.6 18 7.4"/>
+    <circle cx="19.3" cy="6.6" r="1.6" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="sym-creation" viewBox="0 0 24 24">
+    <path d="M20.46 8.92 19.96 4.04 15.08 3.54Z" fill="currentColor" stroke="none"/>
+    <circle cx="21.23" cy="2.77" r="1.4" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="sym-conversation" viewBox="0 0 24 24">
+    <circle cx="9" cy="12" r="6.5"/>
+    <circle cx="16" cy="12" r="6.5"/>
+  </symbol>
+
+  <symbol id="sym-sources" viewBox="0 0 24 24">
+    <circle cx="12" cy="13" r="7"/>
+    <path d="M8 5.5 8.8 7.2M12 4.3v2M16 5.5 15.2 7.2"/>
+  </symbol>
+
+  <symbol id="sym-active" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="7.5"/>
+    <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="sym-thinking" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <circle cx="10" cy="10" r="1.3" fill="currentColor" stroke="none"/>
+    <circle cx="14" cy="10" r="1.3" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="sym-processing" viewBox="0 0 24 24">
+    <path d="M20 12A8 8 0 1 1 12 4"/>
+    <circle cx="20" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="sym-success" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M8.3 12.6 11 15.3l5-6.2"/>
+  </symbol>
+
+  <symbol id="sym-warning" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M12 8v5.5"/>
+    <circle cx="12" cy="16.3" r="1" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="i-ai-chat" viewBox="0 0 24 24">
+    <rect x="3.5" y="5.5" width="17" height="11" rx="5"/>
+    <path d="M7 10.2h6M7 13.2h9"/>
+  </symbol>
+
+  <symbol id="i-home" viewBox="0 0 24 24">
+    <path d="M4.5 12 12 5.5 19.5 12"/>
+    <path d="M6.5 10.5V19a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-8.5"/>
+  </symbol>
+
+  <symbol id="i-new-conversation" viewBox="0 0 24 24">
+    <rect x="3.5" y="5.5" width="14" height="10" rx="4"/>
+    <path d="M16 17h4M18 15v4"/>
+  </symbol>
+
+  <symbol id="i-search" viewBox="0 0 24 24">
+    <circle cx="10.5" cy="10.5" r="6.5"/>
+    <path d="M15.3 15.3 20 20"/>
+  </symbol>
+
+  <symbol id="i-menu" viewBox="0 0 24 24">
+    <path d="M4 6.5h16M4 12h12M4 17.5h16"/>
+  </symbol>
+
+  <symbol id="i-settings" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M12 3.5v2.6M12 17.9v2.6M20.5 12h-2.6M6.1 12H3.5M17.6 6.4l-1.9 1.9M8.3 15.7l-1.9 1.9M17.6 17.6l-1.9-1.9M8.3 8.3 6.4 6.4"/>
+  </symbol>
+
+  <symbol id="i-profile" viewBox="0 0 24 24">
+    <circle cx="12" cy="8.2" r="3.4"/>
+    <path d="M5.5 19.5c1-4 3.6-6 6.5-6s5.5 2 6.5 6"/>
+  </symbol>
+
+  <symbol id="i-history" viewBox="0 0 24 24">
+    <path d="M5 8A8 8 0 1 1 4.2 13"/>
+    <path d="M3 5.5 5 8 2.3 9.3"/>
+    <path d="M12 8.5v4l3 2"/>
+  </symbol>
+
+  <symbol id="i-back" viewBox="0 0 24 24">
+    <path d="M15 5 8.5 12 15 19"/>
+  </symbol>
+
+  <symbol id="i-forward" viewBox="0 0 24 24">
+    <path d="M9 5 15.5 12 9 19"/>
+  </symbol>
+
+  <symbol id="i-close" viewBox="0 0 24 24">
+    <path d="M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5" stroke-width="1.9"/>
+  </symbol>
+
+  <symbol id="i-research" viewBox="0 0 24 24">
+    <circle cx="10" cy="10" r="6"/>
+    <path d="M14.3 14.3 19 19"/>
+    <path d="M7.5 10h4.5"/>
+  </symbol>
+
+  <symbol id="i-web-research" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M4 12h16"/>
+    <path d="M12 4c-3 3-3 13 0 16"/>
+  </symbol>
+
+  <symbol id="i-sources" viewBox="0 0 24 24">
+    <rect x="4" y="6.5" width="13" height="11" rx="2.5"/>
+    <rect x="7" y="3.5" width="13" height="11" rx="2.5" fill="var(--bg,#0B0C0E)"/>
+  </symbol>
+
+  <symbol id="i-image-generator" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="3"/>
+    <path d="M13.8 12.9 13.4 10.6 11.2 10.2 13.4 9.8 13.8 7.5 14.2 9.8 16.4 10.2 14.2 10.6Z" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="i-photo-editor" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="3"/>
+    <path d="M8.3 8.3v9"/>
+    <circle cx="8.3" cy="12.8" r="1.7" fill="var(--bg,#0B0C0E)"/>
+    <path d="M15.7 8.3v9"/>
+    <circle cx="15.7" cy="10.2" r="1.7" fill="var(--bg,#0B0C0E)"/>
+  </symbol>
+
+  <symbol id="i-code-assistant" viewBox="0 0 24 24">
+    <path d="M9 8 4.5 12 9 16"/>
+    <path d="M15 8l4.5 4-4.5 4"/>
+  </symbol>
+
+  <symbol id="i-documents" viewBox="0 0 24 24">
+    <path d="M7 3.5h7l4 4v12.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/>
+    <path d="M14 3.5v4h4"/>
+    <path d="M9 12.5h6M9 15.8h6M9 9.3h3.5"/>
+  </symbol>
+
+  <symbol id="i-voice-ai" viewBox="0 0 24 24">
+    <rect x="4" y="8.5" width="4" height="7" rx="2"/>
+    <path d="M11 16v-9M14 14v-5M17 12v-1.5" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="i-send" viewBox="0 0 24 24">
+    <path d="M4 12 20 4l-4.6 16-4-6.8L4 12Z"/>
+    <path d="M11.4 13.2 20 4"/>
+  </symbol>
+
+  <symbol id="i-attach" viewBox="0 0 24 24">
+    <path d="M15.5 6.5 8.8 13.2a3 3 0 1 0 4.2 4.2l7-7a5 5 0 0 0-7.1-7.1l-7.3 7.3a1.6 1.6 0 0 0 2.3 2.3l6.4-6.4"/>
+  </symbol>
+
+  <symbol id="i-microphone" viewBox="0 0 24 24">
+    <rect x="9.5" y="3.5" width="5" height="10" rx="2.5"/>
+    <path d="M6.5 12a5.5 5.5 0 0 0 11 0"/>
+    <path d="M12 17.5v3M9 20.5h6"/>
+  </symbol>
+
+  <symbol id="i-stop" viewBox="0 0 24 24">
+    <rect x="7" y="7" width="10" height="10" rx="2.5"/>
+  </symbol>
+
+  <symbol id="i-error" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M9.3 9.3 14.7 14.7M14.7 9.3 9.3 14.7"/>
+  </symbol>
+
+  <symbol id="i-information" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <circle cx="12" cy="8.3" r="1" fill="currentColor" stroke="none"/>
+    <path d="M12 11v5"/>
+  </symbol>
+
+  <symbol id="i-copy" viewBox="0 0 24 24">
+    <rect x="4" y="8" width="12" height="12" rx="2.5"/>
+    <path d="M8 8V5.5a1.5 1.5 0 0 1 1.5-1.5H18a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>
+  </symbol>
+
+  <symbol id="i-edit" viewBox="0 0 24 24">
+    <path d="M4.5 19.5 5 15.8 15.8 5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.2 19 4.5 19.5Z"/>
+    <path d="M13.8 7 17 10.2"/>
+  </symbol>
+
+  <symbol id="i-regenerate" viewBox="0 0 24 24">
+    <path d="M6 8a7 7 0 1 1-1 6"/>
+    <path d="M4 10.5 5 14 8.5 13"/>
+  </symbol>
+
+  <symbol id="i-delete" viewBox="0 0 24 24">
+    <path d="M4.5 6.8h15M9.5 6.8v-2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2"/>
+    <path d="M6.7 6.8 7.4 20a1 1 0 0 0 1 1h7.2a1 1 0 0 0 1-1l.7-13.2"/>
+    <path d="M10.3 10.5v6.6M13.7 10.5v6.6"/>
+  </symbol>
+
+  <symbol id="i-more" viewBox="0 0 24 24">
+    <circle cx="6" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+    <circle cx="18" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <symbol id="i-expand" viewBox="0 0 24 24">
+    <path d="M4 9V4h5"/>
+    <path d="M15 4h5v5"/>
+    <path d="M20 15v5h-5"/>
+    <path d="M9 20H4v-5"/>
+  </symbol>
+
+  <symbol id="i-collapse" viewBox="0 0 24 24">
+    <path d="M9 4v3a2 2 0 0 1-2 2H4"/>
+    <path d="M15 4v3a2 2 0 0 0 2 2h3"/>
+    <path d="M20 15h-3a2 2 0 0 0-2 2v3"/>
+    <path d="M4 15h3a2 2 0 0 1 2 2v3"/>
+  </symbol>
+
+  <symbol id="i-open-external" viewBox="0 0 24 24">
+    <path d="M11 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5V13"/>
+    <path d="M9.5 14.5 19 5"/>
+    <path d="M13 5h6v6"/>
+  </symbol>
+
+  <symbol id="i-download" viewBox="0 0 24 24">
+    <path d="M12 4.5v11"/>
+    <path d="M8 11.7l4 4 4-4"/>
+    <path d="M4.5 15.5v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3"/>
+  </symbol>
+
+  <symbol id="i-upload" viewBox="0 0 24 24">
+    <path d="M12 15.5V4.5"/>
+    <path d="M8 8.3 12 4.3l4 4"/>
+    <path d="M4.5 15.5v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3"/>
+  </symbol>
+
+  <symbol id="i-clear" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M9.3 9.3 14.7 14.7M14.7 9.3 9.3 14.7" stroke-width="1.5"/>
+  </symbol>
+
+  <symbol id="i-refresh" viewBox="0 0 24 24">
+    <path d="M19 6.5v4h-4M5 17.5v-4h4"/>
+    <path d="M5.5 10.5a6.7 6.7 0 0 1 12.2-3.3M18.5 13.5a6.7 6.7 0 0 1-12.2 3.3"/>
+  </symbol>
+
+  <symbol id="i-bookmark" viewBox="0 0 24 24">
+    <path d="M7 3.5h10a1 1 0 0 1 1 1V20l-6-4.2L6 20V4.5a1 1 0 0 1 1-1Z"/>
+  </symbol>
+
+  <symbol id="i-share" viewBox="0 0 24 24">
+    <circle cx="18" cy="5.5" r="2.3"/>
+    <circle cx="6" cy="12" r="2.3"/>
+    <circle cx="18" cy="18.5" r="2.3"/>
+    <path d="M8 10.7 16 6.3M8 13.3l8 4.4"/>
+  </symbol>
+
+  <symbol id="i-plus" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M12 8v8M8 12h8"/>
+  </symbol>
+
+  <symbol id="i-check" viewBox="0 0 24 24">
+    <path d="M4.5 12.5 9.5 17.5 19.5 6.5" stroke-width="2"/>
+  </symbol>
+
+  <symbol id="i-arrow-up" viewBox="0 0 24 24">
+    <path d="M12 19V5"/>
+    <path d="M6.5 10.5 12 5l5.5 5.5"/>
+  </symbol>
+
+  <symbol id="i-arrow-right" viewBox="0 0 24 24">
+    <path d="M5 12h14"/>
+    <path d="M13.5 6.5 19 12l-5.5 5.5"/>
+  </symbol>
+
+  <symbol id="src-fallback" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M6 15 18 9"/>
+  </symbol>
+
+</defs>
+</svg>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">Visual Identity System</div>
+
+    <div class="hero-mark-row">
+      <div class="hero-tile">
+        <svg style="--dot-color:var(--accent)">
+          <use href="#ozl-mark"></use>
+        </svg>
+      </div>
+
+      <div class="hero-word">
+        OZL<span>IND</span>
+        <svg
+          class="dot"
+          width="7"
+          height="7"
+          style="display:inline;vertical-align:top;margin-left:2px"
+        >
+          <use href="#ozl-node"></use>
+        </svg>
+      </div>
+    </div>
+
+    <p class="hero-sub">
+      A circle met by a precise cut, rising to a single point beyond its own edge,
+      with one node found just past it. Intelligence as the whole; the cut as
+      direction and precision; the node as the idea reached through exploration.
+      One shape, one accent — everything else in the system is drawn from it.
+    </p>
+  </header>
+
+  <section>
+    <h2 class="section-title">01 — Primary Mark</h2>
+    <h3 class="section-sub">Symbol, lockups &amp; variations</h3>
+
+    <p class="lede">
+      The mark is a single filled silhouette plus one detached node — no gradients,
+      no dimensional effects. It is built once as pure geometry
+      (<code>currentColor</code>) so every variation below is the same shape,
+      only recolored or recomposed.
+    </p>
+
+    <div class="grid-cards">
+
+      <div class="lcard">
+        <svg
+          width="56"
+          height="56"
+          style="color:var(--text);--dot-color:var(--accent)"
+        >
+          <use href="#ozl-mark"></use>
+        </svg>
+
+        <div class="lcard-label">Primary symbol</div>
+        <div class="lcard-sub">mark + accent node</div>
+      </div>
+
+      <div class="lcard">
+        <div class="lockup-h">
+          <svg>
+            <use href="#ozl-mark" style="--dot-color:var(--accent)"></use>
+          </svg>
+          <span>OZLIND</span>
+        </div>
+
+        <div class="lcard-label">Horizontal lockup</div>
+      </div>
+
+      <div class="lcard">
+        <div class="lockup-v">
+          <svg>
+            <use href="#ozl-mark" style="--dot-color:var(--accent)"></use>
+          </svg>
+          <span>OZLIND</span>
+        </div>
+
+        <div class="lcard-label">Vertical lockup</div>
+      </div>
+
+      <div class="lcard">
+        <svg width="48" height="48">
+          <use href="#ozl-mark"></use>
+        </svg>
+
+        <div class="lcard-label">Symbol-only</div>
+        <div class="lcard-sub">no accent — pure silhouette</div>
+      </div>
+
+      <div class="lcard">
+        <span
+          style="font-size:26px;font-weight:800;letter-spacing:.5px;"
+        >
+          OZLIND
+        </span>
+
+        <div class="lcard-label">Wordmark alone</div>
+      </div>
+
+      <div class="lcard">
+        <div class="size-row">
+
+          <div class="sizeitem">
+            <svg width="16" height="16">
+              <use href="#ozl-mark"></use>
+            </svg>
+            <span class="sizelabel">16</span>
+          </div>
+
+          <div class="sizeitem">
+            <svg width="20" height="20">
+              <use href="#ozl-mark"></use>
+            </svg>
+            <span class="sizelabel">20</span>
+          </div>
+
+          <div class="sizeitem">
+            <svg width="24" height="24">
+              <use href="#ozl-mark"></use>
+            </svg>
+            <span class="sizelabel">24</span>
+          </div>
+
+          <div class="sizeitem">
+            <svg width="32" height="32">
+              <use href="#ozl-mark"></use>
+            </svg>
+            <span class="sizelabel">32</span>
+          </div>
+
+          <div class="sizeitem">
+            <svg width="48" height="48">
+              <use href="#ozl-mark"></use>
+            </svg>
+            <span class="sizelabel">48</span>
+          </div>
+
+        </div>
+
+        <div class="lcard-label" style="margin-top:16px">
+          Small-size version
+        </div>
+
+        <div class="lcard-sub">
+          reads as a solid dot with a single facet at any scale
+        </div>
+      </div>
+
+      <div class="lcard">
+        <svg
+          width="48"
+          height="48"
+          style="color:var(--text)"
+        >
+          <use href="#ozl-mark"></use>
+        </svg>
+
+        <div class="lcard-label">Monochrome</div>
+        <div class="lcard-sub">single ink, no accent</div>
+      </div>
+
+      <div class="lcard on-dark">
+        <svg
+          width="48"
+          height="48"
+          style="color:#fff;--dot-color:var(--accent)"
+        >
+          <use href="#ozl-mark"></use>
+        </svg>
+
+        <div class="lcard-label">Dark-background version</div>
+      </div>
+
+      <div class="lcard on-light">
+        <svg
+          width="48"
+          height="48"
+          style="--dot-color:var(--accent)"
+        >
+          <use href="#ozl-mark"></use>
+        </svg>
+
+        <div class="lcard-label">Light-background version</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">02 — Wordmark</h2>
+    <h3 class="section-sub">OZLIND, set</h3>
+
+    <p class="lede">
+      Heavy weight (800), tight tracking, all caps, on a geometric grotesque.
+      The one custom device: the brand's accent node stands in for a full stop
+      after the wordmark, the same node that appears beyond the logo's cut —
+      a small, quiet signature rather than a decorated font.
+    </p>
+
+    <div class="lcard" style="max-width:420px;">
+      <div class="hero-word" style="font-size:34px;">
+        OZL<span>IND</span>
+        <svg
+          width="8"
+          height="8"
+          style="display:inline;vertical-align:top;margin-left:3px"
+        >
+          <use href="#ozl-node"></use>
+        </svg>
+      </div>
+
+      <div
+        class="lcard-sub"
+        style="margin-top:14px"
+      >
+        800 weight · +0.5px tracking · accent node as signature mark
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">03 — Design System</h2>
+    <h3 class="section-sub">Geometry, grid &amp; rules</h3>
+
+    <div class="geo-row">
+
+      <div class="geo-card">
+        <h4>Icon grid</h4>
+        <p>
+          24 × 24 base grid, 20 × 20 live area (2px clear margin on every side).
+          All icons are drawn to this grid so they hold consistent optical weight
+          from 16px up through 48px+.
+        </p>
+      </div>
+
+      <div class="geo-card">
+        <h4>Stroke &amp; joins</h4>
+        <p>
+          1.75px stroke at 24px (scales proportionally with size), round caps,
+          round joins throughout. No mixed stroke weights within one icon.
+        </p>
+      </div>
+
+      <div class="geo-card">
+        <h4>Corner treatment</h4>
+        <p>
+          Rounded rectangles use a 2.5–3px radius at 24px — soft enough to feel
+          human, tight enough to stay precise. Circles and arcs are true circles,
+          never ellipses.
+        </p>
+      </div>
+
+      <div class="geo-card">
+        <h4>Clear space &amp; minimum size</h4>
+        <p>
+          Clear space around the primary mark equals the mark's own node diameter
+          on every side. Minimum digital size: 16px (symbol-only) /
+          96px width (horizontal lockup).
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">04 — Color Tokens</h2>
+    <h3 class="section-sub">Neutral system, one accent</h3>
+
+    <p class="lede">
+      The interface lives in graphite and off-white. Colour is not a palette to
+      decorate with — it is a single warm accent, spent only on the brand node,
+      active states and primary actions.
+    </p>
+
+    <div class="token-grid">
+
+      <div class="swatch">
+        <div class="chip" style="background:#0B0C0E"></div>
+        <div class="meta">
+          <div class="name">Background</div>
+          <div class="hex">#0B0C0E</div>
+        </div>
+      </div>
+
+      <div class="swatch">
+        <div class="chip" style="background:#151719"></div>
+        <div class="meta">
+          <div class="name">Surface</div>
+          <div class="hex">#151719</div>
+        </div>
+      </div>
+
+      <div class="swatch">
+        <div class="chip" style="background:#25282C"></div>
+        <div class="meta">
+          <div class="name">Surface Raised</div>
+          <div class="hex">#25282C</div>
+        </div>
+      </div>
+
+      <div class="swatch">
+        <div class="chip" style="background:#C98A52"></div>
+        <div class="meta">
+          <div class="name">Accent</div>
+          <div class="hex">#C98A52</div>
+        </div>
+      </div>
+
+      <div class="swatch">
+        <div class="chip" style="background:#F2F3F4"></div>
+        <div class="meta">
+          <div class="name">Text Primary</div>
+          <div class="hex">#F2F3F4</div>
+        </div>
+      </div>
+
+      <div class="swatch">
+        <div class="chip" style="background:#9AA0A6"></div>
+        <div class="meta">
+          <div class="name">Text Dim</div>
+          <div class="hex">#9AA0A6</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">05 — Custom Icon Family</h2>
+    <h3 class="section-sub">49 icons, one system</h3>
+
+    <p class="lede">
+      Every icon below is drawn for OZLIND on the grid and stroke rules above —
+      none are pulled from Lucide, Material, Font Awesome or any other library.
+      <code>currentColor</code> throughout, so a single CSS colour change moves
+      the whole set between light and dark themes.
+    </p>
+
+    <div class="cat-heading">Core &amp; Navigation</div>
+
+    <div class="icon-grid">
+
+      <div class="icon-tile">
+        <svg style="width:24px;height:24px;color:var(--text)">
+          <use href="#ozl-mark"></use>
+        </svg>
+        <span class="label">Brand</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-ai-chat"></use>
+        </svg>
+        <span class="label">AI Chat</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-home"></use>
+        </svg>
+        <span class="label">Home</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-new-conversation"></use>
+        </svg>
+        <span class="label">New Conversation</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-search"></use>
+        </svg>
+        <span class="label">Search</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-menu"></use>
+        </svg>
+        <span class="label">Menu</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-settings"></use>
+        </svg>
+        <span class="label">Settings</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-profile"></use>
+        </svg>
+        <span class="label">Profile</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-history"></use>
+        </svg>
+        <span class="label">History</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-back"></use>
+        </svg>
+        <span class="label">Back</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-forward"></use>
+        </svg>
+        <span class="label">Forward</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-close"></use>
+        </svg>
+        <span class="label">Close</span>
+      </div>
+
+    </div>
+
+    <div class="cat-heading">Platform Modules</div>
+
+    <div class="icon-grid">
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-research"></use>
+        </svg>
+        <span class="label">Research</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-web-research"></use>
+        </svg>
+        <span class="label">Web Research</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-sources"></use>
+        </svg>
+        <span class="label">Sources</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-image-generator"></use>
+        </svg>
+        <span class="label">Image Generator</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-photo-editor"></use>
+        </svg>
+        <span class="label">Photo Editor</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-code-assistant"></use>
+        </svg>
+        <span class="label">Code Assistant</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-documents"></use>
+        </svg>
+        <span class="label">Documents</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-voice-ai"></use>
+        </svg>
+        <span class="label">Voice AI</span>
+      </div>
+
+    </div>
+
+    <div class="cat-heading">Compose &amp; Input</div>
+
+    <div class="icon-grid">
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-send"></use>
+        </svg>
+        <span class="label">Send</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-attach"></use>
+        </svg>
+        <span class="label">Attach</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-microphone"></use>
+        </svg>
+        <span class="label">Microphone</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-stop"></use>
+        </svg>
+        <span class="label">Stop</span>
+      </div>
+
+    </div>
+
+    <div class="cat-heading">Status &amp; Feedback</div>
+
+    <div class="icon-grid">
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#sym-thinking"></use>
+        </svg>
+        <span class="label">Thinking</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#sym-processing"></use>
+        </svg>
+        <span class="label">Loading</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#sym-active"></use>
+        </svg>
+        <span class="label">Online / Active</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#sym-success"></use>
+        </svg>
+        <span class="label">Success</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#sym-warning"></use>
+        </svg>
+        <span class="label">Warning</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-error"></use>
+        </svg>
+        <span class="label">Error</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-information"></use>
+        </svg>
+        <span class="label">Information</span>
+      </div>
+
+    </div>
+
+    <div class="cat-heading">Actions</div>
+
+    <div class="icon-grid">
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-copy"></use>
+        </svg>
+        <span class="label">Copy</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-edit"></use>
+        </svg>
+        <span class="label">Edit</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-regenerate"></use>
+        </svg>
+        <span class="label">Regenerate</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-delete"></use>
+        </svg>
+        <span class="label">Delete</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-more"></use>
+        </svg>
+        <span class="label">More</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-expand"></use>
+        </svg>
+        <span class="label">Expand</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-collapse"></use>
+        </svg>
+        <span class="label">Collapse</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-open-external"></use>
+        </svg>
+        <span class="label">Open External Link</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-download"></use>
+        </svg>
+        <span class="label">Download</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-upload"></use>
+        </svg>
+        <span class="label">Upload</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-clear"></use>
+        </svg>
+        <span class="label">Clear</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-refresh"></use>
+        </svg>
+        <span class="label">Refresh</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-bookmark"></use>
+        </svg>
+        <span class="label">Bookmark</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-share"></use>
+        </svg>
+        <span class="label">Share</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-plus"></use>
+        </svg>
+        <span class="label">Plus</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-check"></use>
+        </svg>
+        <span class="label">Check</span>
+      </div>
+
+    </div>
+
+    <div class="cat-heading">Directional</div>
+
+    <div class="icon-grid">
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-arrow-up"></use>
+        </svg>
+        <span class="label">Arrow Up</span>
+      </div>
+
+      <div class="icon-tile">
+        <svg class="oi">
+          <use href="#i-arrow-right"></use>
+        </svg>
+        <span class="label">Arrow Right</span>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">06 — Special Symbol Family</h2>
+    <h3 class="section-sub">Concepts drawn from the mark's own geometry</h3>
+
+    <p class="lede">
+      Twelve marks built from the same circle / cut / node vocabulary as the
+      primary logo, for use as decorative or status glyphs inside the product —
+      never as generic clip-art.
+    </p>
+
+    <div class="sym-grid">
+
+      <div class="sym-tile">
+        <svg class="oi" style="width:30px;height:30px;color:var(--text)">
+          <use href="#ozl-mark"></use>
+        </svg>
+        <div class="label">Intelligence</div>
+        <div class="desc">the primary mark itself</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-insight"></use>
+        </svg>
+        <div class="label">Insight</div>
+        <div class="desc">a single point of light inside the whole</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-research"></use>
+        </svg>
+        <div class="label">Research</div>
+        <div class="desc">a field being scanned</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-discovery"></use>
+        </svg>
+        <div class="label">Discovery</div>
+        <div class="desc">a node found beyond the known edge</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-creation"></use>
+        </svg>
+        <div class="label">Creation</div>
+        <div class="desc">the cut itself, isolated</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-conversation"></use>
+        </svg>
+        <div class="label">Conversation</div>
+        <div class="desc">two fields, overlapping</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-sources"></use>
+        </svg>
+        <div class="label">Sources</div>
+        <div class="desc">references fanning from one point</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-active"></use>
+        </svg>
+        <div class="label">Active state</div>
+        <div class="desc">a filled core within its field</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-thinking"></use>
+        </svg>
+        <div class="label">Thinking state</div>
+        <div class="desc">possibilities clustering</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-processing"></use>
+        </svg>
+        <div class="label">Processing state</div>
+        <div class="desc">motion around the field</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-success"></use>
+        </svg>
+        <div class="label">Success</div>
+        <div class="desc">confirmation within the field</div>
+      </div>
+
+      <div class="sym-tile">
+        <svg class="oi">
+          <use href="#sym-warning"></use>
+        </svg>
+        <div class="label">Warning</div>
+        <div class="desc">attention within the field</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">07 — Source Publisher Marks</h2>
+    <h3 class="section-sub">Container system, not redrawn trademarks</h3>
+
+    <p class="lede">
+      OZLIND never redraws a publisher's logo. This defines the compact
+      <em>container</em> a real, licensed publisher mark drops into — plus the
+      neutral fallback icon used whenever one isn't available. The labelled
+      squares below are placeholder slots for layout only, not brand
+      reproductions.
+    </p>
+
+    <div class="source-row">
+      <div class="src-slot">CNN</div>
+      <div class="src-slot">BBC</div>
+      <div class="src-slot">AP</div>
+      <div class="src-overflow">+4</div>
+    </div>
+
+    <p class="src-note">
+      Each slot: 30×30px, 9px corner radius, neutral surface fill. A real
+      integration renders the publisher's own official mark inside the same slot
+      (via favicon/brand API where licensed) — OZLIND supplies the frame, spacing
+      and overflow behaviour, never the artwork.
+    </p>
+
+    <div class="src-expand">
+      <div class="src-slot">NYT</div>
+
+      <div class="src-expand-meta">
+        <div class="title">
+          Why researchers are re-testing an old idea
+        </div>
+        <div class="domain">nytimes.com</div>
+      </div>
+
+      <svg class="openicon">
+        <use href="#i-open-external"></use>
+      </svg>
+    </div>
+
+    <p class="src-note" style="margin-top:10px">
+      Tapping a slot expands to this row — title, domain and an open-link action —
+      instead of long inline text labels crowding the answer.
+    </p>
+
+    <div class="fallback-row">
+
+      <div class="src-slot">
+        <svg>
+          <use href="#src-fallback"></use>
+        </svg>
+      </div>
+
+      <p class="src-note" style="margin-top:0">
+        Neutral OZLIND Source glyph — used whenever a publisher's mark can't be
+        retrieved. Built from the same circle-and-chord language as the rest of
+        the system, so it never reads as a broken image.
+      </p>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">08 — Usage &amp; Naming</h2>
+    <h3 class="section-sub">How the kit is organised</h3>
+
+    <table class="naming">
+
+      <tr>
+        <th>Asset</th>
+        <th>ID convention</th>
+        <th>Example</th>
+      </tr>
+
+      <tr>
+        <td>Primary mark</td>
+        <td><code>ozl-*</code></td>
+        <td><code>ozl-mark</code>, <code>ozl-node</code></td>
+      </tr>
+
+      <tr>
+        <td>UI icons</td>
+        <td><code>i-*</code></td>
+        <td><code>i-send</code>, <code>i-documents</code></td>
+      </tr>
+
+      <tr>
+        <td>Special symbols</td>
+        <td><code>sym-*</code></td>
+        <td><code>sym-thinking</code>, <code>sym-sources</code></td>
+      </tr>
+
+      <tr>
+        <td>Source system</td>
+        <td><code>src-*</code></td>
+        <td><code>src-fallback</code></td>
+      </tr>
+
+    </table>
+
+    <div class="code-box">&lt;!-- paste the sprite once, then reference anywhere --&gt;
+&lt;svg class="oi"&gt;&lt;use href="#i-send"&gt;&lt;/use&gt;&lt;/svg&gt;
+
+/* icons inherit colour from CSS — no separate light/dark files */
+.oi { color: var(--text); }
+.oi:hover { color: var(--accent); }</div>
+
+    <div class="dodont" style="margin-top:34px;">
+
+      <div class="col do">
+        <h4>Do</h4>
+
+        <ul>
+          <li>Keep the mark's clear space equal to its own node width</li>
+          <li>Use the accent node only once per view as a focal point</li>
+          <li>Let icons inherit <code>currentColor</code> for theme switching</li>
+        </ul>
+      </div>
+
+      <div class="col dont">
+        <h4>Don't</h4>
+
+        <ul>
+          <li>Add drop shadows, gradients or bevels to the mark</li>
+          <li>Recolour individual strokes within one icon</li>
+          <li>Redraw or approximate a publisher's own logo</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="wrap">
+    OZLIND Visual Identity System — primary mark, wordmark, 49-icon family,
+    12-symbol family and source-mark container system, drawn as one coherent
+    geometry. Owned by Athul.
+  </footer>
+
+</div>
+
+</body>
+</html>
