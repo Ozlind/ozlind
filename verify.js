@@ -1,6 +1,0 @@
-const fs=require("fs");const vm=require("vm");
-for(const file of ["chatbot.js","api/chat.js"]){const code=fs.readFileSync(file,"utf8");if(file==="chatbot.js")new vm.Script(code);else{new vm.Script(code.replace(/export default async function handler/,'async function handler'));}}
-const html=fs.readFileSync("index.html","utf8");
-for(const id of ["chatMessages","chatForm","chatInput","modelSelect","modelPicker","modelMenu","researchToggle","sendBtn","stopBtn","chatEmpty","conversationList","memoryToggle","customInstructions","toastStack"]){if(!html.includes(`id="${id}"`))throw new Error(`missing ${id}`)}
-if(/openrouter/i.test(html)||/openrouter/i.test(fs.readFileSync("chatbot.js","utf8"))||/openrouter/i.test(fs.readFileSync("api/chat.js","utf8")))throw new Error("OpenRouter reference found");
-const sprite=fs.readFileSync("ozlind-icons.svg","utf8");const ids=[...sprite.matchAll(/<symbol\s+id="([^"]+)"/g)].map(x=>x[1]);if(ids.length<50)throw new Error("SVG sprite unexpectedly incomplete");console.log(`OK: JS syntax, DOM hooks, OpenRouter removal, SVG symbols (${ids.length})`);
