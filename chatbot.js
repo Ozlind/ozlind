@@ -1,48 +1,1901 @@
-(()=>{"use strict";
-const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
-const K={chats:"ozlind:v5:chats",settings:"ozlind:v5:settings",theme:"ozlind:v1:theme",visitor:"ozlind:v1:visitor"};
-const MAX_CHATS=100,MAX_CONTEXT=20,MAX_ATTACH=4,MAX_IMAGE=8*1024*1024;
-let chats=load(K.chats,[]),active=chats[0]?.id||null,attachments=[],controller=null,generating=false,editingIndex=null;
-let settings={responseLength:"medium",responseStyle:"balanced",memory:true,instructions:"",mode:"auto",...load(K.settings,{})};
-function load(k,f){try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch{return f}}
-function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{toast("Browser storage is full.","error")}}
-function uid(){return crypto?.randomUUID?.()||Date.now()+"_"+Math.random().toString(36).slice(2)}
-function visitorId(){let v=localStorage.getItem(K.visitor);if(!v){v=uid();try{localStorage.setItem(K.visitor,v)}catch{}}return v}
-function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-function toast(msg,type=""){const s=$("#toastStack");if(!s)return;const n=document.createElement("div");n.className="toast "+type;n.textContent=msg;s.append(n);setTimeout(()=>n.remove(),3200)}
-function current(){return chats.find(c=>c.id===active)}
-function persist(){chats=chats.filter(c=>c?.id&&Array.isArray(c.messages)).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,MAX_CHATS);save(K.chats,chats)}
-function titleFrom(text){let t=String(text||"").replace(/\s+/g," ").trim().replace(/^(hi|hello|hey|hai|good morning|good afternoon|good evening)[,!. ]*/i,"").replace(/^(can you|could you|please|help me|i want to|i need to)\s+/i,"").trim();if(!t)return"New conversation";t=t.length>58?t.slice(0,58)+"…":t;return t.charAt(0).toUpperCase()+t.slice(1)}
-function newChat(){if(generating){toast("Stop the current response first.","error");return}const now=new Date().toISOString(),c={id:uid(),title:"New chat",messages:[],createdAt:now,updatedAt:now};chats.unshift(c);active=c.id;attachments=[];editingIndex=null;persist();renderFiles();renderMessages();renderHistory();openPage("chat");setTimeout(()=>$("#chatInput")?.focus(),30)}
-function openPage(view){$$('.page').forEach(p=>p.classList.toggle('active',p.dataset.page===view));$$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const t={chat:"AI Chat",history:"History",research:"Research",vision:"Vision",settings:"Settings"};$("#topbarTitle").textContent=t[view]||"OZLIND";if(view==="history")renderHistory();if(view==="settings")loadSettingsUI();closeSidebar()}
-function closeSidebar(){$("#sidebar")?.classList.remove("open");$("#sidebarOverlay")?.classList.remove("open")}
-function formatText(text){let s=esc(text);s=s.replace(/```([\s\S]*?)```/g,(_,c)=>`<pre class="code-block"><code>${c.trim()}</code></pre>`);s=s.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>");return s.replace(/\n/g,"<br>")}
-function renderActions(i,role){return `<div class="message-actions"><button type="button" data-copy="${i}">Copy</button>${role==="user"?`<button type="button" data-edit="${i}">Edit</button>`:`<button type="button" data-regenerate="${i}">Regenerate</button>`}<button type="button" data-delete-message="${i}">Delete</button></div>`}
-function renderImages(arr,msgIndex){if(!arr?.length)return"";return `<div class="message-images">${arr.map((x,i)=>`<button class="message-image" type="button" data-image-message="${msgIndex}" data-image="${i}"><img src="${esc(x.dataUrl)}" alt="${esc(x.name||"Uploaded image")}"></button>`).join("")}</div>`}
-function renderSources(sources){if(!Array.isArray(sources)||!sources.length)return"";return `<div class="message-sources"><div class="sources-title">Sources</div>${sources.slice(0,5).map((s,i)=>`<a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span>${i+1}</span><strong>${esc(s.title||s.url)}</strong><small>${esc(s.domain||"")}</small></a>`).join("")}</div>`}
-function renderMessages(){const box=$("#chatMessages"),empty=$("#chatEmpty"),c=current();if(!box||!empty)return;box.innerHTML="";if(!c?.messages?.length){empty.classList.remove("hidden");return}empty.classList.add("hidden");c.messages.forEach((m,i)=>{const a=document.createElement("article");a.className=`message ${m.role}${m.error?" error":""}`;let body=m.pending?`<div class="typing-indicator"><span></span><span></span><span></span></div>`:m.content?`<div class="message-body">${formatText(m.content)}</div>`:"";a.innerHTML=`<div class="message-meta">${m.role==="user"?"You":"OZLIND AI"}</div>${body}${m.role==="user"?renderImages(m.attachments,i):""}${m.sources?renderSources(m.sources):""}${!m.pending&&!m.error?renderActions(i,m.role):""}`;box.appendChild(a)});requestAnimationFrame(()=>{$("#chatScroll")?.scrollTo({top:$("#chatScroll").scrollHeight,behavior:"smooth"})})}
-function renderHistory(filter=""){const box=$("#conversationList");if(!box)return;const q=filter.toLowerCase().trim(),rows=chats.filter(c=>(c.title+" "+c.messages.map(m=>m.content||"").join(" ")).toLowerCase().includes(q));box.innerHTML=rows.length?rows.map(c=>`<div class="history-item"><div class="history-main"><b>${esc(c.title)}</b><small>${c.messages.length} message${c.messages.length===1?"":"s"}</small></div><div><button class="small-action" data-open="${esc(c.id)}">Open</button> <button class="small-action danger" data-delete-chat="${esc(c.id)}">Delete</button></div></div>`).join(""):`<div class="history-empty">No conversations found.</div>`}
-function resize(){const i=$("#chatInput");if(i){i.style.height="auto";i.style.height=Math.min(i.scrollHeight,180)+"px"}}
-function renderFiles(){const b=$("#chatAttachments");if(!b)return;b.innerHTML=attachments.map((f,i)=>`<div class="attachment"><img src="${esc(f.dataUrl)}" alt="${esc(f.name)}"><button type="button" data-remove-file="${i}">×</button></div>`).join("");$("#contextIndicator").textContent=attachments.length?`${attachments.length} image${attachments.length>1?"s":""} attached`:editingIndex!==null?"Editing message":"Ready"}
-function readImage(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
-async function addFiles(list){for(const f of [...list].slice(0,MAX_ATTACH-attachments.length)){if(!f.type.startsWith("image/")){toast("Only image files are supported.","error");continue}if(f.size>MAX_IMAGE){toast("Each image must be under 8MB.","error");continue}try{attachments.push({name:f.name,type:f.type,size:f.size,dataUrl:await readImage(f)})}catch{toast("Could not read that image.","error")}}renderFiles()}
-function payloadMessages(c){let ms=(c?.messages||[]).filter(m=>["user","assistant"].includes(m.role));ms=settings.memory?ms.slice(-MAX_CONTEXT):ms.slice(-1);return ms.map(m=>m.role==="user"&&m.attachments?.length?{role:"user",content:[{type:"text",text:m.content||""},...m.attachments.map(x=>({type:"image_url",image_url:{url:x.dataUrl}}))]}:{role:m.role,content:m.content||""})}
-function setBusy(v){generating=v;$("#sendBtn")?.classList.toggle("hidden",v);$("#stopBtn")?.classList.toggle("hidden",!v);const s=$("#connectionStatus");if(s){s.innerHTML=`<i></i><span>${v?"Generating…":"Ready"}</span>`;s.classList.toggle("is-busy",v)}}
-function classifyError(e){if(e?.name==="AbortError")return"Generation stopped.";if(!navigator.onLine)return"No internet connection. Please reconnect and try again.";const m=String(e?.message||"");if(/401|403|not configured/i.test(m))return"AI service is not configured correctly. Please check the server settings.";if(/429|rate limit|too many/i.test(m))return"The AI service is busy right now. Please try again in a moment.";if(/408|timeout|timed out/i.test(m))return"The request timed out. Please try again.";if(/5\d\d|temporarily unavailable/i.test(m))return"The AI service is temporarily unavailable. Please try again.";return m||"Unable to complete the request."}
-async function send(){if(generating)return;const input=$("#chatInput"),text=input.value.trim();if(!text&&!attachments.length)return;let c=current();if(!c){newChat();c=current()}
-  if(editingIndex!==null){const old=c.messages[editingIndex];if(!old||old.role!=="user"){editingIndex=null}else{old.content=text;old.attachments=[...attachments];c.messages.splice(editingIndex+1);editingIndex=null;attachments=[];c.title=titleFrom(text||"Image analysis");c.updatedAt=new Date().toISOString();persist();input.value="";resize();renderFiles();renderMessages();await generate(c);return}}
-  const imgs=attachments.splice(0);renderFiles();const user={role:"user",content:text,attachments:imgs};c.messages.push(user);if(c.messages.length===1)c.title=titleFrom(text||"Image analysis");c.updatedAt=new Date().toISOString();persist();input.value="";resize();renderMessages();await generate(c)}
-async function generate(c){const a={role:"assistant",content:"",pending:true};c.messages.push(a);setBusy(true);controller=new AbortController();persist();renderMessages();try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Accept":"text/event-stream"},signal:controller.signal,body:JSON.stringify({messages:payloadMessages(c),model:$("#modelSelect").value,research:$("#researchToggle").getAttribute("aria-pressed")==="true",responseLength:settings.responseLength,responseStyle:settings.responseStyle,memory:settings.memory,customInstructions:settings.instructions,visitorId:visitorId(),conversationId:c.serverConversationId||null,title:c.title})});if(!r.ok){let msg=`Request failed (${r.status}).`;try{const d=await r.json();if(d.error)msg=d.error}catch{}throw Error(msg)}if(!r.body)throw Error("No response returned.");const rd=r.body.getReader(),dec=new TextDecoder();let buf="";for(;;){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const lines=buf.split(/\r?\n/);buf=lines.pop()||"";for(const line of lines){if(!line.startsWith("data:"))continue;const raw=line.slice(5).trim();if(!raw||raw==="[DONE]")continue;let d;try{d=JSON.parse(raw)}catch{continue}if(d.type==="conversation")c.serverConversationId=d.conversationId;if(d.type==="provider")a.provider=d.provider;if(d.type==="sources")a.sources=Array.isArray(d.sources)?d.sources:[];if(d.type==="delta"){a.pending=false;a.content+=d.content||"";renderMessages()}if(d.type==="error")throw Error(d.error||"Generation failed.")}}if(!a.content.trim())throw Error("OZLIND returned an empty response.")}catch(e){if(e.name==="AbortError"){a.content=a.content.trim()?a.content+"\n\nGeneration stopped.":"Generation stopped."}else{a.error=true;a.content=classifyError(e);toast(a.content,"error")}}finally{delete a.pending;c.updatedAt=new Date().toISOString();persist();renderMessages();setBusy(false);controller=null}}
-function toggleTheme(){const n=document.body.dataset.theme==="dark"?"light":"dark";document.body.dataset.theme=n;save(K.theme,n);$("#themeToggle").textContent=n==="dark"?"☾":"☀"}
-function loadSettingsUI(){$("#responseLength").value=settings.responseLength;$("#responseStyle").value=settings.responseStyle;$("#customInstructions").value=settings.instructions||"";$("#memoryToggle").setAttribute("aria-pressed",String(settings.memory));$("#modelSelect").value=settings.mode||"auto"}
-function saveSettings(){settings.responseLength=$("#responseLength").value;settings.responseStyle=$("#responseStyle").value;settings.instructions=$("#customInstructions").value.trim();save(K.settings,settings);toast("Settings saved.","ok")}
-function init(){document.body.dataset.theme=load(K.theme,"dark")==="light"?"light":"dark";$("#themeToggle").textContent=document.body.dataset.theme==="dark"?"☾":"☀";if(!chats.length){const now=new Date().toISOString();const c={id:uid(),title:"New chat",messages:[],createdAt:now,updatedAt:now};chats=[c];active=c.id;persist()}loadSettingsUI();renderFiles();renderMessages();renderHistory()}
-document.addEventListener("click",async e=>{const nav=e.target.closest("[data-view]");if(nav)return openPage(nav.dataset.view);if(e.target.closest("#newChatBtn"))return newChat();if(e.target.closest("#themeToggle"))return toggleTheme();if(e.target.closest("#mobileNavBtn")){$("#sidebar").classList.add("open");$("#sidebarOverlay").classList.add("open");return}if(e.target.closest("#sidebarClose")||e.target.closest("#sidebarOverlay"))return closeSidebar();const p=e.target.closest("[data-prompt]");if(p){openPage("chat");$("#chatInput").value=p.dataset.prompt;resize();$("#chatInput").focus();return}if(e.target.closest("[data-go-chat]"))return openPage("chat");const rm=e.target.closest("[data-remove-file]");if(rm){attachments.splice(+rm.dataset.removeFile,1);renderFiles();return}const op=e.target.closest("[data-open]");if(op){active=op.dataset.open;renderMessages();openPage("chat");return}const dc=e.target.closest("[data-delete-chat]");if(dc){if(confirm("Delete this conversation?")){chats=chats.filter(c=>c.id!==dc.dataset.deleteChat);if(active===dc.dataset.deleteChat)active=chats[0]?.id||null;persist();renderHistory();renderMessages()}return}const cp=e.target.closest("[data-copy]");if(cp){const m=current()?.messages[+cp.dataset.copy];if(m){navigator.clipboard?.writeText(m.content||"").then(()=>toast("Copied.","ok")).catch(()=>toast("Copy unavailable. Select and copy the text manually.","error"))}return}
-  const ed=e.target.closest("[data-edit]");if(ed){const c=current(),i=+ed.dataset.edit,m=c?.messages[i];if(m?.role==="user"&&!generating){editingIndex=i;$("#chatInput").value=m.content||"";attachments=m.attachments?[...m.attachments]:[];renderFiles();resize();openPage("chat");$("#chatInput").focus();toast("Edit the message, then send. Original is kept until you send.");}return}
-  const del=e.target.closest("[data-delete-message]");if(del){const c=current();if(c&&confirm("Delete this message?")){c.messages.splice(+del.dataset.deleteMessage,1);persist();renderMessages()}return}
-  const reg=e.target.closest("[data-regenerate]");if(reg){const c=current(),i=+reg.dataset.regenerate;if(c&&!generating&&c.messages[i]?.role==="assistant"){c.messages.splice(i,1);persist();generate(c)}return}
-  const img=e.target.closest("[data-image-message]");if(img){const c=current(),m=c?.messages[+img.dataset.imageMessage],x=m?.attachments?.[+img.dataset.image];if(x)window.open(x.dataUrl,"_blank");return}
-});
-$("#chatForm").addEventListener("submit",e=>{e.preventDefault();send()});$("#chatInput").addEventListener("input",resize);$("#chatInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("#attachBtn").addEventListener("click",()=>$("#fileInput").click());$("#fileInput").addEventListener("change",e=>{addFiles(e.target.files);e.target.value=""});$("#stopBtn").addEventListener("click",()=>controller?.abort());$("#researchToggle").addEventListener("click",e=>{const b=e.currentTarget,on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.querySelector("em").textContent=!on?"ON":"OFF"});$("#modelSelect").addEventListener("change",e=>{settings.mode=e.target.value;save(K.settings,settings)});$("#memoryToggle").addEventListener("click",e=>{settings.memory=!settings.memory;e.currentTarget.setAttribute("aria-pressed",String(settings.memory));save(K.settings,settings)});$("#saveInstructionsBtn").addEventListener("click",saveSettings);$("#responseLength").addEventListener("change",saveSettings);$("#responseStyle").addEventListener("change",saveSettings);$("#conversationSearch").addEventListener("input",e=>renderHistory(e.target.value));$("#exportHistoryBtn").addEventListener("click",()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({version:5,chats},null,2)],{type:"application/json"}));a.download="ozlind-history.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});$("#importHistoryBtn").addEventListener("click",()=>$("#historyFileInput").click());$("#historyFileInput").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result),incoming=Array.isArray(d)?d:d.chats;if(!Array.isArray(incoming))throw Error();chats=[...incoming.filter(c=>c?.id&&Array.isArray(c.messages)),...chats];active=chats[0]?.id||null;persist();renderHistory();renderMessages();toast("History imported.","ok")}catch{toast("Invalid history file.","error")}};r.readAsText(f);e.target.value=""});$("#clearHistoryBtn").addEventListener("click",()=>{if(!confirm("Clear all local conversation history?"))return;chats=[];active=null;newChat()});
-init();
+/* =========================================================
+   OZLIND AI — Chat Controller
+   SVG-first UI actions
+   Local conversation history
+   Streaming responses
+   Research toggle
+   Image attachments
+   Settings persistence
+   ========================================================= */
+
+(() => {
+  "use strict";
+
+  /* -------------------------------------------------------
+     DOM HELPERS
+     ------------------------------------------------------- */
+
+  const $ = (selector, root = document) =>
+    root.querySelector(selector);
+
+  const $$ = (selector, root = document) =>
+    [...root.querySelectorAll(selector)];
+
+  const icon = (name, className = "ui-icon") =>
+    `<svg class="${className}" aria-hidden="true">
+      <use href="#${name}"></use>
+    </svg>`;
+
+  /* -------------------------------------------------------
+     STORAGE
+     ------------------------------------------------------- */
+
+  const K = {
+    chats: "ozlind:v2:chats",
+    settings: "ozlind:v2:settings",
+    theme: "ozlind:v2:theme"
+  };
+
+  /* -------------------------------------------------------
+     STATE
+     ------------------------------------------------------- */
+
+  let chats = load(K.chats, []);
+  let active = chats[0]?.id || null;
+
+  let files = [];
+  let controller = null;
+  let generating = false;
+
+  let settings = {
+    responseLength: "medium",
+    responseStyle: "balanced",
+    memory: true,
+    instructions: "",
+    ...load(K.settings, {})
+  };
+
+  /* -------------------------------------------------------
+     STORAGE HELPERS
+     ------------------------------------------------------- */
+
+  function load(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      toast("Local storage is full", "error");
+    }
+  }
+
+  function makeId() {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      return Date.now() + "_" + Math.random().toString(36).slice(2);
+    }
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? "").replace(
+      /[&<>"']/g,
+      char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char])
+    );
+  }
+
+  /* -------------------------------------------------------
+     TOAST
+     ------------------------------------------------------- */
+
+  function toast(message, type = "") {
+    const stack = $("#toastStack");
+
+    if (!stack) return;
+
+    const item = document.createElement("div");
+
+    item.className = `toast ${type}`;
+    item.textContent = message;
+
+    stack.appendChild(item);
+
+    setTimeout(() => {
+      item.remove();
+    }, 3200);
+  }
+
+  /* -------------------------------------------------------
+     CHAT HELPERS
+     ------------------------------------------------------- */
+
+  function current() {
+    return chats.find(chat => chat.id === active);
+  }
+
+  function persist() {
+    chats.sort(
+      (a, b) =>
+        new Date(b.updatedAt) -
+        new Date(a.updatedAt)
+    );
+
+    chats = chats.slice(0, 100);
+
+    save(K.chats, chats);
+  }
+
+  function newChat() {
+    const now = new Date().toISOString();
+
+    const chat = {
+      id: makeId(),
+      title: "New chat",
+      messages: [],
+      createdAt: now,
+      updatedAt: now
+    };
+
+    chats.unshift(chat);
+
+    active = chat.id;
+
+    persist();
+    renderMessages();
+    renderHistory();
+
+    showView("chat");
+
+    setTimeout(() => {
+      $("#chatInput")?.focus();
+    }, 50);
+  }
+
+  function ensureChat() {
+    if (!current()) {
+      newChat();
+    }
+
+    return current();
+  }
+
+  /* -------------------------------------------------------
+     VIEW NAVIGATION
+     ------------------------------------------------------- */
+
+  function showView(view) {
+    $$(".page").forEach(page => {
+      page.classList.toggle(
+        "active",
+        page.dataset.page === view
+      );
+    });
+
+    $$(".nav-item").forEach(item => {
+      item.classList.toggle(
+        "active",
+        item.dataset.view === view
+      );
+    });
+
+    const titles = {
+      chat: "AI Chat",
+      history: "History",
+      research: "Research",
+      vision: "Vision",
+      settings: "Settings"
+    };
+
+    const title = $("#topbarTitle");
+
+    if (title) {
+      title.textContent =
+        titles[view] || "OZLIND";
+    }
+
+    if (view === "history") {
+      renderHistory();
+    }
+
+    if (view === "settings") {
+      loadSettingsUI();
+    }
+
+    $(".sidebar")?.classList.remove("open");
+    $("#sidebarOverlay")?.classList.remove("open");
+  }
+
+  /* -------------------------------------------------------
+     MESSAGE RENDERING
+     ------------------------------------------------------- */
+
+  function renderMessages() {
+    const box = $("#chatMessages");
+    const empty = $("#chatEmpty");
+    const chat = current();
+
+    if (!box || !empty) return;
+
+    box.innerHTML = "";
+
+    if (!chat || !chat.messages.length) {
+      empty.classList.remove("hidden");
+      return;
+    }
+
+    empty.classList.add("hidden");
+
+    chat.messages.forEach((message, index) => {
+      const article = document.createElement("article");
+
+      article.className =
+        `message ${message.role}` +
+        (message.error ? " error" : "");
+
+      const label =
+        message.role === "user"
+          ? "You"
+          : "OZLIND AI";
+
+      let actions = "";
+
+      if (!message.error && message.role === "assistant") {
+        actions = `
+          <div class="message-actions">
+            <button
+              type="button"
+              data-copy="${index}"
+              title="Copy response"
+              aria-label="Copy response">
+              ${icon("i-copy", "ui-icon tiny")}
+              <span>Copy</span>
+            </button>
+
+            <button
+              type="button"
+              data-regenerate="${index}"
+              title="Regenerate response"
+              aria-label="Regenerate response">
+              ${icon("i-regenerate", "ui-icon tiny")}
+              <span>Regenerate</span>
+            </button>
+
+            <button
+              type="button"
+              data-delete-message="${index}"
+              title="Delete response"
+              aria-label="Delete response">
+              ${icon("i-delete", "ui-icon tiny")}
+              <span>Delete</span>
+            </button>
+          </div>
+        `;
+      }
+
+      if (message.role === "user") {
+        actions = `
+          <div class="message-actions">
+            <button
+              type="button"
+              data-edit="${index}"
+              title="Edit message"
+              aria-label="Edit message">
+              ${icon("i-edit", "ui-icon tiny")}
+              <span>Edit</span>
+            </button>
+
+            <button
+              type="button"
+              data-delete-message="${index}"
+              title="Delete message"
+              aria-label="Delete message">
+              ${icon("i-delete", "ui-icon tiny")}
+              <span>Delete</span>
+            </button>
+          </div>
+        `;
+      }
+
+      article.innerHTML = `
+        <div class="message-meta">
+          ${escapeHTML(label)}
+        </div>
+
+        <div class="message-body">
+          ${escapeHTML(message.content)}
+        </div>
+
+        ${actions}
+      `;
+
+      box.appendChild(article);
+    });
+
+    box.scrollTop = box.scrollHeight;
+  }
+
+  /* -------------------------------------------------------
+     HISTORY
+     ------------------------------------------------------- */
+
+  function renderHistory(filter = "") {
+    const box = $("#conversationList");
+
+    if (!box) return;
+
+    box.innerHTML = "";
+
+    const query = filter
+      .trim()
+      .toLowerCase();
+
+    const filtered = chats.filter(chat => {
+      const searchable =
+        `${chat.title} ${chat.messages
+          .map(message => message.content)
+          .join(" ")}`
+          .toLowerCase();
+
+      return searchable.includes(query);
+    });
+
+    if (!filtered.length) {
+      box.innerHTML = `
+        <div class="history-empty">
+          <div class="empty-icon">
+            ${icon("i-history")}
+          </div>
+          <p>No conversations found.</p>
+        </div>
+      `;
+
+      return;
+    }
+
+    filtered.forEach(chat => {
+      const item = document.createElement("div");
+
+      item.className = "history-item";
+
+      item.innerHTML = `
+        <div class="history-main">
+          <b>${escapeHTML(chat.title)}</b>
+          <small>
+            ${chat.messages.length}
+            ${chat.messages.length === 1 ? "message" : "messages"}
+          </small>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-open="${chat.id}"
+          title="Open conversation"
+          aria-label="Open conversation">
+          ${icon("i-forward", "ui-icon small")}
+        </button>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-delete="${chat.id}"
+          title="Delete conversation"
+          aria-label="Delete conversation">
+          ${icon("i-delete", "ui-icon small")}
+        </button>
+      `;
+
+      box.appendChild(item);
+    });
+  }
+
+  /* -------------------------------------------------------
+     CHAT TITLE
+     ------------------------------------------------------- */
+
+  function titleFrom(text) {
+    const clean = String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!clean) {
+      return "New chat";
+    }
+
+    return clean.length > 70
+      ? clean.slice(0, 67) + "..."
+      : clean;
+  }
+
+  /* -------------------------------------------------------
+     INPUT
+     ------------------------------------------------------- */
+
+  function resizeInput() {
+    const input = $("#chatInput");
+
+    if (!input) return;
+
+    input.style.height = "auto";
+
+    input.style.height =
+      Math.min(input.scrollHeight, 180) + "px";
+  }
+
+  /* -------------------------------------------------------
+     FILES
+     ------------------------------------------------------- */
+
+  function renderFiles() {
+    const box = $("#chatAttachments");
+
+    if (!box) return;
+
+    box.innerHTML = "";
+
+    files.forEach((file, index) => {
+      const item = document.createElement("div");
+
+      item.className = "attachment";
+
+      item.innerHTML = `
+        <img
+          src="${escapeHTML(file.dataUrl)}"
+          alt="${escapeHTML(file.name || "Attachment")}">
+
+        <button
+          type="button"
+          data-file="${index}"
+          title="Remove attachment"
+          aria-label="Remove attachment">
+          ${icon("i-close", "ui-icon tiny")}
+        </button>
+      `;
+
+      box.appendChild(item);
+    });
+
+    const indicator = $("#contextIndicator");
+
+    if (indicator) {
+      indicator.textContent =
+        files.length
+          ? `${files.length} attachment${files.length === 1 ? "" : "s"}`
+          : "";
+    }
+  }
+
+  function dataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () =>
+        resolve(reader.result);
+
+      reader.onerror = reject;
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addFiles(list) {
+    const selected = [...list];
+
+    for (
+      const file of selected.slice(
+        0,
+        4 - files.length
+      )
+    ) {
+      if (
+        !file.type.startsWith("image/") ||
+        file.size > 8 * 1024 * 1024
+      ) {
+        toast(
+          "Only images up to 8MB are supported",
+          "error"
+        );
+
+        continue;
+      }
+
+      try {
+        files.push({
+          name: file.name,
+          type: file.type,
+          dataUrl: await dataURL(file)
+        });
+      } catch {
+        toast(
+          `Could not read ${file.name}`,
+          "error"
+        );
+      }
+    }
+
+    renderFiles();
+  }
+
+  /* -------------------------------------------------------
+     API MESSAGE PAYLOAD
+     ------------------------------------------------------- */
+
+  function payloadMessages(chat) {
+    const history = settings.memory
+      ? chat.messages.slice(-20)
+      : chat.messages.slice(-1);
+
+    return history.map(message => {
+      if (
+        message.role === "user" &&
+        message.attachments?.length
+      ) {
+        return {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: message.content
+            },
+
+            ...message.attachments.map(
+              attachment => ({
+                type: "image_url",
+                image_url: {
+                  url: attachment.dataUrl
+                }
+              })
+            )
+          ]
+        };
+      }
+
+      return {
+        role: message.role,
+        content: message.content
+      };
+    });
+  }
+
+  /* -------------------------------------------------------
+     SEND
+     ------------------------------------------------------- */
+
+  async function send() {
+    if (generating) return;
+
+    const input = $("#chatInput");
+
+    if (!input) return;
+
+    const text = input.value.trim();
+
+    if (!text && !files.length) {
+      return;
+    }
+
+    const chat = ensureChat();
+
+    const attachments =
+      files.splice(0, 4);
+
+    renderFiles();
+
+    chat.messages.push({
+      role: "user",
+      content: text,
+      attachments,
+      createdAt: new Date().toISOString()
+    });
+
+    if (
+      chat.messages.filter(
+        message => message.role === "user"
+      ).length === 1
+    ) {
+      chat.title = titleFrom(text);
+    }
+
+    chat.updatedAt =
+      new Date().toISOString();
+
+    persist();
+
+    input.value = "";
+
+    resizeInput();
+    renderMessages();
+
+    const assistant = {
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString()
+    };
+
+    chat.messages.push(assistant);
+
+    generating = true;
+
+    controller = new AbortController();
+
+    $("#sendBtn")?.classList.add("hidden");
+    $("#stopBtn")?.classList.remove("hidden");
+
+    setConnectionStatus("Generating…");
+
+    renderMessages();
+
+    try {
+      const researchToggle =
+        $("#researchToggle");
+
+      const research =
+        researchToggle?.getAttribute(
+          "aria-pressed"
+        ) === "true";
+
+      const response = await fetch(
+        "/api/chat",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          signal: controller.signal,
+
+          body: JSON.stringify({
+            messages:
+              payloadMessages(chat),
+
+            model:
+              $("#modelSelect")?.value ||
+              "auto",
+
+            research,
+
+            responseLength:
+              settings.responseLength,
+
+            responseStyle:
+              settings.responseStyle,
+
+            memory:
+              settings.memory,
+
+            customInstructions:
+              settings.instructions
+          })
+        }
+      );
+
+      if (!response.ok) {
+        let message =
+          `Request failed (${response.status})`;
+
+        try {
+          const data =
+            await response.json();
+
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      if (!response.body) {
+        throw new Error(
+          "No response stream was returned."
+        );
+      }
+
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const result =
+          await reader.read();
+
+        if (result.done) break;
+
+        buffer += decoder.decode(
+          result.value,
+          { stream: true }
+        );
+
+        const lines =
+          buffer.split("\n");
+
+        buffer =
+          lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) {
+            continue;
+          }
+
+          const raw =
+            line.slice(5).trim();
+
+          if (
+            !raw ||
+            raw === "[DONE]"
+          ) {
+            continue;
+          }
+
+          try {
+            const data =
+              JSON.parse(raw);
+
+            if (data.type === "delta") {
+              assistant.content +=
+                data.content || "";
+
+              renderMessages();
+            }
+
+            if (data.type === "error") {
+              throw new Error(
+                data.error ||
+                "Generation failed."
+              );
+            }
+          } catch (error) {
+            if (
+              error instanceof SyntaxError
+            ) {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+      }
+
+      if (!assistant.content.trim()) {
+        assistant.content =
+          "No response was returned.";
+      }
+    } catch (error) {
+      if (
+        error?.name === "AbortError"
+      ) {
+        assistant.content =
+          assistant.content.trim()
+            ? assistant.content +
+              "\n\nGeneration stopped."
+            : "Generation stopped.";
+      } else {
+        assistant.error = true;
+
+        assistant.content =
+          error?.message ||
+          "Request failed.";
+
+        toast(
+          assistant.content,
+          "error"
+        );
+      }
+    } finally {
+      generating = false;
+      controller = null;
+
+      chat.updatedAt =
+        new Date().toISOString();
+
+      persist();
+      renderMessages();
+
+      $("#sendBtn")?.classList.remove(
+        "hidden"
+      );
+
+      $("#stopBtn")?.classList.add(
+        "hidden"
+      );
+
+      setConnectionStatus("Ready");
+    }
+  }
+
+  /* -------------------------------------------------------
+     CONNECTION STATUS
+     ------------------------------------------------------- */
+
+  function setConnectionStatus(text) {
+    const status =
+      $("#connectionStatus");
+
+    if (!status) return;
+
+    status.innerHTML = `
+      <i></i>
+      ${escapeHTML(text)}
+    `;
+  }
+
+  /* -------------------------------------------------------
+     COPY
+     ------------------------------------------------------- */
+
+  async function copyMessage(index) {
+    const chat = current();
+
+    const message =
+      chat?.messages?.[index];
+
+    if (!message) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        message.content || ""
+      );
+
+      toast(
+        "Response copied",
+        "success"
+      );
+    } catch {
+      toast(
+        "Could not copy response",
+        "error"
+      );
+    }
+  }
+
+  /* -------------------------------------------------------
+     DELETE MESSAGE
+     ------------------------------------------------------- */
+
+  function deleteMessage(index) {
+    const chat = current();
+
+    if (!chat?.messages?.[index]) {
+      return;
+    }
+
+    chat.messages.splice(index, 1);
+
+    chat.updatedAt =
+      new Date().toISOString();
+
+    persist();
+    renderMessages();
+  }
+
+  /* -------------------------------------------------------
+     EDIT USER MESSAGE
+     ------------------------------------------------------- */
+
+  function editMessage(index) {
+    const chat = current();
+
+    const message =
+      chat?.messages?.[index];
+
+    if (!message || message.role !== "user") {
+      return;
+    }
+
+    const input = $("#chatInput");
+
+    if (!input) return;
+
+    input.value = message.content || "";
+
+    if (message.attachments?.length) {
+      files.push(
+        ...message.attachments.slice(
+          0,
+          4 - files.length
+        )
+      );
+
+      renderFiles();
+    }
+
+    chat.messages.splice(index, 1);
+
+    chat.updatedAt =
+      new Date().toISOString();
+
+    persist();
+    renderMessages();
+
+    input.focus();
+    resizeInput();
+
+    toast(
+      "Message ready to edit",
+      "success"
+    );
+  }
+
+  /* -------------------------------------------------------
+     REGENERATE
+     ------------------------------------------------------- */
+
+  async function regenerate(index) {
+    if (generating) return;
+
+    const chat = current();
+
+    if (!chat) return;
+
+    const assistant =
+      chat.messages[index];
+
+    if (
+      !assistant ||
+      assistant.role !== "assistant"
+    ) {
+      return;
+    }
+
+    const previousUser =
+      chat.messages
+        .slice(0, index)
+        .reverse()
+        .find(
+          message =>
+            message.role === "user"
+        );
+
+    if (!previousUser) {
+      toast(
+        "No user message to regenerate",
+        "error"
+      );
+
+      return;
+    }
+
+    chat.messages.splice(index, 1);
+
+    chat.updatedAt =
+      new Date().toISOString();
+
+    persist();
+    renderMessages();
+
+    generating = false;
+
+    await generateFromExistingChat(chat);
+  }
+
+  /* -------------------------------------------------------
+     GENERATE EXISTING CHAT
+     ------------------------------------------------------- */
+
+  async function generateFromExistingChat(chat) {
+    if (generating) return;
+
+    const assistant = {
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString()
+    };
+
+    chat.messages.push(assistant);
+
+    generating = true;
+
+    controller =
+      new AbortController();
+
+    $("#sendBtn")?.classList.add("hidden");
+    $("#stopBtn")?.classList.remove("hidden");
+
+    setConnectionStatus("Generating…");
+
+    renderMessages();
+
+    try {
+      const researchToggle =
+        $("#researchToggle");
+
+      const response =
+        await fetch(
+          "/api/chat",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            signal: controller.signal,
+
+            body: JSON.stringify({
+              messages:
+                payloadMessages(chat),
+
+              model:
+                $("#modelSelect")?.value ||
+                "auto",
+
+              research:
+                researchToggle?.getAttribute(
+                  "aria-pressed"
+                ) === "true",
+
+              responseLength:
+                settings.responseLength,
+
+              responseStyle:
+                settings.responseStyle,
+
+              memory:
+                settings.memory,
+
+              customInstructions:
+                settings.instructions
+            })
+          }
+        );
+
+      if (!response.ok) {
+        let message =
+          `Request failed (${response.status})`;
+
+        try {
+          const data =
+            await response.json();
+
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      if (!response.body) {
+        throw new Error(
+          "No response stream was returned."
+        );
+      }
+
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const result =
+          await reader.read();
+
+        if (result.done) break;
+
+        buffer += decoder.decode(
+          result.value,
+          { stream: true }
+        );
+
+        const lines =
+          buffer.split("\n");
+
+        buffer =
+          lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) {
+            continue;
+          }
+
+          const raw =
+            line.slice(5).trim();
+
+          if (
+            !raw ||
+            raw === "[DONE]"
+          ) {
+            continue;
+          }
+
+          try {
+            const data =
+              JSON.parse(raw);
+
+            if (data.type === "delta") {
+              assistant.content +=
+                data.content || "";
+
+              renderMessages();
+            }
+
+            if (data.type === "error") {
+              throw new Error(
+                data.error ||
+                "Generation failed."
+              );
+            }
+          } catch (error) {
+            if (
+              error instanceof SyntaxError
+            ) {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+      }
+
+      if (!assistant.content.trim()) {
+        assistant.content =
+          "No response was returned.";
+      }
+    } catch (error) {
+      if (
+        error?.name === "AbortError"
+      ) {
+        assistant.content =
+          assistant.content.trim()
+            ? assistant.content +
+              "\n\nGeneration stopped."
+            : "Generation stopped.";
+      } else {
+        assistant.error = true;
+
+        assistant.content =
+          error?.message ||
+          "Request failed.";
+
+        toast(
+          assistant.content,
+          "error"
+        );
+      }
+    } finally {
+      generating = false;
+      controller = null;
+
+      chat.updatedAt =
+        new Date().toISOString();
+
+      persist();
+      renderMessages();
+
+      $("#sendBtn")?.classList.remove(
+        "hidden"
+      );
+
+      $("#stopBtn")?.classList.add(
+        "hidden"
+      );
+
+      setConnectionStatus("Ready");
+    }
+  }
+
+  /* -------------------------------------------------------
+     SETTINGS
+     ------------------------------------------------------- */
+
+  function loadSettingsUI() {
+    const length =
+      $("#responseLength");
+
+    const style =
+      $("#responseStyle");
+
+    const instructions =
+      $("#customInstructions");
+
+    if (length) {
+      length.value =
+        settings.responseLength;
+    }
+
+    if (style) {
+      style.value =
+        settings.responseStyle;
+    }
+
+    if (instructions) {
+      instructions.value =
+        settings.instructions;
+    }
+
+    const memory =
+      $("#memoryToggle");
+
+    if (memory) {
+      memory.setAttribute(
+        "aria-checked",
+        String(settings.memory)
+      );
+    }
+  }
+
+  function saveSettings() {
+    settings.responseLength =
+      $("#responseLength")?.value ||
+      "medium";
+
+    settings.responseStyle =
+      $("#responseStyle")?.value ||
+      "balanced";
+
+    settings.instructions =
+      (
+        $("#customInstructions")?.value ||
+        ""
+      ).slice(0, 5000);
+
+    save(K.settings, settings);
+
+    toast(
+      "Settings saved",
+      "success"
+    );
+  }
+
+  function toggleMemory() {
+    settings.memory =
+      !settings.memory;
+
+    save(K.settings, settings);
+
+    loadSettingsUI();
+
+    toast(
+      settings.memory
+        ? "Memory enabled"
+        : "Memory disabled",
+      "success"
+    );
+  }
+
+  /* -------------------------------------------------------
+     EXPORT
+     ------------------------------------------------------- */
+
+  function exportData() {
+    try {
+      const blob =
+        new Blob(
+          [
+            JSON.stringify(
+              chats,
+              null,
+              2
+            )
+          ],
+          {
+            type:
+              "application/json"
+          }
+        );
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const link =
+        document.createElement("a");
+
+      link.href = url;
+      link.download =
+        "ozlind-history.json";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(url);
+
+      toast(
+        "History exported",
+        "success"
+      );
+    } catch {
+      toast(
+        "Could not export history",
+        "error"
+      );
+    }
+  }
+
+  /* -------------------------------------------------------
+     IMPORT
+     ------------------------------------------------------- */
+
+  function importData(file) {
+    if (!file) return;
+
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+      try {
+        const data =
+          JSON.parse(
+            reader.result
+          );
+
+        if (!Array.isArray(data)) {
+          throw new Error();
+        }
+
+        chats = data
+          .filter(
+            chat =>
+              chat &&
+              chat.id &&
+              Array.isArray(
+                chat.messages
+              )
+          )
+          .slice(0, 100);
+
+        active =
+          chats[0]?.id || null;
+
+        persist();
+
+        renderMessages();
+        renderHistory();
+
+        toast(
+          "History imported",
+          "success"
+        );
+      } catch {
+        toast(
+          "Invalid history file",
+          "error"
+        );
+      }
+    };
+
+    reader.onerror = () => {
+      toast(
+        "Could not read history file",
+        "error"
+      );
+    };
+
+    reader.readAsText(file);
+  }
+
+  /* -------------------------------------------------------
+     THEME
+     ------------------------------------------------------- */
+
+  function toggleTheme() {
+    const currentTheme =
+      load(K.theme, "dark");
+
+    const next =
+      currentTheme === "dark"
+        ? "light"
+        : "dark";
+
+    document.body.dataset.theme =
+      next;
+
+    save(K.theme, next);
+
+    const button =
+      $("#themeToggle");
+
+    if (button) {
+      button.innerHTML =
+        icon("i-settings", "ui-icon small");
+    }
+  }
+
+  function loadTheme() {
+    const saved =
+      load(K.theme, "dark");
+
+    document.body.dataset.theme =
+      saved;
+
+    const button =
+      $("#themeToggle");
+
+    if (button) {
+      button.innerHTML =
+        icon("i-settings", "ui-icon small");
+    }
+  }
+
+  /* -------------------------------------------------------
+     CLICK EVENTS
+     ------------------------------------------------------- */
+
+  document.addEventListener(
+    "click",
+    event => {
+      const view =
+        event.target.closest(
+          "[data-view]"
+        );
+
+      if (view) {
+        showView(
+          view.dataset.view
+        );
+        return;
+      }
+
+      const prompt =
+        event.target.closest(
+          "[data-prompt]"
+        );
+
+      if (prompt) {
+        const input =
+          $("#chatInput");
+
+        if (input) {
+          input.value =
+            prompt.dataset.prompt;
+
+          resizeInput();
+          showView("chat");
+          input.focus();
+        }
+
+        return;
+      }
+
+      const open =
+        event.target.closest(
+          "[data-open]"
+        );
+
+      if (open) {
+        active =
+          open.dataset.open;
+
+        persist();
+        renderMessages();
+        showView("chat");
+
+        return;
+      }
+
+      const conversationDelete =
+        event.target.closest(
+          "[data-delete]"
+        );
+
+      if (conversationDelete) {
+        const id =
+          conversationDelete.dataset.delete;
+
+        if (
+          !confirm(
+            "Delete this conversation?"
+          )
+        ) {
+          return;
+        }
+
+        chats =
+          chats.filter(
+            chat => chat.id !== id
+          );
+
+        if (active === id) {
+          active =
+            chats[0]?.id || null;
+        }
+
+        persist();
+
+        renderMessages();
+        renderHistory();
+
+        toast(
+          "Conversation deleted",
+          "success"
+        );
+
+        return;
+      }
+
+      const copy =
+        event.target.closest(
+          "[data-copy]"
+        );
+
+      if (copy) {
+        copyMessage(
+          Number(copy.dataset.copy)
+        );
+        return;
+      }
+
+      const edit =
+        event.target.closest(
+          "[data-edit]"
+        );
+
+      if (edit) {
+        editMessage(
+          Number(edit.dataset.edit)
+        );
+        return;
+      }
+
+      const regenerateButton =
+        event.target.closest(
+          "[data-regenerate]"
+        );
+
+      if (regenerateButton) {
+        regenerate(
+          Number(
+            regenerateButton.dataset
+              .regenerate
+          )
+        );
+
+        return;
+      }
+
+      const deleteMessageButton =
+        event.target.closest(
+          "[data-delete-message]"
+        );
+
+      if (deleteMessageButton) {
+        deleteMessage(
+          Number(
+            deleteMessageButton.dataset
+              .deleteMessage
+          )
+        );
+
+        return;
+      }
+
+      const removeFile =
+        event.target.closest(
+          "[data-file]"
+        );
+
+      if (removeFile) {
+        files.splice(
+          Number(removeFile.dataset.file),
+          1
+        );
+
+        renderFiles();
+
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#newChatBtn"
+        )
+      ) {
+        newChat();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#themeToggle"
+        )
+      ) {
+        toggleTheme();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#researchToggle"
+        )
+      ) {
+        const button =
+          $("#researchToggle");
+
+        if (!button) return;
+
+        const enabled =
+          button.getAttribute(
+            "aria-pressed"
+          ) === "true";
+
+        button.setAttribute(
+          "aria-pressed",
+          String(!enabled)
+        );
+
+        const label =
+          button.querySelector(
+            "span"
+          );
+
+        if (label) {
+          label.textContent =
+            !enabled
+              ? "ON"
+              : "OFF";
+        }
+
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#mobileNavBtn"
+        )
+      ) {
+        $(".sidebar")
+          ?.classList.add("open");
+
+        $("#sidebarOverlay")
+          ?.classList.add("open");
+
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#sidebarOverlay"
+        )
+      ) {
+        $(".sidebar")
+          ?.classList.remove("open");
+
+        $("#sidebarOverlay")
+          ?.classList.remove("open");
+
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#attachBtn"
+        )
+      ) {
+        $("#fileInput")?.click();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#stopBtn"
+        )
+      ) {
+        controller?.abort();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#memoryToggle"
+        )
+      ) {
+        toggleMemory();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#saveInstructionsBtn"
+        )
+      ) {
+        saveSettings();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#exportHistoryBtn"
+        )
+      ) {
+        exportData();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#importHistoryBtn"
+        )
+      ) {
+        $("#historyFileInput")?.click();
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "#clearHistoryBtn"
+        )
+      ) {
+        if (
+          !confirm(
+            "Delete all local conversation history?"
+          )
+        ) {
+          return;
+        }
+
+        chats = [];
+        active = null;
+
+        persist();
+
+        renderMessages();
+        renderHistory();
+
+        toast(
+          "History cleared",
+          "success"
+        );
+
+        return;
+      }
+
+      if (
+        event.target.closest(
+          "[data-focus-chat]"
+        )
+      ) {
+        showView("chat");
+      }
+    }
+  );
+
+  /* -------------------------------------------------------
+     FORM
+     ------------------------------------------------------- */
+
+  const chatForm =
+    $("#chatForm");
+
+  if (chatForm) {
+    chatForm.addEventListener(
+      "submit",
+      event => {
+        event.preventDefault();
+        send();
+      }
+    );
+  }
+
+  /* -------------------------------------------------------
+     INPUT EVENTS
+     ------------------------------------------------------- */
+
+  const chatInput =
+    $("#chatInput");
+
+  if (chatInput) {
+    chatInput.addEventListener(
+      "input",
+      resizeInput
+    );
+
+    chatInput.addEventListener(
+      "keydown",
+      event => {
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey
+        ) {
+          event.preventDefault();
+          send();
+        }
+      }
+    );
+  }
+
+  /* -------------------------------------------------------
+     FILE INPUT
+     ------------------------------------------------------- */
+
+  const fileInput =
+    $("#fileInput");
+
+  if (fileInput) {
+    fileInput.addEventListener(
+      "change",
+      event => {
+        addFiles(
+          event.target.files
+        );
+
+        event.target.value = "";
+      }
+    );
+  }
+
+  /* -------------------------------------------------------
+     HISTORY SEARCH
+     ------------------------------------------------------- */
+
+  const historySearch =
+    $("#conversationSearch");
+
+  if (historySearch) {
+    historySearch.addEventListener(
+      "input",
+      event => {
+        renderHistory(
+          event.target.value
+        );
+      }
+    );
+  }
+
+  /* -------------------------------------------------------
+     IMPORT INPUT
+     ------------------------------------------------------- */
+
+  const historyFileInput =
+    $("#historyFileInput");
+
+  if (historyFileInput) {
+    historyFileInput.addEventListener(
+      "change",
+      event => {
+        const file =
+          event.target.files?.[0];
+
+        if (file) {
+          importData(file);
+        }
+
+        event.target.value = "";
+      }
+    );
+  }
+
+  /* -------------------------------------------------------
+     STARTUP
+     ------------------------------------------------------- */
+
+  window.addEventListener(
+    "load",
+    () => {
+      loadTheme();
+
+      if (!chats.length) {
+        newChat();
+      } else {
+        renderMessages();
+        renderHistory();
+        loadSettingsUI();
+      }
+
+      resizeInput();
+      renderFiles();
+    }
+  );
+
 })();
