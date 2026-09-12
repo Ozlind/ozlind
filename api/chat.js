@@ -1,7 +1,7 @@
 const LIMITS={messages:24,text:12000,imageChars:1500000,timeout:45000,research:15000,researchText:9000,customInstructions:5000};
 const PROVIDERS={
  groq:{base:"https://api.groq.com/openai/v1",key:"GROQ_API_KEY",model:"GROQ_MODEL",fallback:"openai/gpt-oss-120b"},
- gemini:{base:"https://generativelanguage.googleapis.com/v1beta",key:"GEMINI_API_KEY",model:"GEMINI_MODEL",fallback:"gemini-2.5-flash"},
+ gemini:{base:"https://generativelanguage.googleapis.com/v1beta",key:"GEMINI_API_KEY",model:"GEMINI_MODEL",fallback:"gemini-3.6-flash"},
  experiential:{base:"https://api.experientiallabs.ai/v1",key:"EXPERIENTIAL_API_KEY",model:"EXPERIENTIAL_MODEL",fallback:"default"}
 };
 const POLICY=`You are OZLIND AI, the official assistant of the OZLIND AI product.
