@@ -1,158 +1,108 @@
+// api/image-generate.js
+
 "use strict";
 
-/*
- * OZLIND AI PLATFORM
- * /api/image-generate.js
- *
- * Stable version for the current OZLIND chatbot.js
- */
-
-const DEFAULT_MODEL = "flux";
-
-const ALLOWED_MODELS = [
+const ALLOWED_MODELS = new Set([
   "flux",
   "zimage",
   "gptimage",
   "gpt-image-2",
   "nanobanana-2"
-];
+]);
 
-function clean(value, max = 5000) {
+const DEFAULT_MODEL = "zimage";
+
+const NEGATIVE_PROMPT = [
+  "blurry",
+  "low quality",
+  "low resolution",
+  "out of focus",
+  "bad anatomy",
+  "deformed",
+  "disfigured",
+  "extra fingers",
+  "missing fingers",
+  "extra limbs",
+  "mutated hands",
+  "duplicate subject",
+  "duplicate people",
+  "distorted face",
+  "asymmetrical eyes",
+  "cropped subject",
+  "unnatural proportions",
+  "bad perspective",
+  "text artifacts",
+  "random letters",
+  "signature",
+  "watermark",
+  "logo",
+  "frame"
+].join(", ");
+
+function cleanText(value, max = 4000) {
   return String(value || "")
-    .replace(/\u0000/g, "")
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
 }
 
-function number(value, fallback, min, max) {
+function clamp(value, min, max, fallback) {
   const n = Number(value);
 
-  if (!Number.isFinite(n)) {
-    return fallback;
-  }
+  if (!Number.isFinite(n)) return fallback;
 
-  return Math.min(
-    max,
-    Math.max(min, Math.round(n))
-  );
+  return Math.min(max, Math.max(min, Math.round(n)));
 }
 
-function getSeed(value) {
-  const n = Number(value);
+function buildPrompt(userPrompt) {
+  const prompt = cleanText(userPrompt);
 
-  if (
-    Number.isFinite(n) &&
-    n >= 1 &&
-    n <= 2147483647
-  ) {
-    return Math.round(n);
+  if (!prompt) {
+    throw new Error("Please describe the image you want to create.");
   }
 
-  return Math.floor(
-    Math.random() * 2147483646
-  ) + 1;
-}
-
-/*
- * Keep the user's actual prompt intact.
- *
- * The instructions are short so they don't overpower
- * the creative request.
- */
-function improvePrompt(prompt) {
   return [
     prompt,
-
-    "Create exactly what was requested.",
-
-    "Preserve the exact number of people and important objects.",
-
-    "Preserve the requested identity, appearance, pose, clothing, objects, location, composition and relationships.",
-
-    "Use accurate anatomy, natural hands and fingers, realistic proportions, coherent perspective and physically consistent lighting.",
-
-    "Do not add unrelated people or objects.",
-
-    "Do not add text, captions, logos, signatures or watermarks."
+    "",
+    "Create exactly what the user described.",
+    "Preserve every explicit subject, object, person, quantity, relationship, pose, clothing detail, environment, camera angle, lighting condition, and composition requirement.",
+    "Do not invent unrelated subjects or objects.",
+    "Maintain accurate anatomy, realistic proportions, coherent perspective, natural lighting, detailed textures, sharp focus, and professional image quality.",
+    "If the user specifies a style, follow that style precisely.",
+    "If the user specifies a number of people or objects, preserve that exact number.",
+    "Do not add text, captions, logos, signatures, frames, or watermarks unless explicitly requested."
   ].join(" ");
 }
 
-function buildUrl({
-  prompt,
-  model,
-  width,
-  height,
-  seed
-}) {
-  const base =
-    "https://image.pollinations.ai/prompt/";
+function buildUrl(prompt, options) {
+  const base = "https://image.pollinations.ai/prompt/";
 
-  const encoded =
-    encodeURIComponent(prompt);
+  const encodedPrompt = encodeURIComponent(prompt);
 
-  const params =
-    new URLSearchParams();
+  const params = new URLSearchParams();
 
-  params.set(
-    "width",
-    String(width)
-  );
+  params.set("width", String(options.width));
+  params.set("height", String(options.height));
+  params.set("model", options.model);
+  params.set("seed", String(options.seed));
 
-  params.set(
-    "height",
-    String(height)
-  );
+  // Ask the provider for higher prompt adherence.
+  params.set("enhance", "true");
 
-  params.set(
-    "model",
-    model
-  );
+  // Ask the provider not to add branding.
+  params.set("nologo", "true");
 
-  params.set(
-    "seed",
-    String(seed)
-  );
+  // Quality control.
+  params.set("negative_prompt", NEGATIVE_PROMPT);
 
-  /*
-   * Keep provider parameters compatible
-   * with the endpoint that was already working.
-   */
-  params.set(
-    "nologo",
-    "true"
-  );
-
-  params.set(
-    "enhance",
-    "true"
-  );
-
-  return (
-    `${base}${encoded}?${params.toString()}`
-  );
+  return `${base}${encodedPrompt}?${params.toString()}`;
 }
 
 module.exports = async function handler(req, res) {
-
-  res.setHeader(
-    "Access-Control-Allow-Origin",
-    "*"
-  );
-
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "POST, OPTIONS"
-  );
-
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type"
-  );
-
-  res.setHeader(
-    "Cache-Control",
-    "no-store"
-  );
+  // CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.status(204).end();
@@ -160,104 +110,81 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== "POST") {
     return res.status(405).json({
-      ok: false,
       error: "Method not allowed."
     });
   }
 
   try {
-    const body =
-      req.body && typeof req.body === "object"
-        ? req.body
-        : {};
+    const body = req.body || {};
 
-    /*
-     * IMPORTANT:
-     * Current chatbot.js sends `prompt`.
-     */
-    const prompt = clean(
+    const userPrompt = cleanText(
       body.prompt ||
       body.description ||
-      body.text
+      body.text ||
+      ""
     );
 
-    if (!prompt) {
+    if (!userPrompt) {
       return res.status(400).json({
-        ok: false,
-        error:
-          "Please describe the image you want to create."
+        error: "Please describe the image you want OZLIND to create."
       });
     }
 
-    /*
-     * Use the requested model only if supported.
-     */
-    const requestedModel =
-      clean(body.model, 50).toLowerCase();
+    const requestedModel = cleanText(
+      body.model || DEFAULT_MODEL,
+      50
+    ).toLowerCase();
 
-    const model =
-      ALLOWED_MODELS.includes(requestedModel)
-        ? requestedModel
-        : DEFAULT_MODEL;
+    const model = ALLOWED_MODELS.has(requestedModel)
+      ? requestedModel
+      : DEFAULT_MODEL;
 
-    /*
-     * Current chatbot.js normally sends 1024x1024.
-     */
-    const width =
-      number(
-        body.width,
-        1024,
-        512,
-        1536
-      );
+    const width = clamp(
+      body.width,
+      512,
+      1536,
+      1024
+    );
 
-    const height =
-      number(
-        body.height,
-        1024,
-        512,
-        1536
-      );
+    const height = clamp(
+      body.height,
+      512,
+      1536,
+      1024
+    );
 
-    const seed =
-      getSeed(body.seed);
+    const seed = clamp(
+      body.seed,
+      1,
+      2147483647,
+      Math.floor(Math.random() * 2147483647)
+    );
 
-    const finalPrompt =
-      improvePrompt(prompt);
+    const finalPrompt = buildPrompt(userPrompt);
 
-    const imageUrl =
-      buildUrl({
-        prompt: finalPrompt,
-        model,
-        width,
-        height,
-        seed
-      });
-
-    /*
-     * IMPORTANT:
-     * chatbot.js expects `imageUrl`.
-     */
-    return res.status(200).json({
-      ok: true,
-      imageUrl,
+    const imageUrl = buildUrl(finalPrompt, {
       model,
       width,
       height,
-      seed,
-      provider: "OZLIND Image Engine"
+      seed
+    });
+
+    return res.status(200).json({
+      ok: true,
+      imageUrl,
+      provider: "OZLIND Image Engine",
+      model,
+      width,
+      height,
+      seed
     });
 
   } catch (error) {
-
-    console.error(
-      "OZLIND IMAGE ERROR:",
-      error
-    );
+    console.error("OZLIND IMAGE GENERATION ERROR:", error);
 
     return res.status(500).json({
-      ok: false,
       error:
+        error?.message ||
         "OZLIND could not generate the image. Please try again."
     });
   }
