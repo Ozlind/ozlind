@@ -2,153 +2,50 @@
 
 /*
  * OZLIND AI PLATFORM
- * Image Generation API
+ * /api/image-generate.js
  *
- * Route:
- *   POST /api/image-generate
- *
- * Purpose:
- *   - Generate images directly inside OZLIND Chat
- *   - Preserve user intent as accurately as possible
- *   - Request clean output without logos/watermarks/text
- *   - Validate input safely
- *   - Avoid exposing secrets to the browser
- *
- * NOTE:
- *   The provider may still apply its own watermark/branding
- *   depending on its account/tier policy. nologo=true is requested,
- *   but the provider ultimately controls provider-side watermarking.
+ * Stable version for the current OZLIND chatbot.js
  */
 
-const ALLOWED_MODELS = new Set([
+const DEFAULT_MODEL = "flux";
+
+const ALLOWED_MODELS = [
   "flux",
   "zimage",
   "gptimage",
   "gpt-image-2",
   "nanobanana-2"
-]);
+];
 
-const DEFAULT_MODEL = "zimage";
-
-const MAX_PROMPT_LENGTH = 5000;
-const MIN_DIMENSION = 512;
-const MAX_DIMENSION = 1536;
-
-/*
- * Strong negative prompt.
- *
- * This is deliberately conservative:
- * we want to prevent common generation failures without
- * over-constraining the actual user request.
- */
-const NEGATIVE_PROMPT = [
-  "blurry",
-  "low quality",
-  "low resolution",
-  "pixelated",
-  "out of focus",
-  "motion blur",
-  "jpeg artifacts",
-
-  "bad anatomy",
-  "poor anatomy",
-  "deformed body",
-  "disfigured",
-  "unnatural proportions",
-  "malformed body",
-
-  "bad hands",
-  "deformed hands",
-  "mutated hands",
-  "extra fingers",
-  "missing fingers",
-  "fused fingers",
-  "extra limbs",
-  "missing limbs",
-
-  "duplicate person",
-  "duplicate subject",
-  "extra person",
-  "extra people",
-  "missing person",
-  "cloned face",
-
-  "distorted face",
-  "deformed face",
-  "asymmetrical eyes",
-  "cross-eyed",
-  "misaligned eyes",
-  "unnatural teeth",
-
-  "bad perspective",
-  "warped objects",
-  "floating objects",
-  "impossible geometry",
-
-  "random text",
-  "text artifacts",
-  "random letters",
-  "unwanted caption",
-  "unwanted typography",
-
-  "logo",
-  "brand logo",
-  "signature",
-  "watermark",
-  "stamp",
-  "border",
-  "frame"
-].join(", ");
-
-
-/* ---------------------------------------------------------
- * Helpers
- * --------------------------------------------------------- */
-
-function cleanText(value, maxLength = MAX_PROMPT_LENGTH) {
-  return String(value ?? "")
+function clean(value, max = 5000) {
+  return String(value || "")
     .replace(/\u0000/g, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
     .trim()
-    .slice(0, maxLength);
+    .slice(0, max);
 }
 
+function number(value, fallback, min, max) {
+  const n = Number(value);
 
-function clampNumber(value, min, max, fallback) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
+  if (!Number.isFinite(n)) {
     return fallback;
   }
 
   return Math.min(
     max,
-    Math.max(min, Math.round(number))
+    Math.max(min, Math.round(n))
   );
 }
 
-
-function getModel(value) {
-  const requested = cleanText(value, 80).toLowerCase();
-
-  if (ALLOWED_MODELS.has(requested)) {
-    return requested;
-  }
-
-  return DEFAULT_MODEL;
-}
-
-
-function createSeed(value) {
-  const supplied = Number(value);
+function getSeed(value) {
+  const n = Number(value);
 
   if (
-    Number.isFinite(supplied) &&
-    supplied >= 1 &&
-    supplied <= 2147483647
+    Number.isFinite(n) &&
+    n >= 1 &&
+    n <= 2147483647
   ) {
-    return Math.round(supplied);
+    return Math.round(n);
   }
 
   return Math.floor(
@@ -156,68 +53,41 @@ function createSeed(value) {
   ) + 1;
 }
 
+/*
+ * Keep the user's actual prompt intact.
+ *
+ * The instructions are short so they don't overpower
+ * the creative request.
+ */
+function improvePrompt(prompt) {
+  return [
+    prompt,
 
-/* ---------------------------------------------------------
- * Prompt Engineering
- * --------------------------------------------------------- */
+    "Create exactly what was requested.",
 
-function buildPrompt(userPrompt) {
-  const prompt = cleanText(userPrompt);
+    "Preserve the exact number of people and important objects.",
 
-  if (!prompt) {
-    throw new Error(
-      "Please describe the image you want OZLIND to create."
-    );
-  }
+    "Preserve the requested identity, appearance, pose, clothing, objects, location, composition and relationships.",
 
-  /*
-   * The user's original request stays first.
-   *
-   * This is important because the model should prioritize
-   * the actual creative instruction rather than our helper text.
-   */
+    "Use accurate anatomy, natural hands and fingers, realistic proportions, coherent perspective and physically consistent lighting.",
 
-  const instruction = [
-    "Create the image exactly according to the user's description.",
-    "Treat the user's requested subjects, objects, people, quantities, relationships, poses, clothing, colors, environment, camera angle, perspective, lighting, mood, style, and composition as mandatory requirements.",
-    "Preserve the exact number of people and important objects requested.",
-    "Do not replace, remove, duplicate, or invent important subjects.",
-    "Keep faces, body proportions, hands, fingers, clothing, objects, and spatial relationships anatomically and physically coherent.",
-    "Follow explicit positioning instructions such as left, right, center, foreground, background, beside, behind, sitting, standing, looking at, or holding.",
-    "If the user specifies an artistic or photographic style, follow that style while preserving the requested content.",
-    "Use natural perspective, realistic lighting, coherent shadows, accurate depth, detailed textures, and sharp subject separation.",
-    "Do not add unrelated people, objects, decorations, text, captions, logos, signatures, watermarks, borders, or frames.",
-    "Produce a clean professional image."
+    "Do not add unrelated people or objects.",
+
+    "Do not add text, captions, logos, signatures or watermarks."
   ].join(" ");
-
-  return `${prompt}\n\n${instruction}`;
 }
 
-
-/* ---------------------------------------------------------
- * Provider URL
- * --------------------------------------------------------- */
-
-function createImageUrl({
+function buildUrl({
   prompt,
   model,
   width,
   height,
   seed
 }) {
-  /*
-   * Legacy Pollinations image endpoint is kept here for
-   * compatibility with the current OZLIND setup.
-   *
-   * If the provider is changed later, only this function
-   * needs to be replaced; the OZLIND frontend route can stay
-   * /api/image-generate.
-   */
-
-  const baseUrl =
+  const base =
     "https://image.pollinations.ai/prompt/";
 
-  const encodedPrompt =
+  const encoded =
     encodeURIComponent(prompt);
 
   const params =
@@ -244,112 +114,26 @@ function createImageUrl({
   );
 
   /*
-   * Prompt enhancement.
-   */
-  params.set(
-    "enhance",
-    "true"
-  );
-
-  /*
-   * Request no provider logo.
-   *
-   * Important:
-   * this is a provider request, not a guarantee.
+   * Keep provider parameters compatible
+   * with the endpoint that was already working.
    */
   params.set(
     "nologo",
     "true"
   );
 
-  /*
-   * Negative prompt for visual quality control.
-   */
   params.set(
-    "negative_prompt",
-    NEGATIVE_PROMPT
+    "enhance",
+    "true"
   );
 
   return (
-    `${baseUrl}${encodedPrompt}?${params.toString()}`
+    `${base}${encoded}?${params.toString()}`
   );
 }
-
-
-/* ---------------------------------------------------------
- * Request validation
- * --------------------------------------------------------- */
-
-function parseRequest(body) {
-  const data =
-    body && typeof body === "object"
-      ? body
-      : {};
-
-  const prompt = cleanText(
-    data.prompt ||
-    data.description ||
-    data.text ||
-    ""
-  );
-
-  if (!prompt) {
-    throw new Error(
-      "Please describe the image you want OZLIND to create."
-    );
-  }
-
-  if (prompt.length < 2) {
-    throw new Error(
-      "Please provide a more detailed image description."
-    );
-  }
-
-  const model =
-    getModel(data.model);
-
-  /*
-   * Default square output.
-   *
-   * The frontend can request another valid size.
-   */
-  const width =
-    clampNumber(
-      data.width,
-      MIN_DIMENSION,
-      MAX_DIMENSION,
-      1024
-    );
-
-  const height =
-    clampNumber(
-      data.height,
-      MIN_DIMENSION,
-      MAX_DIMENSION,
-      1024
-    );
-
-  const seed =
-    createSeed(data.seed);
-
-  return {
-    prompt,
-    model,
-    width,
-    height,
-    seed
-  };
-}
-
-
-/* ---------------------------------------------------------
- * Handler
- * --------------------------------------------------------- */
 
 module.exports = async function handler(req, res) {
-  /*
-   * Basic CORS support.
-   */
+
   res.setHeader(
     "Access-Control-Allow-Origin",
     "*"
@@ -365,24 +149,15 @@ module.exports = async function handler(req, res) {
     "Content-Type"
   );
 
-  /*
-   * Prevent caching of generation responses.
-   */
   res.setHeader(
     "Cache-Control",
-    "no-store, max-age=0"
+    "no-store"
   );
 
-  /*
-   * Preflight.
-   */
   if (req.method === "OPTIONS") {
     return res.status(204).end();
   }
 
-  /*
-   * Only POST is supported.
-   */
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
@@ -391,61 +166,98 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const body =
+      req.body && typeof req.body === "object"
+        ? req.body
+        : {};
+
     /*
-     * Parse and validate everything before constructing
-     * the provider URL.
+     * IMPORTANT:
+     * Current chatbot.js sends `prompt`.
      */
-    const request =
-      parseRequest(req.body);
+    const prompt = clean(
+      body.prompt ||
+      body.description ||
+      body.text
+    );
+
+    if (!prompt) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Please describe the image you want to create."
+      });
+    }
+
+    /*
+     * Use the requested model only if supported.
+     */
+    const requestedModel =
+      clean(body.model, 50).toLowerCase();
+
+    const model =
+      ALLOWED_MODELS.includes(requestedModel)
+        ? requestedModel
+        : DEFAULT_MODEL;
+
+    /*
+     * Current chatbot.js normally sends 1024x1024.
+     */
+    const width =
+      number(
+        body.width,
+        1024,
+        512,
+        1536
+      );
+
+    const height =
+      number(
+        body.height,
+        1024,
+        512,
+        1536
+      );
+
+    const seed =
+      getSeed(body.seed);
 
     const finalPrompt =
-      buildPrompt(request.prompt);
+      improvePrompt(prompt);
 
     const imageUrl =
-      createImageUrl({
+      buildUrl({
         prompt: finalPrompt,
-        model: request.model,
-        width: request.width,
-        height: request.height,
-        seed: request.seed
+        model,
+        width,
+        height,
+        seed
       });
 
     /*
-     * Keep the response compatible with the current
-     * OZLIND chatbot.js implementation.
+     * IMPORTANT:
+     * chatbot.js expects `imageUrl`.
      */
     return res.status(200).json({
       ok: true,
-
       imageUrl,
-
-      provider:
-        "OZLIND Image Engine",
-
-      model:
-        request.model,
-
-      width:
-        request.width,
-
-      height:
-        request.height,
-
-      seed:
-        request.seed
+      model,
+      width,
+      height,
+      seed,
+      provider: "OZLIND Image Engine"
     });
 
   } catch (error) {
+
     console.error(
-      "OZLIND IMAGE GENERATION ERROR:",
+      "OZLIND IMAGE ERROR:",
       error
     );
 
-    return res.status(400).json({
+    return res.status(500).json({
       ok: false,
-
       error:
-        error?.message ||
         "OZLIND could not generate the image. Please try again."
     });
   }
