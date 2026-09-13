@@ -1,29 +1,30 @@
-// OZLIND AI — In-chat image generation endpoint V2
+// OZLIND AI — In-chat image generation endpoint V2.1
 // Provider: Pollinations
 //
-// V2 keeps the existing working POST contract and
-// image.pollinations.ai generation flow.
-//
-// Improvements:
-// - Smarter prompt enhancement
-// - Better subject/detail preservation
-// - Negative prompt
-// - Safer model validation
-// - Safer size validation
-// - Optional seed support for variations
-// - Cache protection
-// - Better response metadata
+// V2.1 goals:
+// - Preserve the existing working OZLIND image-generation contract
+// - Follow the user's prompt more literally
+// - Do NOT use automatic prompt enhancement
+// - Do NOT rely on negative_prompt for Flux
+// - Request provider safety filtering
+// - Request no provider logo where supported
+// - Support the existing image sizes
+// - Support Flux / Turbo
+// - Support deterministic or random regeneration through seed
 //
 // IMPORTANT:
-// nologo=true is only a request to the provider.
-// Provider-side watermark behavior depends on
-// the provider/account/tier.
+// This version keeps the existing image.pollinations.ai route
+// intentionally, so the current chatbot integration does not
+// need to be changed.
+//
+// Provider-side watermark behavior cannot be guaranteed by code.
+// nologo=true is only a provider request.
 
 "use strict";
 
 
 // ============================================================
-// CONFIG
+// MODELS
 // ============================================================
 
 const ALLOWED_MODELS = new Set([
@@ -32,6 +33,11 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 const DEFAULT_MODEL = "flux";
+
+
+// ============================================================
+// ALLOWED IMAGE SIZES
+// ============================================================
 
 const ALLOWED_SIZES = new Set([
   "512x512",
@@ -45,42 +51,7 @@ const ALLOWED_SIZES = new Set([
 
 
 // ============================================================
-// NEGATIVE PROMPT
-// ============================================================
-
-const NEGATIVE_PROMPT = [
-  "blurry",
-  "low quality",
-  "low resolution",
-  "out of focus",
-  "bad anatomy",
-  "deformed",
-  "disfigured",
-  "extra fingers",
-  "missing fingers",
-  "extra limbs",
-  "mutated hands",
-  "duplicate subject",
-  "duplicate people",
-  "distorted face",
-  "asymmetrical eyes",
-  "unnatural proportions",
-  "bad perspective",
-  "cropped subject",
-  "cut off subject",
-  "text artifacts",
-  "random letters",
-  "unwanted text",
-  "signature",
-  "watermark",
-  "logo",
-  "border",
-  "frame"
-].join(", ");
-
-
-// ============================================================
-// TEXT CLEANING
+// PROMPT CLEANING
 // ============================================================
 
 function cleanPrompt(value, max = 1200) {
@@ -126,21 +97,25 @@ function normalizeModel(value) {
     .trim()
     .toLowerCase();
 
-  if (ALLOWED_MODELS.has(requested)) {
-    return requested;
-  }
-
-  return DEFAULT_MODEL;
+  return ALLOWED_MODELS.has(requested)
+    ? requested
+    : DEFAULT_MODEL;
 }
 
 
 // ============================================================
-// SMART PROMPT BUILDER
+// PROMPT BUILDER
 // ============================================================
 //
-// Important:
-// We do NOT replace the user's idea.
-// We add quality instructions around it.
+// IMPORTANT:
+// We deliberately DO NOT use Pollinations "enhance=true".
+//
+// The user's original prompt stays the main instruction.
+// We only add a small amount of quality/fidelity guidance.
+//
+// This prevents simple prompts such as:
+// "a cat"
+// from being unnecessarily rewritten into something else.
 //
 
 function buildPrompt(userPrompt) {
@@ -156,25 +131,21 @@ function buildPrompt(userPrompt) {
   return [
     prompt,
 
-    "Create exactly what the user described.",
+    "Follow the user's description literally and accurately.",
 
-    "Preserve every explicit subject, object, person, quantity, relationship, pose, clothing detail, environment, composition, and visual style.",
+    "Preserve all explicitly requested subjects, objects, people, quantities, poses, clothing, environment, composition, and style.",
 
-    "Do not invent unrelated subjects, objects, people, or events.",
+    "Do not add unrelated people, animals, objects, characters, or events.",
 
-    "If the user specifies an exact number of people or objects, preserve that exact number.",
+    "If the user specifies an exact number of subjects, preserve that exact number.",
 
-    "Keep subjects anatomically natural with realistic proportions.",
+    "Maintain natural anatomy, realistic proportions, coherent perspective, and consistent lighting.",
 
-    "Maintain coherent perspective, depth, lighting, shadows, textures, and spatial relationships.",
+    "Keep the requested subject clearly recognizable and visually dominant.",
 
-    "Keep important facial features, hands, eyes, body proportions, clothing, and object shapes natural and consistent.",
+    "Use detailed textures, natural lighting, clean focus, realistic depth, and high visual quality.",
 
-    "If a specific style, camera angle, lighting condition, environment, or composition is requested, follow it closely.",
-
-    "Use detailed textures and sharp focus appropriate to the requested scene.",
-
-    "Do not add captions, text, signatures, logos, borders, frames, or watermarks unless the user explicitly requests them."
+    "Do not add captions, text, signatures, logos, borders, or frames unless explicitly requested."
   ].join(" ");
 }
 
@@ -193,6 +164,8 @@ function buildUrl(prompt, options) {
 
   const params = new URLSearchParams();
 
+
+  // Image dimensions
   params.set(
     "width",
     String(options.width)
@@ -203,33 +176,41 @@ function buildUrl(prompt, options) {
     String(options.height)
   );
 
+
+  // Model
   params.set(
     "model",
     options.model
   );
 
+
+  // Seed
   params.set(
     "seed",
     String(options.seed)
   );
 
-  // Provider-side prompt enhancement.
-  params.set(
-    "enhance",
-    "true"
-  );
 
-  // Request no provider logo where supported.
+  // Ask provider not to add its logo where supported.
   params.set(
     "nologo",
     "true"
   );
 
-  // Visual quality controls.
+
+  // Request provider-side safety filtering.
   params.set(
-    "negative_prompt",
-    NEGATIVE_PROMPT
+    "safe",
+    "true"
   );
+
+
+  // Keep generated result private where supported.
+  params.set(
+    "private",
+    "true"
+  );
+
 
   return (
     `${base}${encodedPrompt}?` +
@@ -239,13 +220,14 @@ function buildUrl(prompt, options) {
 
 
 // ============================================================
-// MAIN API HANDLER
+// MAIN HANDLER
 // ============================================================
 
 module.exports = async function handler(
   req,
   res
 ) {
+
 
   // ----------------------------------------------------------
   // CORS
@@ -270,10 +252,6 @@ module.exports = async function handler(
   // ----------------------------------------------------------
   // CACHE CONTROL
   // ----------------------------------------------------------
-  //
-  // Generated image requests should not be cached by
-  // intermediate systems.
-  //
 
   res.setHeader(
     "Cache-Control",
@@ -282,7 +260,7 @@ module.exports = async function handler(
 
 
   // ----------------------------------------------------------
-  // PREFLIGHT
+  // OPTIONS / PREFLIGHT
   // ----------------------------------------------------------
 
   if (req.method === "OPTIONS") {
@@ -307,11 +285,12 @@ module.exports = async function handler(
   }
 
 
-  // ----------------------------------------------------------
-  // REQUEST PROCESSING
-  // ----------------------------------------------------------
-
   try {
+
+
+    // --------------------------------------------------------
+    // REQUEST BODY
+    // --------------------------------------------------------
 
     const body =
       req.body &&
@@ -359,7 +338,7 @@ module.exports = async function handler(
 
 
     // --------------------------------------------------------
-    // SIZE
+    // IMAGE SIZE
     // --------------------------------------------------------
 
     let width = int(
@@ -373,7 +352,7 @@ module.exports = async function handler(
     );
 
 
-    // Only permit known safe/provider-supported sizes.
+    // Only allow known supported dimensions.
     if (!validSize(width, height)) {
 
       width = 1024;
@@ -393,10 +372,10 @@ module.exports = async function handler(
     // SEED
     // --------------------------------------------------------
     //
-    // If the frontend supplies a valid seed,
-    // preserve it.
+    // A valid supplied seed allows the frontend to request
+    // a repeatable result.
     //
-    // Otherwise create a fresh random variation.
+    // If no valid seed is supplied, create a fresh variation.
     //
 
     let seed = int(
@@ -417,7 +396,7 @@ module.exports = async function handler(
 
 
     // --------------------------------------------------------
-    // BUILD FINAL PROMPT
+    // BUILD PROMPT
     // --------------------------------------------------------
 
     const finalPrompt =
@@ -441,7 +420,7 @@ module.exports = async function handler(
 
 
     // --------------------------------------------------------
-    // SUCCESS RESPONSE
+    // RESPONSE
     // --------------------------------------------------------
 
     return res.status(200).json({
@@ -450,7 +429,7 @@ module.exports = async function handler(
 
       imageUrl,
 
-      // Keep original user prompt for the frontend/history.
+      // Original user prompt.
       prompt,
 
       width,
@@ -469,8 +448,9 @@ module.exports = async function handler(
 
   } catch (error) {
 
+
     // --------------------------------------------------------
-    // SERVER ERROR
+    // ERROR
     // --------------------------------------------------------
 
     console.error(
