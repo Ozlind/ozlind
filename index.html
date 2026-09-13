@@ -10,7 +10,60 @@
 <title>OZLIND AI</title>
 <link rel="icon" href="ozlind-icons.svg">
 <link rel="stylesheet" href="style.css">
-</head><body><!-- =========================================================
+</head><script>
+(function () {
+  "use strict";
+
+  const boot = document.getElementById("ozlindBoot");
+
+  if (!boot) return;
+
+  const started = performance.now();
+  const MIN_BOOT_TIME = 2600;
+
+  function finishBoot() {
+    const elapsed = performance.now() - started;
+    const remaining = Math.max(0, MIN_BOOT_TIME - elapsed);
+
+    setTimeout(function () {
+      boot.classList.add("is-leaving");
+
+      setTimeout(function () {
+        boot.remove();
+      }, 700);
+    }, remaining);
+  }
+
+  if (document.readyState === "complete") {
+    finishBoot();
+  } else {
+    window.addEventListener("load", finishBoot, { once:true });
+  }
+})();
+</script><body>
+     <!-- OZLIND Premium Boot Experience --><div id="ozlindBoot" class="ozlind-boot" aria-label="OZLIND AI Platform" role="status">
+  <div class="boot-inner">
+    <div class="boot-mark" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42"></circle>
+        <path d="M30 50h40"></path>
+        <path d="M50 30v40"></path>
+        <circle cx="50" cy="50" r="6"></circle>
+      </svg>
+    </div><div class="boot-brand">
+  <div class="boot-name">OZLIND</div>
+  <div class="boot-subtitle">AI PLATFORM</div>
+</div>
+
+<div class="boot-loader" aria-hidden="true">
+  <span></span>
+  <span></span>
+  <span></span>
+</div>
+
+  </div>
+</div>
+<!-- End OZLIND Premium Boot Experience --><!-- =========================================================
      OZLIND PREMIUM BOOT
      ========================================================= --><div id="ozlind-boot" class="ozlind-boot" aria-hidden="true">
   <div class="ozlind-boot__inner"><div class="ozlind-boot__mark">
