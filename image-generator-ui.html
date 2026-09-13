@@ -1,0 +1,73 @@
+<!--
+  Paste this block into index.html as the Image Generator page.
+  Replace only the existing Image Generator NEXT nav item's data-view
+  behavior as described in IMAGE-GENERATOR-INTEGRATION.md.
+-->
+<section class="page" data-page="image">
+  <div class="page-inner image-generator-page">
+
+    <div class="page-heading">
+      <span class="kicker">AI CREATION</span>
+      <h2>Image Generator</h2>
+      <p>Create original visuals from a simple description.</p>
+    </div>
+
+    <form id="image-generate-form" class="image-generator-form">
+      <label class="image-prompt-label" for="image-prompt-input">
+        Describe your image
+      </label>
+
+      <textarea
+        id="image-prompt-input"
+        maxlength="1200"
+        rows="5"
+        placeholder="A cinematic Kerala backwater at golden hour, realistic photography..."
+        autocomplete="off"
+      ></textarea>
+
+      <div class="image-generator-controls">
+        <label>
+          <span>Size</span>
+          <select id="image-width">
+            <option value="1024">1024</option>
+            <option value="768">768</option>
+            <option value="1536">1536</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Height</span>
+          <select id="image-height">
+            <option value="1024">1024</option>
+            <option value="768">768</option>
+            <option value="1536">1536</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Model</span>
+          <select id="image-model">
+            <option value="flux">Flux</option>
+            <option value="turbo">Turbo</option>
+          </select>
+        </label>
+
+        <button id="generate-btn" class="primary image-generate-button" type="submit">
+          Generate
+        </button>
+      </div>
+
+      <div id="image-loading" class="image-loading" hidden aria-live="polite">
+        <span class="image-loading-dot"></span>
+        <span>Creating your image…</span>
+      </div>
+
+      <div id="image-error" class="image-error" role="alert" hidden></div>
+    </form>
+
+    <div id="image-result" class="image-result-grid" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Load after chatbot.js or at the end of body. -->
+<script src="image-generator.js" defer></script>
