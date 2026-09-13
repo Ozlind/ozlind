@@ -12,3 +12,318 @@
 @media(max-width:760px){:root{--sidebar:290px}.app{margin-left:0}.sidebar{transform:translateX(-102%);transition:transform .22s ease;box-shadow:20px 0 55px rgba(0,0,0,.45)}.sidebar.open{transform:translateX(0)}.sidebar-close{display:grid}.sidebar-overlay{position:fixed;z-index:25;inset:0;background:rgba(0,0,0,.55);display:none}.sidebar-overlay.open{display:block}.mobile-menu{display:grid}.topbar{height:68px;min-height:68px;padding:0 16px}.top-actions .icon-button{width:42px;height:42px}.page{min-height:calc(100dvh - 68px)}.chat-scroll{padding:48px 16px 170px}.welcome-grid{display:block;margin-top:18px}.welcome h1{font-size:clamp(50px,15vw,72px);line-height:.92}.welcome-grid p{font-size:17px;line-height:1.5;margin-top:22px;max-width:100%}.welcome-controls{margin-top:34px}.quick-prompts{gap:7px}.quick-prompts button{font-size:12px}.composer-shell{left:0;padding:8px 10px max(10px,env(safe-area-inset-bottom))}.composer{min-height:62px;border-radius:18px;padding:7px}.composer textarea{min-height:45px;font-size:15px}.composer-icon{width:40px;height:40px;flex-basis:40px}.send-btn{width:44px;height:44px;flex-basis:44px}.composer-note{display:none}.message{max-width:100%}.message.user{max-width:94%}.page-inner{padding:42px 18px 80px}.page-heading h2{font-size:36px}.history-toolbar{flex-direction:column}.research-card{align-items:flex-start;flex-wrap:wrap}.research-card .primary{width:100%}.setting-card{align-items:flex-start;flex-direction:column}.setting-card select{width:100%}.switch-row{flex-direction:row;align-items:center}.settings-actions>*{flex:1}.model-sheet{bottom:10px}.toast-stack{right:10px;bottom:84px}}
 @media(max-width:420px){.welcome h1{font-size:50px}.model-trigger{min-height:76px}.research-toggle{height:54px}.quick-prompts button{width:100%;justify-content:center}.message-body{font-size:15px}.sidebar{width:calc(100vw - 38px)}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+/* =========================================================
+   OZLIND DAY 2 — PREMIUM OPENING EXPERIENCE
+   ========================================================= */
+
+.ozlind-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  display: grid;
+  place-items: center;
+
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(255,255,255,.025),
+      transparent 34%
+    ),
+    #0B0C0E;
+
+  color: #F2F3F4;
+
+  opacity: 1;
+  visibility: visible;
+
+  transition:
+    opacity .42s cubic-bezier(.22,1,.36,1),
+    visibility .42s ease;
+}
+
+.ozlind-boot.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ozlind-boot__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  transform: translateY(0);
+  animation: ozlindBootRise .75s cubic-bezier(.22,1,.36,1) both;
+}
+
+.ozlind-boot__mark {
+  width: 68px;
+  height: 68px;
+
+  display: grid;
+  place-items: center;
+
+  color: #F2F3F4;
+
+  opacity: 0;
+  transform: scale(.92);
+
+  animation:
+    ozlindMarkIn .72s cubic-bezier(.22,1,.36,1) .08s forwards;
+}
+
+.ozlind-boot__mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ozlind-boot__brand {
+  margin-top: 21px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  opacity: 0;
+  transform: translateY(5px);
+
+  animation:
+    ozlindBrandIn .62s cubic-bezier(.22,1,.36,1) .22s forwards;
+}
+
+.ozlind-boot__name {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  font-size: 21px;
+  line-height: 1;
+
+  font-weight: 650;
+  letter-spacing: .23em;
+
+  padding-left: .23em;
+}
+
+.ozlind-boot__platform {
+  margin-top: 9px;
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  font-size: 9px;
+  line-height: 1;
+
+  font-weight: 500;
+  letter-spacing: .27em;
+
+  padding-left: .27em;
+
+  color: #777D83;
+}
+
+.ozlind-boot__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+
+  margin-top: 32px;
+
+  opacity: 0;
+
+  animation:
+    ozlindLoaderIn .45s ease .48s forwards;
+}
+
+.ozlind-boot__loader span {
+  display: block;
+
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background: #777D83;
+
+  animation:
+    ozlindBootPulse 1.05s ease-in-out infinite;
+}
+
+.ozlind-boot__loader span:nth-child(2) {
+  animation-delay: .14s;
+}
+
+.ozlind-boot__loader span:nth-child(3) {
+  animation-delay: .28s;
+}
+
+
+/* Animations */
+
+@keyframes ozlindMarkIn {
+  0% {
+    opacity: 0;
+    transform: scale(.88);
+  }
+
+  55% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ozlindBrandIn {
+  0% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ozlindLoaderIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: .72;
+  }
+}
+
+@keyframes ozlindBootPulse {
+  0%,
+  100% {
+    opacity: .28;
+    transform: scale(.82);
+  }
+
+  50% {
+    opacity: .9;
+    transform: scale(1);
+  }
+}
+
+@keyframes ozlindBootRise {
+  0% {
+    transform: translateY(3px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+
+/* Mobile */
+
+@media (max-width: 600px) {
+
+  .ozlind-boot__mark {
+    width: 61px;
+    height: 61px;
+  }
+
+  .ozlind-boot__brand {
+    margin-top: 19px;
+  }
+
+  .ozlind-boot__name {
+    font-size: 19px;
+    letter-spacing: .21em;
+    padding-left: .21em;
+  }
+
+  .ozlind-boot__platform {
+    margin-top: 8px;
+    font-size: 8px;
+    letter-spacing: .25em;
+    padding-left: .25em;
+  }
+
+  .ozlind-boot__loader {
+    margin-top: 29px;
+  }
+}
+
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .ozlind-boot,
+  .ozlind-boot.is-hidden {
+    transition: none;
+  }
+
+  .ozlind-boot__inner,
+  .ozlind-boot__mark,
+  .ozlind-boot__brand,
+  .ozlind-boot__loader,
+  .ozlind-boot__loader span {
+    animation: none !important;
+  }
+
+  .ozlind-boot__mark,
+  .ozlind-boot__brand,
+  .ozlind-boot__loader {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
+/* Prevent interaction while opening */
+
+.ozlind-boot:not(.is-hidden) {
+  pointer-events: auto;
+  user-select: none;
+}
+
+
+/* Very small screens */
+
+@media (max-height: 520px) {
+
+  .ozlind-boot__mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .ozlind-boot__brand {
+    margin-top: 13px;
+  }
+
+  .ozlind-boot__loader {
+    margin-top: 20px;
+  }
+  }
