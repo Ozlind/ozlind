@@ -1,0 +1,26 @@
+OZLIND — POLISHED V1 INSTALL
+============================
+
+1. Upload the contents of this package to the root of the GitHub repository.
+2. Keep the `api/` directory and its two serverless routes.
+3. Do NOT commit real API keys. Use Vercel Environment Variables.
+4. Required provider variables:
+   - GROQ_API_KEY
+   - GEMINI_API_KEY
+   - EXPERIENTIAL_API_KEY
+   - TAVILY_API_KEY
+5. Optional model variables:
+   - GROQ_MODEL
+   - GEMINI_MODEL
+   - EXPERIENTIAL_MODEL
+6. Deploy/redeploy on Vercel.
+7. Test normal chat, vision, web research and in-chat image generation.
+8. Run `node verify.js` locally when possible.
+
+IMPORTANT
+---------
+There is no separate Image Generator page. Image creation is intentionally part
+of the normal OZLIND chat experience.
+
+The image endpoint accepts prompts up to 4000 characters and keeps provider
+configuration behind `/api/image-generate`.
