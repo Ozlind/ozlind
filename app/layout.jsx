@@ -1,8 +1,8 @@
-import './globals.css';
+import "./globals.css";
 
 export const metadata = {
-  title: 'OZLIND AI',
-  description: 'OZLIND AI — a focused private AI workspace for chat, research and creation.',
+  title: "OZLIND AI",
+  description: "AI Platform"
 };
 
 export default function RootLayout({ children }) {
