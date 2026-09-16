@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-const STORAGE_HISTORY = "ozlind_history_v2";
-const STORAGE_SETTINGS = "ozlind_settings_v2";
+const STORAGE_HISTORY = "ozlind_history_v3";
+const STORAGE_SETTINGS = "ozlind_settings_v3";
 
 const DEFAULT_SETTINGS = {
-  provider: "auto",
+  mode: "auto",
   research: false,
   memory: true,
   style: "balanced",
@@ -14,15 +20,52 @@ const DEFAULT_SETTINGS = {
   customInstructions: "",
 };
 
-const PROVIDERS = [
-  { id: "auto", label: "Auto", description: "OZLIND chooses the available provider" },
-  { id: "groq", label: "Groq", description: "Fast primary model" },
-  { id: "gemini", label: "Gemini", description: "Vision and Gemini models" },
-  { id: "experiential", label: "Experiential", description: "Alternative AI provider" },
+const MODES = [
+  {
+    id: "auto",
+    label: "AUTO",
+    description: "OZLIND chooses the right capability",
+  },
+  {
+    id: "fast",
+    label: "FAST",
+    description: "Fast everyday responses",
+  },
+  {
+    id: "pro",
+    label: "PRO",
+    description: "More deliberate reasoning",
+  },
+  {
+    id: "vision",
+    label: "VISION",
+    description: "Images and files",
+  },
+  {
+    id: "research",
+    label: "RESEARCH",
+    description: "Current information with sources",
+  },
+];
+
+const MAX_ATTACHMENTS = 4;
+const MAX_FILE_SIZE = 12 * 1024 * 1024;
+
+const ALLOWED_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "text/markdown",
 ];
 
 function makeId(prefix = "id") {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 9)}`;
 }
 
 function safeParse(value, fallback) {
@@ -50,13 +93,15 @@ function titleFromMessage(text) {
 
   if (!clean) return "New conversation";
 
-  if (clean.length <= 42) return clean;
+  if (clean.length <= 46) return clean;
 
-  return `${clean.slice(0, 42).trim()}…`;
+  return `${clean.slice(0, 46).trim()}…`;
 }
 
-function isImageRequest(text) {
-  const value = String(text || "").toLowerCase();
+function isImageGenerationRequest(text) {
+  const value = String(text || "")
+    .toLowerCase()
+    .trim();
 
   const patterns = [
     "create an image",
@@ -68,22 +113,69 @@ function isImageRequest(text) {
     "draw an image",
     "draw image",
     "create a picture",
+    "create picture",
     "generate a picture",
+    "generate picture",
     "make a picture",
-    "image of",
-    "picture of",
+    "make picture",
+    "design an image",
+    "design image",
+    "generate artwork",
+    "create artwork",
+    "make artwork",
+    "illustrate",
   ];
 
-  return patterns.some((pattern) => value.includes(pattern));
+  return patterns.some((pattern) =>
+    value.includes(pattern)
+  );
 }
 
 function extractImagePrompt(text) {
   return String(text || "")
     .replace(
-      /^(please\s+)?(create|generate|make|draw)\s+(an?\s+)?(image|picture)\s*(of)?/i,
+      /^(please\s+)?(can you\s+)?(create|generate|make|draw|design)\s+(an?\s+)?(image|picture|artwork)\s*(of)?/i,
       ""
     )
     .trim();
+}
+
+function isImageAttachment(attachment) {
+  return String(attachment?.mimeType || "").startsWith(
+    "image/"
+  );
+}
+
+function isFileAttachment(attachment) {
+  return !isImageAttachment(attachment);
+}
+
+function getFileIcon(attachment) {
+  const type = String(
+    attachment?.mimeType || ""
+  ).toLowerCase();
+
+  if (type.startsWith("image/")) return "image";
+
+  return "file";
+}
+
+function getDomain(url) {
+  try {
+    return new URL(url).hostname
+      .replace(/^www\./, "")
+      .toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function getSourceLabel(source) {
+  return (
+    source?.title ||
+    getDomain(source?.url) ||
+    "Web source"
+  );
 }
 
 function parseInline(text, keyPrefix) {
@@ -92,7 +184,7 @@ function parseInline(text, keyPrefix) {
   let key = 0;
 
   const pattern =
-    /(`([^`]+)`)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(\[([^\]]+)\]\(([^)]+)\))/;
+    /(`([^`]+)`)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/;
 
   while (remaining.length) {
     const match = pattern.exec(remaining);
@@ -103,19 +195,32 @@ function parseInline(text, keyPrefix) {
     }
 
     if (match.index > 0) {
-      nodes.push(remaining.slice(0, match.index));
+      nodes.push(
+        remaining.slice(0, match.index)
+      );
     }
 
     if (match[1]) {
       nodes.push(
-        <code key={`${keyPrefix}-${key++}`} className="inline-code">
+        <code
+          key={`${keyPrefix}-${key++}`}
+          className="inline-code"
+        >
           {match[2]}
         </code>
       );
     } else if (match[3]) {
-      nodes.push(<strong key={`${keyPrefix}-${key++}`}>{match[4]}</strong>);
+      nodes.push(
+        <strong key={`${keyPrefix}-${key++}`}>
+          {match[4]}
+        </strong>
+      );
     } else if (match[5]) {
-      nodes.push(<em key={`${keyPrefix}-${key++}`}>{match[6]}</em>);
+      nodes.push(
+        <em key={`${keyPrefix}-${key++}`}>
+          {match[6]}
+        </em>
+      );
     } else if (match[7]) {
       nodes.push(
         <a
@@ -129,7 +234,9 @@ function parseInline(text, keyPrefix) {
       );
     }
 
-    remaining = remaining.slice(match.index + match[0].length);
+    remaining = remaining.slice(
+      match.index + match[0].length
+    );
   }
 
   return nodes;
@@ -138,22 +245,37 @@ function parseInline(text, keyPrefix) {
 function renderMarkdown(text) {
   const source = String(text || "");
   const parts = [];
-  const codeFence = /```(\w*)\n?([\s\S]*?)(```|$)/g;
+  const codeFence =
+    /```([\w+-]*)\n?([\s\S]*?)(```|$)/g;
 
   let lastIndex = 0;
   let match;
 
   while ((match = codeFence.exec(source))) {
     if (match.index > lastIndex) {
-      parts.push({ type: "text", content: source.slice(lastIndex, match.index) });
+      parts.push({
+        type: "text",
+        content: source.slice(
+          lastIndex,
+          match.index
+        ),
+      });
     }
 
-    parts.push({ type: "code", lang: match[1], content: match[2] });
+    parts.push({
+      type: "code",
+      lang: match[1],
+      content: match[2],
+    });
+
     lastIndex = codeFence.lastIndex;
   }
 
   if (lastIndex < source.length) {
-    parts.push({ type: "text", content: source.slice(lastIndex) });
+    parts.push({
+      type: "text",
+      content: source.slice(lastIndex),
+    });
   }
 
   const nodes = [];
@@ -162,16 +284,26 @@ function renderMarkdown(text) {
   parts.forEach((part) => {
     if (part.type === "code") {
       nodes.push(
-        <pre key={`blk-${blockKey}`} className="code-block">
-          {part.lang && <div className="code-lang">{part.lang}</div>}
+        <pre
+          key={`code-${blockKey}`}
+          className="code-block"
+        >
+          {part.lang && (
+            <div className="code-lang">
+              {part.lang}
+            </div>
+          )}
           <code>{part.content}</code>
         </pre>
       );
+
       blockKey += 1;
       return;
     }
 
-    const blocks = part.content.split(/\n{2,}/);
+    const blocks = part.content.split(
+      /\n{2,}/
+    );
 
     blocks.forEach((block) => {
       const trimmed = block.trim();
@@ -180,78 +312,244 @@ function renderMarkdown(text) {
 
       const lines = trimmed.split("\n");
 
-      if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+      /*
+       * Tables
+       */
+      if (
+        lines.length >= 2 &&
+        lines[0].includes("|") &&
+        /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(
+          lines[1]
+        )
+      ) {
+        const cleanRow = (line) =>
+          line
+            .trim()
+            .replace(/^\|/, "")
+            .replace(/\|$/, "")
+            .split("|")
+            .map((cell) => cell.trim());
+
+        const headers = cleanRow(lines[0]);
+        const rows = lines
+          .slice(2)
+          .map(cleanRow);
+
         nodes.push(
-          <ul key={`blk-${blockKey}`} className="md-list">
-            {lines.map((line, i) => (
-              <li key={i}>
+          <div
+            key={`table-${blockKey}`}
+            className="md-table-wrap"
+          >
+            <table className="md-table">
+              <thead>
+                <tr>
+                  {headers.map(
+                    (header, index) => (
+                      <th key={index}>
+                        {parseInline(
+                          header,
+                          `table-h-${blockKey}-${index}`
+                        )}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+
+              <tbody>
+                {rows.map(
+                  (row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {headers.map(
+                        (_, columnIndex) => (
+                          <td
+                            key={columnIndex}
+                          >
+                            {parseInline(
+                              row[
+                                columnIndex
+                              ] || "",
+                              `table-${blockKey}-${rowIndex}-${columnIndex}`
+                            )}
+                          </td>
+                        )
+                      )}
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+
+        blockKey += 1;
+        return;
+      }
+
+      /*
+       * Unordered list
+       */
+      if (
+        lines.every((line) =>
+          /^\s*[-*]\s+/.test(line)
+        )
+      ) {
+        nodes.push(
+          <ul
+            key={`list-${blockKey}`}
+            className="md-list"
+          >
+            {lines.map((line, index) => (
+              <li key={index}>
                 {parseInline(
-                  line.replace(/^\s*[-*]\s+/, ""),
-                  `blk-${blockKey}-${i}`
+                  line.replace(
+                    /^\s*[-*]\s+/,
+                    ""
+                  ),
+                  `list-${blockKey}-${index}`
                 )}
               </li>
             ))}
           </ul>
         );
+
         blockKey += 1;
         return;
       }
 
-      if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+      /*
+       * Ordered list
+       */
+      if (
+        lines.every((line) =>
+          /^\s*\d+\.\s+/.test(line)
+        )
+      ) {
         nodes.push(
-          <ol key={`blk-${blockKey}`} className="md-list">
-            {lines.map((line, i) => (
-              <li key={i}>
+          <ol
+            key={`olist-${blockKey}`}
+            className="md-list"
+          >
+            {lines.map((line, index) => (
+              <li key={index}>
                 {parseInline(
-                  line.replace(/^\s*\d+\.\s+/, ""),
-                  `blk-${blockKey}-${i}`
+                  line.replace(
+                    /^\s*\d+\.\s+/,
+                    ""
+                  ),
+                  `olist-${blockKey}-${index}`
                 )}
               </li>
             ))}
           </ol>
         );
+
         blockKey += 1;
         return;
       }
 
-      if (lines.every((line) => /^\s*>/.test(line))) {
+      /*
+       * Blockquote
+       */
+      if (
+        lines.every((line) =>
+          /^\s*>/.test(line)
+        )
+      ) {
         nodes.push(
-          <blockquote key={`blk-${blockKey}`} className="md-quote">
-            {parseInline(
-              lines.map((line) => line.replace(/^\s*>\s?/, "")).join(" "),
-              `blk-${blockKey}`
+          <blockquote
+            key={`quote-${blockKey}`}
+            className="md-quote"
+          >
+            {lines.map(
+              (line, index) => (
+                <span key={index}>
+                  {parseInline(
+                    line.replace(
+                      /^\s*>\s?/,
+                      ""
+                    ),
+                    `quote-${blockKey}-${index}`
+                  )}
+                  {index <
+                    lines.length - 1 && (
+                    <br />
+                  )}
+                </span>
+              )
             )}
           </blockquote>
         );
+
         blockKey += 1;
         return;
       }
 
-      const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)$/);
+      /*
+       * Heading
+       */
+      const headingMatch =
+        trimmed.match(
+          /^(#{1,4})\s+(.*)$/
+        );
 
       if (headingMatch) {
         nodes.push(
           <div
-            key={`blk-${blockKey}`}
+            key={`heading-${blockKey}`}
             className={`md-heading md-h${headingMatch[1].length}`}
           >
-            {parseInline(headingMatch[2], `blk-${blockKey}`)}
+            {parseInline(
+              headingMatch[2],
+              `heading-${blockKey}`
+            )}
           </div>
         );
+
         blockKey += 1;
         return;
       }
 
+      /*
+       * Horizontal rule
+       */
+      if (
+        /^(-{3,}|\*{3,})$/.test(trimmed)
+      ) {
+        nodes.push(
+          <hr
+            key={`hr-${blockKey}`}
+            className="md-rule"
+          />
+        );
+
+        blockKey += 1;
+        return;
+      }
+
+      /*
+       * Paragraph
+       */
       nodes.push(
-        <p key={`blk-${blockKey}`} className="md-paragraph">
-          {trimmed.split("\n").map((line, i, arr) => (
-            <span key={i}>
-              {parseInline(line, `blk-${blockKey}-${i}`)}
-              {i < arr.length - 1 && <br />}
+        <p
+          key={`paragraph-${blockKey}`}
+          className="md-paragraph"
+        >
+          {lines.map((line, index) => (
+            <span key={index}>
+              {parseInline(
+                line,
+                `paragraph-${blockKey}-${index}`
+              )}
+              {index <
+                lines.length - 1 && (
+                <br />
+              )}
             </span>
           ))}
         </p>
       );
+
       blockKey += 1;
     });
   });
@@ -259,7 +557,10 @@ function renderMarkdown(text) {
   return nodes;
 }
 
-function Icon({ name, size = 18 }) {
+function Icon({
+  name,
+  size = 18,
+}) {
   return (
     <svg
       className="icon"
@@ -268,12 +569,17 @@ function Icon({ name, size = 18 }) {
       aria-hidden="true"
       focusable="false"
     >
-      <use href={`/ozlind-icons.svg#i-${name}`} />
+      <use
+        href={`/ozlind-icons.svg#i-${name}`}
+      />
     </svg>
   );
 }
 
-function Logo({ size = 22, className = "" }) {
+function Logo({
+  size = 22,
+  className = "",
+}) {
   return (
     <svg
       className={`ozl-logo ${className}`}
@@ -288,63 +594,149 @@ function Logo({ size = 22, className = "" }) {
   );
 }
 
-export default function OzlindApp() {
-  const [booting, setBooting] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [view, setView] = useState("chat");
+function fileToBase64(file) {
+  return new Promise(
+    (resolve, reject) => {
+      const reader = new FileReader();
 
-  const [conversation, setConversation] = useState(() =>
-    createConversation()
+      reader.onload = () => {
+        const result =
+          String(reader.result || "");
+
+        const commaIndex =
+          result.indexOf(",");
+
+        resolve(
+          commaIndex >= 0
+            ? result.slice(
+                commaIndex + 1
+              )
+            : result
+        );
+      };
+
+      reader.onerror = () =>
+        reject(
+          new Error(
+            "Could not read the file."
+          )
+        );
+
+      reader.readAsDataURL(file);
+    }
   );
+}
 
-  const [history, setHistory] = useState([]);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+export default function OzlindApp() {
+  const [booting, setBooting] =
+    useState(true);
 
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [search, setSearch] = useState("");
-  const [editingId, setEditingId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const [view, setView] =
+    useState("chat");
+
+  const [conversation, setConversation] =
+    useState(() =>
+      createConversation()
+    );
+
+  const [history, setHistory] =
+    useState([]);
+
+  const [settings, setSettings] =
+    useState(DEFAULT_SETTINGS);
+
+  const [input, setInput] =
+    useState("");
+
+  const [sending, setSending] =
+    useState(false);
+
+  const [notice, setNotice] =
+    useState("");
+
+  const [search, setSearch] =
+    useState("");
+
+  const [editingId, setEditingId] =
+    useState(null);
+
+  const [attachments, setAttachments] =
+    useState([]);
+
+  const [expandedSources, setExpandedSources] =
+    useState({});
 
   const abortRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
+  /*
+   * Boot
+   */
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setBooting(false);
-    }, 850);
+    const timer =
+      window.setTimeout(() => {
+        setBooting(false);
+      }, 650);
 
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, []);
 
+  /*
+   * Load local state
+   */
   useEffect(() => {
     try {
-      const storedHistory = safeParse(
-        window.localStorage.getItem(STORAGE_HISTORY),
-        []
-      );
+      const storedHistory =
+        safeParse(
+          window.localStorage.getItem(
+            STORAGE_HISTORY
+          ),
+          []
+        );
 
-      const storedSettings = safeParse(
-        window.localStorage.getItem(STORAGE_SETTINGS),
-        DEFAULT_SETTINGS
-      );
+      const storedSettings =
+        safeParse(
+          window.localStorage.getItem(
+            STORAGE_SETTINGS
+          ),
+          DEFAULT_SETTINGS
+        );
 
       if (Array.isArray(storedHistory)) {
-        setHistory(storedHistory);
+        setHistory(
+          storedHistory.filter(
+            (item) =>
+              item &&
+              typeof item.id ===
+                "string"
+          )
+        );
       }
 
-      if (storedSettings && typeof storedSettings === "object") {
+      if (
+        storedSettings &&
+        typeof storedSettings ===
+          "object"
+      ) {
         setSettings({
           ...DEFAULT_SETTINGS,
           ...storedSettings,
         });
       }
     } catch {
-      // Local storage can fail in privacy-restricted browsers.
+      // Local storage may be unavailable.
     }
   }, []);
 
+  /*
+   * Save settings
+   */
   useEffect(() => {
     if (booting) return;
 
@@ -354,27 +746,90 @@ export default function OzlindApp() {
         JSON.stringify(settings)
       );
     } catch {
-      // Ignore storage failures.
+      // Ignore storage errors.
     }
   }, [settings, booting]);
 
+  /*
+   * Auto-scroll
+   */
   useEffect(() => {
-    if (!booting) {
-      messagesEndRef.current?.scrollIntoView({
+    if (booting) return;
+
+    messagesEndRef.current?.scrollIntoView(
+      {
         behavior: "smooth",
         block: "end",
-      });
-    }
-  }, [conversation.messages, booting]);
+      }
+    );
+  }, [
+    conversation.messages,
+    booting,
+  ]);
 
+  /*
+   * Keyboard shortcuts
+   */
+  useEffect(() => {
+    function handleShortcut(event) {
+      if (
+        (event.metaKey ||
+          event.ctrlKey) &&
+        event.key.toLowerCase() ===
+          "n"
+      ) {
+        event.preventDefault();
+        startNewChat();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleShortcut
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleShortcut
+      );
+  });
+
+  /*
+   * Search
+   */
   const filteredHistory = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query =
+      search.trim().toLowerCase();
 
     if (!query) return history;
 
-    return history.filter((item) =>
-      String(item.title || "").toLowerCase().includes(query)
-    );
+    return history.filter((item) => {
+      const title =
+        String(
+          item.title || ""
+        ).toLowerCase();
+
+      const messageText =
+        Array.isArray(
+          item.messages
+        )
+          ? item.messages
+              .map((message) =>
+                String(
+                  message?.content ||
+                    ""
+                )
+              )
+              .join(" ")
+              .toLowerCase()
+          : "";
+
+      return (
+        title.includes(query) ||
+        messageText.includes(query)
+      );
+    });
   }, [history, search]);
 
   function showNotice(message) {
@@ -382,37 +837,103 @@ export default function OzlindApp() {
 
     window.setTimeout(() => {
       setNotice("");
-    }, 2600);
+    }, 2400);
   }
 
-  function persistConversation(nextConversation) {
-    setHistory((current) => {
-      const exists = current.some(
-        (item) => item.id === nextConversation.id
-      );
+  /*
+   * History persistence
+   */
+  const persistConversation =
+    useCallback(
+      (nextConversation) => {
+        setHistory((current) => {
+          const exists =
+            current.some(
+              (item) =>
+                item.id ===
+                nextConversation.id
+            );
 
-      const updated = exists
-        ? current.map((item) =>
-            item.id === nextConversation.id ? nextConversation : item
-          )
-        : [nextConversation, ...current];
+          const updated = exists
+            ? current.map((item) =>
+                item.id ===
+                nextConversation.id
+                  ? nextConversation
+                  : item
+              )
+            : [
+                nextConversation,
+                ...current,
+              ];
 
-      const trimmed = updated
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, 50);
+          const normalized =
+            updated
+              .filter(Boolean)
+              .sort(
+                (a, b) =>
+                  Number(
+                    b.updatedAt || 0
+                  ) -
+                  Number(
+                    a.updatedAt || 0
+                  )
+              )
+              .slice(0, 50);
 
-      try {
-        window.localStorage.setItem(
-          STORAGE_HISTORY,
-          JSON.stringify(trimmed)
+          try {
+            window.localStorage.setItem(
+              STORAGE_HISTORY,
+              JSON.stringify(
+                normalized
+              )
+            );
+          } catch {
+            // Ignore storage errors.
+          }
+
+          return normalized;
+        });
+      },
+      []
+    );
+
+  /*
+   * Conversation updater
+   */
+  const updateConversation =
+    useCallback(
+      (
+        updater,
+        persist = true
+      ) => {
+        setConversation(
+          (current) => {
+            const next =
+              typeof updater ===
+              "function"
+                ? updater(current)
+                : updater;
+
+            if (!next) return current;
+
+            const normalized = {
+              ...next,
+              updatedAt:
+                Date.now(),
+            };
+
+            if (persist) {
+              persistConversation(
+                normalized
+              );
+            }
+
+            return normalized;
+          }
         );
-      } catch {
-        // Ignore storage failures.
-      }
-
-      return trimmed;
-    });
-  }
+      },
+      [persistConversation]
+    );
 
   function startNewChat() {
     abortRef.current?.abort();
@@ -420,159 +941,398 @@ export default function OzlindApp() {
     setSending(false);
     setEditingId(null);
     setInput("");
-    setConversation(createConversation());
+    setAttachments([]);
+    setExpandedSources({});
+    setConversation(
+      createConversation()
+    );
     setView("chat");
     setSidebarOpen(false);
+
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 80);
   }
 
   function openConversation(item) {
-    setConversation(item);
+    if (!item) return;
+
+    setConversation({
+      ...item,
+      messages: Array.isArray(
+        item.messages
+      )
+        ? item.messages
+        : [],
+    });
+
     setView("chat");
     setSidebarOpen(false);
+    setEditingId(null);
+    setAttachments([]);
   }
 
   function clearCurrentChat() {
-    setConversation((current) => ({
-      ...current,
-      title: "New conversation",
-      messages: [],
-      updatedAt: Date.now(),
-    }));
+    abortRef.current?.abort();
 
-    setEditingId(null);
-  }
-
-  function updateConversationMessages(messages, title) {
     const next = {
       ...conversation,
-      messages,
-      title: title || conversation.title,
+      title: "New conversation",
+      messages: [],
       updatedAt: Date.now(),
     };
 
     setConversation(next);
     persistConversation(next);
+
+    setEditingId(null);
+    setAttachments([]);
   }
 
-  function handleTextareaKeyDown(event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
+  /*
+   * File upload
+   */
+  async function handleFileSelection(
+    event
+  ) {
+    const files = Array.from(
+      event.target.files || []
+    );
+
+    event.target.value = "";
+
+    if (!files.length) return;
+
+    if (
+      attachments.length >=
+      MAX_ATTACHMENTS
+    ) {
+      showNotice(
+        `Maximum ${MAX_ATTACHMENTS} files`
+      );
+      return;
+    }
+
+    const available =
+      MAX_ATTACHMENTS -
+      attachments.length;
+
+    const selected =
+      files.slice(0, available);
+
+    const next = [];
+
+    for (const file of selected) {
+      if (
+        !ALLOWED_TYPES.includes(
+          file.type
+        )
+      ) {
+        showNotice(
+          `${file.name}: unsupported file type`
+        );
+        continue;
+      }
+
+      if (
+        file.size >
+        MAX_FILE_SIZE
+      ) {
+        showNotice(
+          `${file.name}: file is too large`
+        );
+        continue;
+      }
+
+      try {
+        const data =
+          await fileToBase64(file);
+
+        next.push({
+          id: makeId("file"),
+          name: file.name,
+          mimeType:
+            file.type ||
+            "application/octet-stream",
+          size: file.size,
+          data,
+          preview:
+            file.type.startsWith(
+              "image/"
+            )
+              ? `data:${file.type};base64,${data}`
+              : "",
+        });
+      } catch {
+        showNotice(
+          `Could not read ${file.name}`
+        );
+      }
+    }
+
+    if (next.length) {
+      setAttachments((current) => [
+        ...current,
+        ...next,
+      ]);
+
+      setSettings((current) => ({
+        ...current,
+        mode: "vision",
+      }));
     }
   }
 
-  async function generateImage(prompt) {
-    const response = await fetch("/api/image-generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt,
-        aspect: "square",
-      }),
-    });
+  function removeAttachment(id) {
+    setAttachments((current) =>
+      current.filter(
+        (item) => item.id !== id
+      )
+    );
+  }
 
-    const data = await response.json().catch(() => ({}));
+  /*
+   * Image generation
+   */
+  async function generateImage(
+    prompt,
+    imageAttachments
+  ) {
+    const response =
+      await fetch(
+        "/api/image-generate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            prompt,
+            aspect: "square",
+            imageSize: "1K",
+            images:
+              imageAttachments
+                .filter(
+                  isImageAttachment
+                )
+                .map((item) => ({
+                  data: item.data,
+                  mimeType:
+                    item.mimeType,
+                  name: item.name,
+                })),
+          }),
+        }
+      );
 
-    if (!response.ok || !data.success) {
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
       throw new Error(
-        data.error || "Image generation could not be completed."
+        data.error ||
+          "Image generation could not be completed."
       );
     }
 
     return data;
   }
 
-  async function sendMessage() {
-    const message = input.trim();
+  /*
+   * Send chat request
+   */
+  async function requestChat({
+    message,
+    messages,
+    localAttachments = [],
+    modeOverride,
+  }) {
+    const response =
+      await fetch(
+        "/api/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            message,
+            messages,
+            attachments:
+              localAttachments.map(
+                (item) => ({
+                  name: item.name,
+                  mimeType:
+                    item.mimeType,
+                  data: item.data,
+                })
+              ),
+            provider:
+              modeOverride ||
+              settings.mode,
+            mode:
+              modeOverride ||
+              settings.mode,
+            research:
+              settings.research ||
+              settings.mode ===
+                "research",
+            memory:
+              settings.memory,
+            style:
+              settings.style,
+            length:
+              settings.length,
+            customInstructions:
+              settings.customInstructions,
+          }),
+        }
+      );
 
-    if (!message || sending) return;
+    if (!response.ok) {
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
+
+      throw new Error(
+        data.error ||
+          `Request failed with status ${response.status}`
+      );
+    }
+
+    return response;
+  }
+
+  /*
+   * Core send implementation
+   *
+   * Explicit message parameter is used so
+   * regenerate/edit never depends on async
+   * React state timing.
+   */
+  async function sendMessageWithContent(
+    rawMessage,
+    {
+      editingMessageId = null,
+      regeneration = false,
+    } = {}
+  ) {
+    const message =
+      String(rawMessage || "")
+        .trim();
+
+    if (!message || sending) {
+      return;
+    }
 
     setInput("");
     setEditingId(null);
 
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+    if (
+      textareaRef.current
+    ) {
+      textareaRef.current.style.height =
+        "auto";
     }
 
-    const userMessage = {
-      id: makeId("msg"),
-      role: "user",
-      content: message,
-      createdAt: Date.now(),
-    };
+    const currentMessages =
+      conversation.messages;
 
-    const nextMessages = [...conversation.messages, userMessage];
+    let nextMessages;
 
-    const nextTitle =
-      conversation.messages.length === 0
-        ? titleFromMessage(message)
-        : conversation.title;
+    if (editingMessageId) {
+      const index =
+        currentMessages.findIndex(
+          (item) =>
+            item.id ===
+            editingMessageId
+        );
 
-    updateConversationMessages(nextMessages, nextTitle);
-
-    setSending(true);
-
-    const imageRequest = isImageRequest(message);
-
-    if (imageRequest) {
-      const assistantId = makeId("msg");
-
-      const loadingMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: "Creating your image…",
+      if (index >= 0) {
+        nextMessages = [
+          ...currentMessages.slice(
+            0,
+            index
+          ),
+          {
+            ...currentMessages[index],
+            content: message,
+            updatedAt: Date.now(),
+          },
+        ];
+      } else {
+        nextMessages = [
+          ...currentMessages,
+        ];
+      }
+    } else if (
+      regeneration
+    ) {
+      nextMessages = [
+        ...currentMessages,
+      ];
+    } else {
+      const userMessage = {
+        id: makeId("msg"),
+        role: "user",
+        content: message,
         createdAt: Date.now(),
-        imageLoading: true,
       };
 
-      const withLoading = [...nextMessages, loadingMessage];
-
-      updateConversationMessages(withLoading, nextTitle);
-
-      try {
-        const result = await generateImage(
-          extractImagePrompt(message) || message
-        );
-
-        const finalMessages = withLoading.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                content: "Image created.",
-                imageUrl: result.imageUrl,
-                imageLoading: false,
-                provider: result.provider,
-                model: result.model,
-              }
-            : item
-        );
-
-        updateConversationMessages(finalMessages, nextTitle);
-      } catch (error) {
-        const finalMessages = withLoading.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                content:
-                  error?.message ||
-                  "Image generation failed. Please try again.",
-                imageLoading: false,
-                error: true,
-              }
-            : item
-        );
-
-        updateConversationMessages(finalMessages, nextTitle);
-      } finally {
-        setSending(false);
-      }
-
-      return;
+      nextMessages = [
+        ...currentMessages,
+        userMessage,
+      ];
     }
 
-    const assistantId = makeId("msg");
+    const nextTitle =
+      currentMessages.length ===
+        0 ||
+      (
+        editingMessageId &&
+        currentMessages.findIndex(
+          (item) =>
+            item.id ===
+            editingMessageId
+        ) === 0
+      )
+        ? titleFromMessage(message)
+        : conversation.title ===
+            "New conversation"
+          ? titleFromMessage(message)
+          : conversation.title;
+
+    /*
+     * If editing a user message,
+     * remove everything after it.
+     */
+    if (editingMessageId) {
+      const index =
+        nextMessages.findIndex(
+          (item) =>
+            item.id ===
+            editingMessageId
+        );
+
+      if (index >= 0) {
+        nextMessages =
+          nextMessages.slice(
+            0,
+            index + 1
+          );
+      }
+    }
+
+    const assistantId =
+      makeId("msg");
 
     const assistantMessage = {
       id: assistantId,
@@ -587,191 +1347,570 @@ export default function OzlindApp() {
       assistantMessage,
     ];
 
-    updateConversationMessages(messagesWithAssistant, nextTitle);
+    const nextConversation = {
+      ...conversation,
+      title: nextTitle,
+      messages:
+        messagesWithAssistant,
+      updatedAt: Date.now(),
+    };
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+    setConversation(
+      nextConversation
+    );
+    persistConversation(
+      nextConversation
+    );
+
+    setSending(true);
+
+    /*
+     * Capability routing
+     */
+    const imageRequest =
+      isImageGenerationRequest(
+        message
+      );
+
+    const imageAttachments =
+      attachments.filter(
+        isImageAttachment
+      );
+
+    if (
+      imageRequest &&
+      (
+        imageAttachments.length >
+          0 ||
+        !localStorage.getItem(
+          "ozlind_disable_image_generation"
+        )
+      )
+    ) {
+      const loadingMessages =
+        messagesWithAssistant.map(
+          (item) =>
+            item.id ===
+            assistantId
+              ? {
+                  ...item,
+                  content:
+                    imageAttachments.length >
+                    0
+                      ? "Editing your image…"
+                      : "Creating your image…",
+                  imageLoading: true,
+                }
+              : item
+        );
+
+      const loadingConversation =
+        {
+          ...nextConversation,
+          messages:
+            loadingMessages,
+          updatedAt: Date.now(),
+        };
+
+      setConversation(
+        loadingConversation
+      );
+      persistConversation(
+        loadingConversation
+      );
+
+      try {
+        const result =
+          await generateImage(
+            extractImagePrompt(
+              message
+            ) || message,
+            imageAttachments
+          );
+
+        const finalMessages =
+          loadingMessages.map(
+            (item) =>
+              item.id ===
+              assistantId
+                ? {
+                    ...item,
+                    content:
+                      result.message ||
+                      (
+                        imageAttachments.length >
+                        0
+                          ? "Image edited."
+                          : "Image created."
+                      ),
+                    imageUrl:
+                      result.imageUrl,
+                    imageLoading:
+                      false,
+                    mode:
+                      imageAttachments.length >
+                      0
+                        ? "vision"
+                        : "creation",
+                  }
+                : item
+          );
+
+        const finalConversation =
+          {
+            ...loadingConversation,
+            messages:
+              finalMessages,
+            updatedAt: Date.now(),
+          };
+
+        setConversation(
+          finalConversation
+        );
+        persistConversation(
+          finalConversation
+        );
+
+        setAttachments([]);
+      } catch (error) {
+        const finalMessages =
+          loadingMessages.map(
+            (item) =>
+              item.id ===
+              assistantId
+                ? {
+                    ...item,
+                    content:
+                      error?.message ||
+                      "Image generation failed. Please try again.",
+                    imageLoading:
+                      false,
+                    error: true,
+                  }
+                : item
+          );
+
+        const finalConversation =
+          {
+            ...loadingConversation,
+            messages:
+              finalMessages,
+            updatedAt: Date.now(),
+          };
+
+        setConversation(
+          finalConversation
+        );
+        persistConversation(
+          finalConversation
+        );
+      } finally {
+        setSending(false);
+      }
+
+      return;
+    }
+
+    /*
+     * Normal chat
+     */
+    const controller =
+      new AbortController();
+
+    abortRef.current =
+      controller;
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message,
-          messages: nextMessages.map((item) => ({
-            role: item.role,
-            content: item.content,
-          })),
-          provider: settings.provider,
-          research: settings.research,
-          memory: settings.memory,
-          style: settings.style,
-          length: settings.length,
-          customInstructions: settings.customInstructions,
-        }),
-      });
+      const response =
+        await fetch(
+          "/api/chat",
+          {
+            method: "POST",
+            signal:
+              controller.signal,
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              message,
+              messages:
+                nextMessages.map(
+                  (item) => ({
+                    role:
+                      item.role,
+                    content:
+                      item.content,
+                  })
+                ),
+              attachments:
+                attachments.map(
+                  (item) => ({
+                    name: item.name,
+                    mimeType:
+                      item.mimeType,
+                    data: item.data,
+                  })
+                ),
+              provider:
+                settings.mode,
+              mode:
+                settings.mode,
+              research:
+                settings.research ||
+                settings.mode ===
+                  "research",
+              memory:
+                settings.memory,
+              style:
+                settings.style,
+              length:
+                settings.length,
+              customInstructions:
+                settings.customInstructions,
+            }),
+          }
+        );
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
+        const data =
+          await response
+            .json()
+            .catch(() => ({}));
+
         throw new Error(
-          data.error || `Request failed with status ${response.status}`
+          data.error ||
+            `Request failed with status ${response.status}`
         );
       }
 
       const contentType =
-        response.headers.get("content-type") || "";
+        response.headers.get(
+          "content-type"
+        ) || "";
 
-      if (!contentType.includes("text/event-stream")) {
-        const data = await response.json();
+      /*
+       * JSON response
+       */
+      if (
+        !contentType.includes(
+          "text/event-stream"
+        )
+      ) {
+        const data =
+          await response
+            .json();
 
-        if (!data?.text) {
-          throw new Error("The AI returned an empty response.");
+        const text =
+          data?.text ||
+          data?.message ||
+          "";
+
+        if (!text) {
+          throw new Error(
+            "The AI returned an empty response."
+          );
         }
 
-        const finalMessages = messagesWithAssistant.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                content: data.text,
-                streaming: false,
-                provider: data.provider,
-                model: data.model,
-                sources: data.sources || [],
-              }
-            : item
+        const finalMessages =
+          messagesWithAssistant.map(
+            (item) =>
+              item.id ===
+              assistantId
+                ? {
+                    ...item,
+                    content: text,
+                    streaming:
+                      false,
+                    mode:
+                      settings.mode,
+                    sources:
+                      data.sources ||
+                      [],
+                  }
+                : item
+          );
+
+        const finalConversation =
+          {
+            ...nextConversation,
+            messages:
+              finalMessages,
+            updatedAt: Date.now(),
+          };
+
+        setConversation(
+          finalConversation
+        );
+        persistConversation(
+          finalConversation
         );
 
-        updateConversationMessages(finalMessages, nextTitle);
+        setAttachments([]);
+
         return;
       }
 
+      /*
+       * SSE
+       */
       if (!response.body) {
-        throw new Error("The AI stream was unavailable.");
+        throw new Error(
+          "The AI stream was unavailable."
+        );
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
 
       let buffer = "";
       let accumulated = "";
-      let provider = "";
-      let model = "";
       let sources = [];
 
       while (true) {
-        const { done, value } = await reader.read();
+        const {
+          done,
+          value,
+        } = await reader.read();
 
         if (done) break;
 
-        buffer += decoder.decode(value, {
-          stream: true,
-        });
+        buffer += decoder.decode(
+          value,
+          {
+            stream: true,
+          }
+        );
 
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        const lines =
+          buffer.split("\n");
 
-        for (const line of lines) {
-          if (!line.startsWith("data:")) continue;
+        buffer =
+          lines.pop() || "";
 
-          const raw = line.slice(5).trim();
+        for (const rawLine of lines) {
+          const line =
+            rawLine.trim();
 
-          if (!raw || raw === "[DONE]") continue;
+          if (
+            !line.startsWith(
+              "data:"
+            )
+          ) {
+            continue;
+          }
+
+          const raw =
+            line
+              .slice(5)
+              .trim();
+
+          if (
+            !raw ||
+            raw === "[DONE]"
+          ) {
+            continue;
+          }
 
           try {
-            const event = JSON.parse(raw);
+            const event =
+              JSON.parse(raw);
 
-            if (event.type === "delta") {
-              accumulated += event.text || "";
-              provider = event.provider || provider;
-              model = event.model || model;
+            /*
+             * Current backend emits:
+             * type: "text"
+             */
+            if (
+              event.type ===
+              "text"
+            ) {
+              accumulated +=
+                event.text ||
+                "";
 
-              setConversation((current) => {
-                const updatedMessages = current.messages.map(
-                  (item) =>
-                    item.id === assistantId
-                      ? {
-                          ...item,
-                          content: accumulated,
-                          streaming: true,
-                          provider,
-                          model,
-                        }
-                      : item
-                );
+              setConversation(
+                (current) => {
+                  const updatedMessages =
+                    current.messages.map(
+                      (item) =>
+                        item.id ===
+                        assistantId
+                          ? {
+                              ...item,
+                              content:
+                                accumulated,
+                              streaming:
+                                true,
+                            }
+                          : item
+                    );
 
-                return {
-                  ...current,
-                  messages: updatedMessages,
-                  updatedAt: Date.now(),
-                };
-              });
+                  return {
+                    ...current,
+                    messages:
+                      updatedMessages,
+                    updatedAt:
+                      Date.now(),
+                  };
+                }
+              );
             }
 
-            if (event.type === "done") {
-              sources = Array.isArray(event.sources)
-                ? event.sources
-                : [];
+            /*
+             * Backward compatibility
+             * with older delta events.
+             */
+            if (
+              event.type ===
+              "delta"
+            ) {
+              accumulated +=
+                event.text ||
+                "";
+
+              setConversation(
+                (current) => {
+                  const updatedMessages =
+                    current.messages.map(
+                      (item) =>
+                        item.id ===
+                        assistantId
+                          ? {
+                              ...item,
+                              content:
+                                accumulated,
+                              streaming:
+                                true,
+                            }
+                          : item
+                    );
+
+                  return {
+                    ...current,
+                    messages:
+                      updatedMessages,
+                    updatedAt:
+                      Date.now(),
+                  };
+                }
+              );
             }
-          } catch {
-            // Ignore malformed SSE chunks.
+
+            if (
+              event.type ===
+              "done"
+            ) {
+              sources =
+                Array.isArray(
+                  event.sources
+                )
+                  ? event.sources
+                  : [];
+            }
+
+            if (
+              event.type ===
+              "error"
+            ) {
+              throw new Error(
+                event.error ||
+                  "The AI response could not be completed."
+              );
+            }
+          } catch (parseError) {
+            /*
+             * Do not break the stream
+             * because of malformed chunks.
+             */
+            if (
+              parseError instanceof
+                Error &&
+              parseError.message ===
+                "The AI response could not be completed."
+            ) {
+              throw parseError;
+            }
           }
         }
       }
 
-      setConversation((current) => {
-        const finalMessages = current.messages.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                content:
-                  accumulated ||
-                  "The AI returned an empty response.",
-                streaming: false,
-                provider,
-                model,
-                sources,
-              }
-            : item
-        );
-
-        const next = {
-          ...current,
-          messages: finalMessages,
-          updatedAt: Date.now(),
-        };
-
-        persistConversation(next);
-
-        return next;
-      });
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        setConversation((current) => {
-          const finalMessages = current.messages.map((item) =>
-            item.id === assistantId
+      const finalMessages =
+        conversation.messages.map(
+          (item) =>
+            item.id ===
+            assistantId
               ? {
                   ...item,
                   content:
-                    item.content ||
-                    "Generation stopped.",
-                  streaming: false,
+                    accumulated ||
+                    "The AI returned an empty response.",
+                  streaming:
+                    false,
+                  sources,
+                  mode:
+                    settings.mode,
                 }
               : item
-          );
+        );
 
-          const next = {
-            ...current,
-            messages: finalMessages,
-            updatedAt: Date.now(),
-          };
+      const finalConversation =
+        {
+          ...conversation,
+          title: nextTitle,
+          messages:
+            finalMessages,
+          updatedAt: Date.now(),
+        };
 
-          persistConversation(next);
+      setConversation(
+        finalConversation
+      );
+      persistConversation(
+        finalConversation
+      );
 
-          return next;
-        });
+      setAttachments([]);
+    } catch (error) {
+      if (
+        error?.name ===
+        "AbortError"
+      ) {
+        setConversation(
+          (current) => {
+            const finalMessages =
+              current.messages.map(
+                (item) =>
+                  item.id ===
+                  assistantId
+                    ? {
+                        ...item,
+                        content:
+                          item.content ||
+                          "Generation stopped.",
+                        streaming:
+                          false,
+                      }
+                    : item
+              );
+
+            const next = {
+              ...current,
+              messages:
+                finalMessages,
+              updatedAt:
+                Date.now(),
+            };
+
+            persistConversation(
+              next
+            );
+
+            return next;
+          }
+        );
 
         return;
       }
@@ -780,114 +1919,422 @@ export default function OzlindApp() {
         error?.message ||
         "Something went wrong while contacting OZLIND.";
 
-      setConversation((current) => {
-        const finalMessages = current.messages.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                content: errorText,
-                streaming: false,
-                error: true,
-              }
-            : item
-        );
+      setConversation(
+        (current) => {
+          const finalMessages =
+            current.messages.map(
+              (item) =>
+                item.id ===
+                assistantId
+                  ? {
+                      ...item,
+                      content:
+                        errorText,
+                      streaming:
+                        false,
+                      error: true,
+                    }
+                  : item
+            );
 
-        const next = {
-          ...current,
-          messages: finalMessages,
-          updatedAt: Date.now(),
-        };
+          const next = {
+            ...current,
+            title: nextTitle,
+            messages:
+              finalMessages,
+            updatedAt:
+              Date.now(),
+          };
 
-        persistConversation(next);
+          persistConversation(
+            next
+          );
 
-        return next;
-      });
+          return next;
+        }
+      );
     } finally {
       abortRef.current = null;
       setSending(false);
     }
   }
 
+  /*
+   * Public send
+   */
+  async function sendMessage() {
+    if (sending) return;
+
+    const message =
+      input.trim();
+
+    if (!message) return;
+
+    await sendMessageWithContent(
+      message
+    );
+  }
+
+  /*
+   * Stop
+   */
   function stopGeneration() {
     abortRef.current?.abort();
   }
 
-  async function copyMessage(content) {
+  /*
+   * Copy
+   */
+  async function copyMessage(
+    content
+  ) {
     try {
-      await navigator.clipboard.writeText(content);
+      await navigator.clipboard.writeText(
+        String(content || "")
+      );
+
       showNotice("Copied");
     } catch {
       showNotice("Copy failed");
     }
   }
 
+  /*
+   * Edit
+   */
   function editMessage(message) {
-    setInput(message.content);
+    if (!message) return;
+
+    setInput(
+      message.content || ""
+    );
+
     setEditingId(message.id);
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       textareaRef.current?.focus();
+
+      if (
+        textareaRef.current
+      ) {
+        textareaRef.current.style.height =
+          "auto";
+
+        textareaRef.current.style.height =
+          `${Math.min(
+            textareaRef.current
+              .scrollHeight,
+            180
+          )}px`;
+      }
     }, 50);
   }
 
-  function deleteMessage(messageId) {
-    const nextMessages = conversation.messages.filter(
-      (item) => item.id !== messageId
-    );
+  /*
+   * Delete
+   */
+  function deleteMessage(
+    messageId
+  ) {
+    const nextMessages =
+      conversation.messages.filter(
+        (item) =>
+          item.id !== messageId
+      );
 
-    updateConversationMessages(nextMessages);
+    const next = {
+      ...conversation,
+      messages:
+        nextMessages,
+      updatedAt: Date.now(),
+    };
+
+    setConversation(next);
+    persistConversation(next);
   }
 
-  async function regenerateMessage(messageId) {
-    const index = conversation.messages.findIndex(
-      (item) => item.id === messageId
-    );
+  /*
+   * Regenerate
+   *
+   * Fixed implementation:
+   * no async setInput dependency.
+   */
+  async function regenerateMessage(
+    messageId
+  ) {
+    if (sending) return;
+
+    const index =
+      conversation.messages.findIndex(
+        (item) =>
+          item.id === messageId
+      );
 
     if (index < 0) return;
 
-    const assistant = conversation.messages[index];
+    const assistant =
+      conversation.messages[index];
 
-    if (assistant.role !== "assistant") return;
+    if (
+      assistant.role !==
+      "assistant"
+    ) {
+      return;
+    }
 
-    const previousUser = conversation.messages
-      .slice(0, index)
-      .reverse()
-      .find((item) => item.role === "user");
+    const previousUser =
+      conversation.messages
+        .slice(0, index)
+        .reverse()
+        .find(
+          (item) =>
+            item.role ===
+            "user"
+        );
 
     if (!previousUser) return;
 
-    const messagesBeforeAssistant =
-      conversation.messages.slice(0, index);
+    const messagesBefore =
+      conversation.messages.slice(
+        0,
+        index
+      );
 
-    setConversation((current) => ({
-      ...current,
-      messages: messagesBeforeAssistant,
-    }));
+    const savedConversation =
+      {
+        ...conversation,
+        messages:
+          messagesBefore,
+        updatedAt: Date.now(),
+      };
 
-    setInput(previousUser.content);
+    setConversation(
+      savedConversation
+    );
+    persistConversation(
+      savedConversation
+    );
 
-    window.setTimeout(() => {
-      setInput("");
+    /*
+     * Rebuild request directly.
+     */
+    await sendMessageWithContent(
+      previousUser.content,
+      {
+        regeneration: true,
+      }
+    );
+  }
+
+  /*
+   * Textarea
+   */
+  function handleInputChange(
+    event
+  ) {
+    setInput(
+      event.target.value
+    );
+
+    const target =
+      event.target;
+
+    target.style.height =
+      "auto";
+
+    target.style.height =
+      `${Math.min(
+        target.scrollHeight,
+        180
+      )}px`;
+  }
+
+  function handleTextareaKeyDown(
+    event
+  ) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
       sendMessage();
-    }, 100);
+    }
   }
 
-  function handleInputChange(event) {
-    setInput(event.target.value);
-
-    const target = event.target;
-
-    target.style.height = "auto";
-    target.style.height = `${Math.min(target.scrollHeight, 180)}px`;
+  /*
+   * Source expansion
+   */
+  function toggleSource(
+    key
+  ) {
+    setExpandedSources(
+      (current) => ({
+        ...current,
+        [key]:
+          !current[key],
+      })
+    );
   }
 
-  function renderMessage(message) {
-    const isUser = message.role === "user";
+  /*
+   * Render source cards
+   */
+  function renderSources(
+    sources
+  ) {
+    if (
+      !Array.isArray(
+        sources
+      ) ||
+      sources.length === 0
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="sources-box">
+        <div className="sources-title">
+          <Icon
+            name="globe"
+            size={14}
+          />
+          <span>
+            Sources
+          </span>
+          <span className="sources-count">
+            {sources.length}
+          </span>
+        </div>
+
+        <div className="source-list">
+          {sources
+            .slice(0, 6)
+            .map(
+              (
+                source,
+                index
+              ) => {
+                const key = `${source.url}-${index}`;
+                const expanded =
+                  Boolean(
+                    expandedSources[
+                      key
+                    ]
+                  );
+
+                return (
+                  <div
+                    key={key}
+                    className={`source-card ${
+                      expanded
+                        ? "expanded"
+                        : ""
+                    }`}
+                  >
+                    <button
+                      className="source-main"
+                      onClick={() =>
+                        toggleSource(
+                          key
+                        )
+                      }
+                    >
+                      <span className="source-favicon">
+                        {getDomain(
+                          source.url
+                        )
+                          ? getDomain(
+                              source.url
+                            )
+                              .slice(
+                                0,
+                                1
+                              )
+                              .toUpperCase()
+                          : "W"}
+                      </span>
+
+                      <span className="source-copy">
+                        <strong>
+                          {getSourceLabel(
+                            source
+                          )}
+                        </strong>
+
+                        <small>
+                          {getDomain(
+                            source.url
+                          ) ||
+                            "Web source"}
+                        </small>
+                      </span>
+
+                      <span className="source-number">
+                        {index + 1}
+                      </span>
+                    </button>
+
+                    {expanded && (
+                      <div className="source-detail">
+                        {source.content && (
+                          <p>
+                            {
+                              source.content
+                            }
+                          </p>
+                        )}
+
+                        {source.url && (
+                          <a
+                            href={
+                              source.url
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="source-open"
+                          >
+                            Open source
+                            <span>
+                              ↗
+                            </span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+            )}
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * Render message
+   */
+  function renderMessage(
+    message
+  ) {
+    const isUser =
+      message.role ===
+      "user";
+
+    const attachmentsForMessage =
+      Array.isArray(
+        message.attachments
+      )
+        ? message.attachments
+        : [];
 
     return (
       <article
         key={message.id}
-        className={`message-row ${isUser ? "message-user" : "message-ai"}`}
+        className={`message-row ${
+          isUser
+            ? "message-user"
+            : "message-ai"
+        }`}
       >
         {!isUser && (
           <div className="assistant-avatar">
@@ -898,12 +2345,17 @@ export default function OzlindApp() {
         <div className="message-column">
           <div
             className={`message-bubble ${
-              isUser ? "user-bubble" : "ai-bubble"
+              isUser
+                ? "user-bubble"
+                : "ai-bubble"
             }`}
           >
             {!isUser && (
               <div className="message-author">
-                <span>OZLIND</span>
+                <span>
+                  OZLIND
+                </span>
+
                 {message.streaming && (
                   <span className="thinking-label">
                     thinking
@@ -912,12 +2364,64 @@ export default function OzlindApp() {
               </div>
             )}
 
+            {isUser &&
+              attachmentsForMessage.length >
+                0 && (
+                <div className="message-attachments">
+                  {attachmentsForMessage.map(
+                    (
+                      attachment
+                    ) => (
+                      <div
+                        key={
+                          attachment.id ||
+                          attachment.name
+                        }
+                        className="message-attachment"
+                      >
+                        {attachment.preview ? (
+                          <img
+                            src={
+                              attachment.preview
+                            }
+                            alt={
+                              attachment.name
+                            }
+                          />
+                        ) : (
+                          <div className="file-preview-icon">
+                            <Icon
+                              name={
+                                getFileIcon(
+                                  attachment
+                                )
+                              }
+                              size={18}
+                            />
+                          </div>
+                        )}
+
+                        <span>
+                          {
+                            attachment.name
+                          }
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
             <div className="message-content">
               {message.content ? (
                 isUser ? (
-                  message.content
+                  <div className="user-text">
+                    {message.content}
+                  </div>
                 ) : (
-                  renderMarkdown(message.content)
+                  renderMarkdown(
+                    message.content
+                  )
                 )
               ) : (
                 <span className="typing-dots">
@@ -930,82 +2434,96 @@ export default function OzlindApp() {
               {message.imageLoading && (
                 <div className="image-loading">
                   <span className="loader" />
-                  <span>Generating image…</span>
+                  <span>
+                    {message.content ||
+                      "Creating image…"}
+                  </span>
                 </div>
               )}
 
               {message.imageUrl && (
                 <div className="generated-image">
                   <img
-                    src={message.imageUrl}
-                    alt="Generated by OZLIND"
+                    src={
+                      message.imageUrl
+                    }
+                    alt="Created by OZLIND"
                   />
                 </div>
               )}
             </div>
 
-            {message.sources?.length > 0 && (
-              <div className="sources-box">
-                <div className="sources-title">
-                  <Icon name="globe" size={14} />
-                  Web sources
-                </div>
-
-                {message.sources.slice(0, 5).map((source, index) => (
-                  <a
-                    key={`${source.url}-${index}`}
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="source-item"
-                  >
-                    <span>{index + 1}</span>
-                    <span>{source.title || source.url}</span>
-                  </a>
-                ))}
-              </div>
-            )}
+            {!isUser &&
+              renderSources(
+                message.sources
+              )}
           </div>
 
           {!message.streaming && (
             <div className="message-actions">
               <button
-                onClick={() => copyMessage(message.content)}
+                onClick={() =>
+                  copyMessage(
+                    message.content
+                  )
+                }
                 title="Copy"
+                aria-label="Copy message"
               >
-                <Icon name="copy" size={14} />
+                <Icon
+                  name="copy"
+                  size={14}
+                />
               </button>
 
               {isUser && (
                 <button
-                  onClick={() => editMessage(message)}
+                  onClick={() =>
+                    editMessage(
+                      message
+                    )
+                  }
                   title="Edit"
+                  aria-label="Edit message"
                 >
-                  <Icon name="edit" size={14} />
+                  <Icon
+                    name="edit"
+                    size={14}
+                  />
                 </button>
               )}
 
               {!isUser && (
                 <button
-                  onClick={() => regenerateMessage(message.id)}
+                  onClick={() =>
+                    regenerateMessage(
+                      message.id
+                    )
+                  }
                   title="Regenerate"
+                  aria-label="Regenerate"
                 >
-                  <Icon name="refresh" size={14} />
+                  <Icon
+                    name="refresh"
+                    size={14}
+                  />
                 </button>
               )}
 
               <button
-                onClick={() => deleteMessage(message.id)}
+                onClick={() =>
+                  deleteMessage(
+                    message.id
+                  )
+                }
                 title="Delete"
+                aria-label="Delete message"
               >
-                <Icon name="trash" size={14} />
+                <Icon
+                  name="trash"
+                  size={14}
+                />
               </button>
-
-              {message.provider && (
-                <span className="message-provider">
-                  {message.provider}
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -1013,8 +2531,122 @@ export default function OzlindApp() {
     );
   }
 
+  /*
+   * Attachment composer
+   */
+  function renderAttachmentStrip() {
+    if (
+      attachments.length === 0
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="attachment-strip">
+        {attachments.map(
+          (attachment) => (
+            <div
+              key={attachment.id}
+              className="attachment-chip"
+            >
+              {attachment.preview ? (
+                <img
+                  src={
+                    attachment.preview
+                  }
+                  alt=""
+                />
+              ) : (
+                <span className="attachment-file-icon">
+                  <Icon
+                    name={getFileIcon(
+                      attachment
+                    )}
+                    size={16}
+                  />
+                </span>
+              )}
+
+              <span className="attachment-name">
+                {attachment.name}
+              </span>
+
+              <button
+                onClick={() =>
+                  removeAttachment(
+                    attachment.id
+                  )
+                }
+                aria-label={`Remove ${attachment.name}`}
+                title="Remove"
+              >
+                <Icon
+                  name="close"
+                  size={13}
+                />
+              </button>
+            </div>
+          )
+        )}
+      </div>
+    );
+  }
+
+  /*
+   * Mode selector
+   */
+  function renderModeSelector() {
+    const activeMode =
+      MODES.find(
+        (item) =>
+          item.id ===
+          settings.mode
+      ) || MODES[0];
+
+    return (
+      <div className="mode-selector">
+        <select
+          value={
+            settings.mode
+          }
+          onChange={(event) =>
+            setSettings(
+              (current) => ({
+                ...current,
+                mode:
+                  event.target
+                    .value,
+              })
+            )
+          }
+          aria-label="OZLIND mode"
+        >
+          {MODES.map(
+            (mode) => (
+              <option
+                key={mode.id}
+                value={mode.id}
+              >
+                {mode.label}
+              </option>
+            )
+          )}
+        </select>
+
+        <span className="mode-description">
+          {activeMode.description}
+        </span>
+      </div>
+    );
+  }
+
+  /*
+   * Chat
+   */
   function renderChat() {
-    const hasMessages = conversation.messages.length > 0;
+    const hasMessages =
+      conversation.messages
+        .length > 0;
 
     return (
       <section className="chat-view">
@@ -1022,15 +2654,29 @@ export default function OzlindApp() {
           <div className="chat-heading">
             <button
               className="mobile-menu"
-              onClick={() => setSidebarOpen(true)}
+              onClick={() =>
+                setSidebarOpen(
+                  true
+                )
+              }
               aria-label="Open menu"
             >
-              <Icon name="menu" size={20} />
+              <Icon
+                name="menu"
+                size={20}
+              />
             </button>
 
             <div>
-              <div className="eyebrow">WORKSPACE</div>
-              <h1>AI Chat</h1>
+              <div className="eyebrow">
+                ONE CHAT · MANY CAPABILITIES
+              </div>
+
+              <h1>
+                {hasMessages
+                  ? conversation.title
+                  : "AI Chat"}
+              </h1>
             </div>
           </div>
 
@@ -1038,7 +2684,9 @@ export default function OzlindApp() {
             {hasMessages && (
               <button
                 className="ghost-button"
-                onClick={clearCurrentChat}
+                onClick={
+                  clearCurrentChat
+                }
               >
                 Clear
               </button>
@@ -1046,10 +2694,17 @@ export default function OzlindApp() {
 
             <button
               className="new-chat-button"
-              onClick={startNewChat}
+              onClick={
+                startNewChat
+              }
             >
-              <Icon name="plus" size={17} />
-              <span>New Chat</span>
+              <Icon
+                name="plus"
+                size={17}
+              />
+              <span>
+                New Chat
+              </span>
             </button>
           </div>
         </div>
@@ -1057,37 +2712,75 @@ export default function OzlindApp() {
         {!hasMessages ? (
           <div className="empty-chat">
             <div className="hero-mark">
-              <Logo size={34} />
+              <Logo size={36} />
             </div>
 
             <div className="hero-kicker">
               INTELLIGENCE, REFINED.
             </div>
 
-            <h2>What can OZLIND help you with?</h2>
+            <h2>
+              What do you want to
+              explore?
+            </h2>
 
             <p>
-              Ask questions, explore ideas, research the web,
-              analyze images, or create something new.
+              Ask anything. OZLIND can
+              reason, research, understand
+              images and files, write code,
+              or create images — all from
+              this conversation.
             </p>
 
             <div className="prompt-grid">
               <button
                 onClick={() =>
-                  setInput("Explain quantum computing simply")
+                  setInput(
+                    "Explain quantum computing simply"
+                  )
                 }
               >
-                <strong>Explain something</strong>
-                <span>Make a complex topic simple</span>
+                <span className="prompt-icon">
+                  ✦
+                </span>
+
+                <strong>
+                  Explain something
+                </strong>
+
+                <span>
+                  Make a complex topic
+                  simple
+                </span>
               </button>
 
               <button
-                onClick={() =>
-                  setInput("Research the latest AI developments")
-                }
+                onClick={() => {
+                  setSettings(
+                    (current) => ({
+                      ...current,
+                      mode:
+                        "research",
+                    })
+                  );
+
+                  setInput(
+                    "Research the latest AI developments"
+                  );
+                }}
               >
-                <strong>Research the web</strong>
-                <span>Find current information</span>
+                <span className="prompt-icon">
+                  ◌
+                </span>
+
+                <strong>
+                  Research the web
+                </strong>
+
+                <span>
+                  Find current information
+                  with sources
+                </span>
               </button>
 
               <button
@@ -1097,35 +2790,99 @@ export default function OzlindApp() {
                   )
                 }
               >
-                <strong>Create an image</strong>
-                <span>Generate directly in chat</span>
+                <span className="prompt-icon">
+                  ◇
+                </span>
+
+                <strong>
+                  Create an image
+                </strong>
+
+                <span>
+                  Generate directly in
+                  chat
+                </span>
               </button>
 
               <button
                 onClick={() =>
-                  setInput("Help me plan a productive week")
+                  setInput(
+                    "Help me plan a productive week"
+                  )
                 }
               >
-                <strong>Plan something</strong>
-                <span>Turn ideas into an action plan</span>
+                <span className="prompt-icon">
+                  +
+                </span>
+
+                <strong>
+                  Plan something
+                </strong>
+
+                <span>
+                  Turn ideas into an
+                  action plan
+                </span>
               </button>
             </div>
           </div>
         ) : (
           <div className="messages-area">
             <div className="messages-inner">
-              {conversation.messages.map(renderMessage)}
-              <div ref={messagesEndRef} />
+              {conversation.messages.map(
+                renderMessage
+              )}
+
+              <div
+                ref={
+                  messagesEndRef
+                }
+              />
             </div>
           </div>
         )}
 
         <div className="composer-zone">
           <div className="composer">
+            {renderAttachmentStrip()}
+
+            {editingId && (
+              <div className="editing-bar">
+                <div>
+                  <span>
+                    Editing message
+                  </span>
+
+                  <small>
+                    Change it and press
+                    send
+                  </small>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setEditingId(
+                      null
+                    );
+                    setInput("");
+                  }}
+                  aria-label="Cancel editing"
+                >
+                  <Icon
+                    name="close"
+                    size={14}
+                  />
+                </button>
+              </div>
+            )}
+
             <div className="composer-top">
               {settings.research && (
-                <span className="composer-chip">
-                  <Icon name="globe" size={13} />
+                <span className="composer-chip active">
+                  <Icon
+                    name="globe"
+                    size={13}
+                  />
                   Web Research
                 </span>
               )}
@@ -1136,91 +2893,136 @@ export default function OzlindApp() {
                 </span>
               )}
 
-              {editingId && (
-                <span className="composer-chip editing">
-                  Editing message
-                  <button
-                    onClick={() => {
-                      setEditingId(null);
-                      setInput("");
-                    }}
-                  >
-                    ×
-                  </button>
+              {attachments.length >
+                0 && (
+                <span className="composer-chip">
+                  {attachments.length}
+                  {" "}
+                  file
+                  {attachments.length >
+                  1
+                    ? "s"
+                    : ""}
                 </span>
               )}
             </div>
 
             <textarea
-              ref={textareaRef}
+              ref={
+                textareaRef
+              }
               value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleTextareaKeyDown}
-              placeholder="Message OZLIND…"
+              onChange={
+                handleInputChange
+              }
+              onKeyDown={
+                handleTextareaKeyDown
+              }
+              placeholder={
+                editingId
+                  ? "Edit your message…"
+                  : "Message OZLIND…"
+              }
               rows={1}
               disabled={sending}
             />
 
             <div className="composer-bottom">
               <div className="composer-tools">
-                <button
-                  className={`tool-button ${
-                    settings.research ? "active" : ""
-                  }`}
-                  onClick={() =>
-                    setSettings((current) => ({
-                      ...current,
-                      research: !current.research,
-                    }))
+                <input
+                  ref={
+                    fileInputRef
                   }
-                  title="Toggle web research"
-                >
-                  <Icon name="globe" size={17} />
-                </button>
+                  type="file"
+                  hidden
+                  multiple
+                  accept={ALLOWED_TYPES.join(
+                    ","
+                  )}
+                  onChange={
+                    handleFileSelection
+                  }
+                />
 
                 <button
                   className="tool-button"
                   onClick={() =>
-                    showNotice("Image attachments coming next")
+                    fileInputRef.current?.click()
                   }
-                  title="Attach image"
+                  title="Attach image or file"
+                  aria-label="Attach image or file"
+                  disabled={
+                    attachments.length >=
+                    MAX_ATTACHMENTS
+                  }
                 >
-                  <Icon name="image" size={17} />
+                  <Icon
+                    name="image"
+                    size={17}
+                  />
                 </button>
 
-                <div className="provider-select-wrap">
-                  <select
-                    value={settings.provider}
-                    onChange={(event) =>
-                      setSettings((current) => ({
+                <button
+                  className={`tool-button ${
+                    settings.research
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setSettings(
+                      (current) => ({
                         ...current,
-                        provider: event.target.value,
-                      }))
-                    }
-                    aria-label="AI provider"
-                  >
-                    {PROVIDERS.map((provider) => (
-                      <option
-                        key={provider.id}
-                        value={provider.id}
-                      >
-                        {provider.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                        research:
+                          !current.research,
+                        mode:
+                          !current.research
+                            ? "research"
+                            : current.mode ===
+                                "research"
+                              ? "auto"
+                              : current.mode,
+                      })
+                    )
+                  }
+                  title="Toggle web research"
+                  aria-label="Toggle web research"
+                >
+                  <Icon
+                    name="globe"
+                    size={17}
+                  />
+                </button>
+
+                {renderModeSelector()}
               </div>
 
               <button
                 className={`send-button ${
-                  sending ? "stop-button" : ""
+                  sending
+                    ? "stop-button"
+                    : ""
                 }`}
-                onClick={sending ? stopGeneration : sendMessage}
-                disabled={!sending && !input.trim()}
-                aria-label={sending ? "Stop" : "Send"}
+                onClick={
+                  sending
+                    ? stopGeneration
+                    : sendMessage
+                }
+                disabled={
+                  !sending &&
+                  !input.trim()
+                }
+                aria-label={
+                  sending
+                    ? "Stop"
+                    : "Send"
+                }
               >
                 <Icon
-                  name={sending ? "stop" : "send"}
+                  name={
+                    sending
+                      ? "stop"
+                      : "send"
+                  }
                   size={17}
                 />
               </button>
@@ -1228,161 +3030,173 @@ export default function OzlindApp() {
           </div>
 
           <div className="composer-note">
-            OZLIND can make mistakes. Verify important information.
+            OZLIND can make mistakes.
+            Verify important information.
           </div>
         </div>
       </section>
     );
   }
 
+  /*
+   * History
+   */
   function renderHistory() {
     return (
       <section className="secondary-view">
         <div className="secondary-header">
           <div>
-            <div className="eyebrow">PERSONAL</div>
-            <h1>History</h1>
+            <div className="eyebrow">
+              PERSONAL
+            </div>
+
+            <h1>
+              History
+            </h1>
           </div>
 
           <button
             className="new-chat-button"
-            onClick={startNewChat}
+            onClick={
+              startNewChat
+            }
           >
-            <Icon name="plus" size={17} />
+            <Icon
+              name="plus"
+              size={17}
+            />
             New Chat
           </button>
         </div>
 
         <div className="history-search">
-          <Icon name="search" size={17} />
+          <Icon
+            name="search"
+            size={17}
+          />
+
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(
+                event.target.value
+              )
+            }
             placeholder="Search conversations…"
           />
         </div>
 
         <div className="history-list">
-          {filteredHistory.length === 0 ? (
+          {filteredHistory.length ===
+          0 ? (
             <div className="empty-state">
               <div className="empty-icon">
-                <Icon name="history" size={22} />
+                <Icon
+                  name="history"
+                  size={22}
+                />
               </div>
-              <h3>No conversations yet</h3>
-              <p>Your conversations will appear here.</p>
+
+              <h3>
+                No conversations yet
+              </h3>
+
+              <p>
+                Your conversations
+                will appear here.
+              </p>
             </div>
           ) : (
-            filteredHistory.map((item) => (
-              <button
-                className="history-card"
-                key={item.id}
-                onClick={() => openConversation(item)}
-              >
-                <div className="history-card-icon">
-                  <Icon name="history" size={17} />
-                </div>
+            filteredHistory.map(
+              (item) => (
+                <button
+                  className="history-card"
+                  key={item.id}
+                  onClick={() =>
+                    openConversation(
+                      item
+                    )
+                  }
+                >
+                  <div className="history-card-icon">
+                    <Icon
+                      name="chat"
+                      size={17}
+                    />
+                  </div>
 
-                <div className="history-card-body">
-                  <strong>{item.title}</strong>
-                  <span>
-                    {item.messages?.length || 0} messages
-                  </span>
-                </div>
+                  <div className="history-card-body">
+                    <strong>
+                      {item.title ||
+                        "New conversation"}
+                    </strong>
 
-                <Icon name="chevron" size={18} />
-              </button>
-            ))
+                    <span>
+                      {item.messages
+                        ?.length ||
+                        0}{" "}
+                      messages
+                    </span>
+                  </div>
+
+                  <Icon
+                    name="chevron"
+                    size={18}
+                  />
+                </button>
+              )
+            )
           )}
         </div>
       </section>
     );
   }
 
-  function renderResearch() {
-    return (
-      <section className="secondary-view">
-        <div className="secondary-header">
-          <div>
-            <div className="eyebrow">AI TOOLS</div>
-            <h1>Web Research</h1>
-          </div>
-
-          <button
-            className="new-chat-button"
-            onClick={() => {
-              setSettings((current) => ({
-                ...current,
-                research: true,
-              }));
-              setView("chat");
-            }}
-          >
-            <Icon name="globe" size={17} />
-            Use in Chat
-          </button>
-        </div>
-
-        <div className="research-hero">
-          <div className="research-icon">
-            <Icon name="globe" size={30} />
-          </div>
-
-          <h2>Live information, inside OZLIND.</h2>
-
-          <p>
-            Turn on Web Research in chat when you need
-            current information, sources and recent facts.
-          </p>
-
-          <button
-            className={`research-toggle ${
-              settings.research ? "enabled" : ""
-            }`}
-            onClick={() =>
-              setSettings((current) => ({
-                ...current,
-                research: !current.research,
-              }))
-            }
-          >
-            <span className="toggle-dot" />
-            {settings.research
-              ? "Research enabled"
-              : "Enable research"}
-          </button>
-        </div>
-      </section>
-    );
-  }
-
+  /*
+   * Settings
+   */
   function renderSettings() {
     return (
       <section className="secondary-view">
         <div className="secondary-header">
           <div>
-            <div className="eyebrow">PERSONAL</div>
-            <h1>Settings</h1>
+            <div className="eyebrow">
+              PERSONAL
+            </div>
+
+            <h1>
+              Settings
+            </h1>
           </div>
         </div>
 
         <div className="settings-panel">
           <div className="settings-section">
             <div>
-              <strong>Conversation memory</strong>
+              <strong>
+                Conversation memory
+              </strong>
+
               <p>
-                Keep recent messages in the context sent to the AI.
+                Keep recent conversation
+                context when OZLIND answers.
               </p>
             </div>
 
             <button
               className={`switch ${
-                settings.memory ? "on" : ""
+                settings.memory
+                  ? "on"
+                  : ""
               }`}
               onClick={() =>
-                setSettings((current) => ({
-                  ...current,
-                  memory: !current.memory,
-                }))
+                setSettings(
+                  (current) => ({
+                    ...current,
+                    memory:
+                      !current.memory,
+                  })
+                )
               }
               aria-label="Toggle memory"
             >
@@ -1392,22 +3206,37 @@ export default function OzlindApp() {
 
           <div className="settings-section">
             <div>
-              <strong>Web Research</strong>
+              <strong>
+                Web Research
+              </strong>
+
               <p>
-                Allow current web information to be added to chat
-                requests.
+                Allow live web research when
+                needed or explicitly enabled.
               </p>
             </div>
 
             <button
               className={`switch ${
-                settings.research ? "on" : ""
+                settings.research
+                  ? "on"
+                  : ""
               }`}
               onClick={() =>
-                setSettings((current) => ({
-                  ...current,
-                  research: !current.research,
-                }))
+                setSettings(
+                  (current) => ({
+                    ...current,
+                    research:
+                      !current.research,
+                    mode:
+                      !current.research
+                        ? "research"
+                        : current.mode ===
+                            "research"
+                          ? "auto"
+                          : current.mode,
+                  })
+                )
               }
               aria-label="Toggle research"
             >
@@ -1417,34 +3246,113 @@ export default function OzlindApp() {
 
           <div className="settings-section stacked">
             <div>
-              <strong>Answer length</strong>
-              <p>Control how much detail OZLIND uses.</p>
+              <strong>
+                Intelligence mode
+              </strong>
+
+              <p>
+                Choose how OZLIND should
+                approach the conversation.
+              </p>
             </div>
 
-            <div className="segmented">
-              {["short", "medium", "long"].map((value) => (
-                <button
-                  key={value}
-                  className={
-                    settings.length === value ? "selected" : ""
-                  }
-                  onClick={() =>
-                    setSettings((current) => ({
-                      ...current,
-                      length: value,
-                    }))
-                  }
-                >
-                  {value}
-                </button>
-              ))}
+            <div className="mode-grid">
+              {MODES.map(
+                (mode) => (
+                  <button
+                    key={mode.id}
+                    className={
+                      settings.mode ===
+                      mode.id
+                        ? "selected"
+                        : ""
+                    }
+                    onClick={() =>
+                      setSettings(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          mode:
+                            mode.id,
+                          research:
+                            mode.id ===
+                            "research",
+                        })
+                      )
+                    }
+                  >
+                    <strong>
+                      {mode.label}
+                    </strong>
+
+                    <span>
+                      {
+                        mode.description
+                      }
+                    </span>
+                  </button>
+                )
+              )}
             </div>
           </div>
 
           <div className="settings-section stacked">
             <div>
-              <strong>Response style</strong>
-              <p>Choose the default communication style.</p>
+              <strong>
+                Answer length
+              </strong>
+
+              <p>
+                Control how much detail
+                OZLIND uses.
+              </p>
+            </div>
+
+            <div className="segmented">
+              {[
+                "short",
+                "medium",
+                "long",
+              ].map(
+                (value) => (
+                  <button
+                    key={value}
+                    className={
+                      settings.length ===
+                      value
+                        ? "selected"
+                        : ""
+                    }
+                    onClick={() =>
+                      setSettings(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          length:
+                            value,
+                        })
+                      )
+                    }
+                  >
+                    {value}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="settings-section stacked">
+            <div>
+              <strong>
+                Response style
+              </strong>
+
+              <p>
+                Choose the default communication
+                style.
+              </p>
             </div>
 
             <div className="segmented wrap">
@@ -1454,52 +3362,83 @@ export default function OzlindApp() {
                 "friendly",
                 "direct",
                 "creative",
-              ].map((value) => (
-                <button
-                  key={value}
-                  className={
-                    settings.style === value ? "selected" : ""
-                  }
-                  onClick={() =>
-                    setSettings((current) => ({
-                      ...current,
-                      style: value,
-                    }))
-                  }
-                >
-                  {value}
-                </button>
-              ))}
+              ].map(
+                (value) => (
+                  <button
+                    key={value}
+                    className={
+                      settings.style ===
+                      value
+                        ? "selected"
+                        : ""
+                    }
+                    onClick={() =>
+                      setSettings(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          style:
+                            value,
+                        })
+                      )
+                    }
+                  >
+                    {value}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
           <div className="settings-section stacked">
             <div>
-              <strong>Custom instructions</strong>
+              <strong>
+                Custom instructions
+              </strong>
+
               <p>
-                Optional preferences that OZLIND can use when
-                answering.
+                Optional preferences for
+                how OZLIND should respond.
               </p>
             </div>
 
             <textarea
               className="settings-textarea"
-              value={settings.customInstructions}
+              value={
+                settings.customInstructions
+              }
               onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  customInstructions: event.target.value,
-                }))
+                setSettings(
+                  (current) => ({
+                    ...current,
+                    customInstructions:
+                      event.target
+                        .value,
+                  })
+                )
               }
               placeholder="Example: Keep answers concise and use bullet points when useful."
               maxLength={3000}
             />
+
+            <div className="character-count">
+              {
+                settings
+                  .customInstructions
+                  .length
+              }
+              /3000
+            </div>
           </div>
         </div>
       </section>
     );
   }
 
+  /*
+   * Boot screen
+   */
   if (booting) {
     return (
       <div className="boot-screen">
@@ -1507,7 +3446,9 @@ export default function OzlindApp() {
           <Logo size={30} />
         </div>
 
-        <div className="boot-wordmark">OZLIND</div>
+        <div className="boot-wordmark">
+          OZLIND
+        </div>
 
         <div className="boot-line">
           <span />
@@ -1520,23 +3461,38 @@ export default function OzlindApp() {
     );
   }
 
+  /*
+   * Main application
+   */
   return (
     <div className="ozlind-shell">
       {sidebarOpen && (
         <button
           className="mobile-backdrop"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() =>
+            setSidebarOpen(
+              false
+            )
+          }
           aria-label="Close menu"
         />
       )}
 
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+      <aside
+        className={`sidebar ${
+          sidebarOpen
+            ? "open"
+            : ""
+        }`}
+      >
         <div className="sidebar-top">
           <button
             className="brand"
             onClick={() => {
               setView("chat");
-              setSidebarOpen(false);
+              setSidebarOpen(
+                false
+              );
             }}
           >
             <div className="brand-mark">
@@ -1544,62 +3500,84 @@ export default function OzlindApp() {
             </div>
 
             <div className="brand-text">
-              <strong>OZLIND</strong>
-              <span>AI PLATFORM</span>
+              <strong>
+                OZLIND
+              </strong>
+
+              <span>
+                AI PLATFORM
+              </span>
             </div>
           </button>
 
           <button
             className="close-sidebar"
-            onClick={() => setSidebarOpen(false)}
+            onClick={() =>
+              setSidebarOpen(
+                false
+              )
+            }
             aria-label="Close sidebar"
           >
-            <Icon name="close" size={20} />
+            <Icon
+              name="close"
+              size={20}
+            />
           </button>
         </div>
 
         <button
           className="sidebar-new-chat"
-          onClick={startNewChat}
+          onClick={
+            startNewChat
+          }
         >
-          <Icon name="plus" size={18} />
-          <span>New Chat</span>
-          <kbd>⌘ N</kbd>
+          <Icon
+            name="plus"
+            size={18}
+          />
+
+          <span>
+            New Chat
+          </span>
+
+          <kbd>
+            ⌘ N
+          </kbd>
         </button>
 
         <nav className="sidebar-nav">
-          <div className="nav-label">WORKSPACE</div>
+          <div className="nav-label">
+            WORKSPACE
+          </div>
 
           <button
             className={`nav-item ${
-              view === "chat" ? "active" : ""
+              view === "chat"
+                ? "active"
+                : ""
             }`}
             onClick={() => {
               setView("chat");
-              setSidebarOpen(false);
+              setSidebarOpen(
+                false
+              );
             }}
           >
             <span className="nav-icon">
-              <Icon name="chat" size={17} />
+              <Icon
+                name="chat"
+                size={17}
+              />
             </span>
-            <span>AI Chat</span>
-            <span className="live-dot">LIVE</span>
-          </button>
 
-          <button
-            className={`nav-item ${
-              view === "research" ? "active" : ""
-            }`}
-            onClick={() => {
-              setView("research");
-              setSidebarOpen(false);
-            }}
-          >
-            <span className="nav-icon">
-              <Icon name="globe" size={17} />
+            <span>
+              AI Chat
             </span>
-            <span>Web Research</span>
-            <span className="live-dot">LIVE</span>
+
+            <span className="live-dot">
+              LIVE
+            </span>
           </button>
 
           <div className="nav-label personal-label">
@@ -1608,49 +3586,87 @@ export default function OzlindApp() {
 
           <button
             className={`nav-item ${
-              view === "history" ? "active" : ""
+              view ===
+              "history"
+                ? "active"
+                : ""
             }`}
             onClick={() => {
-              setView("history");
-              setSidebarOpen(false);
+              setView(
+                "history"
+              );
+              setSidebarOpen(
+                false
+              );
             }}
           >
             <span className="nav-icon">
-              <Icon name="history" size={17} />
+              <Icon
+                name="history"
+                size={17}
+              />
             </span>
-            <span>History</span>
+
+            <span>
+              History
+            </span>
           </button>
 
           <button
             className={`nav-item ${
-              view === "settings" ? "active" : ""
+              view ===
+              "settings"
+                ? "active"
+                : ""
             }`}
             onClick={() => {
-              setView("settings");
-              setSidebarOpen(false);
+              setView(
+                "settings"
+              );
+              setSidebarOpen(
+                false
+              );
             }}
           >
             <span className="nav-icon">
-              <Icon name="settings" size={17} />
+              <Icon
+                name="settings"
+                size={17}
+              />
             </span>
-            <span>Settings</span>
+
+            <span>
+              Settings
+            </span>
           </button>
         </nav>
 
         <div className="sidebar-bottom">
           <div className="profile">
-            <div className="profile-avatar">A</div>
-
-            <div className="profile-copy">
-              <strong>Athul</strong>
-              <span>OZLIND User</span>
+            <div className="profile-avatar">
+              A
             </div>
 
-            <span className="profile-more">•••</span>
+            <div className="profile-copy">
+              <strong>
+                Athul
+              </strong>
+
+              <span>
+                OZLIND User
+              </span>
+            </div>
+
+            <span className="profile-more">
+              •••
+            </span>
           </div>
 
           <div className="sidebar-version">
-            OZLIND AI <span>v1</span>
+            OZLIND AI{" "}
+            <span>
+              v1
+            </span>
           </div>
         </div>
       </aside>
@@ -1659,33 +3675,56 @@ export default function OzlindApp() {
         <header className="topbar">
           <button
             className="top-menu"
-            onClick={() => setSidebarOpen(true)}
+            onClick={() =>
+              setSidebarOpen(
+                true
+              )
+            }
             aria-label="Open menu"
           >
-            <Icon name="menu" size={20} />
+            <Icon
+              name="menu"
+              size={20}
+            />
           </button>
 
           <div className="topbar-title">
-            {conversation.title}
+            {conversation.title ===
+            "New conversation"
+              ? "OZLIND"
+              : conversation.title}
           </div>
 
           <div className="topbar-status">
             <span className="status-dot" />
-            <span>Online</span>
+            <span>
+              Online
+            </span>
           </div>
         </header>
 
         <div className="workspace">
-          {view === "chat" && renderChat()}
-          {view === "history" && renderHistory()}
-          {view === "research" && renderResearch()}
-          {view === "settings" && renderSettings()}
+          {view ===
+            "chat" &&
+            renderChat()}
+
+          {view ===
+            "history" &&
+            renderHistory()}
+
+          {view ===
+            "settings" &&
+            renderSettings()}
         </div>
       </main>
 
       {notice && (
         <div className="toast">
-          <Icon name="check" size={15} />
+          <Icon
+            name="check"
+            size={15}
+          />
+
           {notice}
         </div>
       )}
