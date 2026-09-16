@@ -86,34 +86,205 @@ function extractImagePrompt(text) {
     .trim();
 }
 
-function Icon({ name, size = 18 }) {
-  const icons = {
-    plus: "+",
-    menu: "☰",
-    search: "⌕",
-    history: "◷",
-    settings: "⚙",
-    close: "×",
-    send: "↑",
-    stop: "■",
-    copy: "▣",
-    edit: "✎",
-    refresh: "↻",
-    trash: "⌫",
-    globe: "◎",
-    image: "▧",
-    chevron: "›",
-    check: "✓",
-  };
+function parseInline(text, keyPrefix) {
+  const nodes = [];
+  let remaining = String(text || "");
+  let key = 0;
 
+  const pattern =
+    /(`([^`]+)`)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(\[([^\]]+)\]\(([^)]+)\))/;
+
+  while (remaining.length) {
+    const match = pattern.exec(remaining);
+
+    if (!match) {
+      nodes.push(remaining);
+      break;
+    }
+
+    if (match.index > 0) {
+      nodes.push(remaining.slice(0, match.index));
+    }
+
+    if (match[1]) {
+      nodes.push(
+        <code key={`${keyPrefix}-${key++}`} className="inline-code">
+          {match[2]}
+        </code>
+      );
+    } else if (match[3]) {
+      nodes.push(<strong key={`${keyPrefix}-${key++}`}>{match[4]}</strong>);
+    } else if (match[5]) {
+      nodes.push(<em key={`${keyPrefix}-${key++}`}>{match[6]}</em>);
+    } else if (match[7]) {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-${key++}`}
+          href={match[9]}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {match[8]}
+        </a>
+      );
+    }
+
+    remaining = remaining.slice(match.index + match[0].length);
+  }
+
+  return nodes;
+}
+
+function renderMarkdown(text) {
+  const source = String(text || "");
+  const parts = [];
+  const codeFence = /```(\w*)\n?([\s\S]*?)(```|$)/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeFence.exec(source))) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", content: source.slice(lastIndex, match.index) });
+    }
+
+    parts.push({ type: "code", lang: match[1], content: match[2] });
+    lastIndex = codeFence.lastIndex;
+  }
+
+  if (lastIndex < source.length) {
+    parts.push({ type: "text", content: source.slice(lastIndex) });
+  }
+
+  const nodes = [];
+  let blockKey = 0;
+
+  parts.forEach((part) => {
+    if (part.type === "code") {
+      nodes.push(
+        <pre key={`blk-${blockKey}`} className="code-block">
+          {part.lang && <div className="code-lang">{part.lang}</div>}
+          <code>{part.content}</code>
+        </pre>
+      );
+      blockKey += 1;
+      return;
+    }
+
+    const blocks = part.content.split(/\n{2,}/);
+
+    blocks.forEach((block) => {
+      const trimmed = block.trim();
+
+      if (!trimmed) return;
+
+      const lines = trimmed.split("\n");
+
+      if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+        nodes.push(
+          <ul key={`blk-${blockKey}`} className="md-list">
+            {lines.map((line, i) => (
+              <li key={i}>
+                {parseInline(
+                  line.replace(/^\s*[-*]\s+/, ""),
+                  `blk-${blockKey}-${i}`
+                )}
+              </li>
+            ))}
+          </ul>
+        );
+        blockKey += 1;
+        return;
+      }
+
+      if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+        nodes.push(
+          <ol key={`blk-${blockKey}`} className="md-list">
+            {lines.map((line, i) => (
+              <li key={i}>
+                {parseInline(
+                  line.replace(/^\s*\d+\.\s+/, ""),
+                  `blk-${blockKey}-${i}`
+                )}
+              </li>
+            ))}
+          </ol>
+        );
+        blockKey += 1;
+        return;
+      }
+
+      if (lines.every((line) => /^\s*>/.test(line))) {
+        nodes.push(
+          <blockquote key={`blk-${blockKey}`} className="md-quote">
+            {parseInline(
+              lines.map((line) => line.replace(/^\s*>\s?/, "")).join(" "),
+              `blk-${blockKey}`
+            )}
+          </blockquote>
+        );
+        blockKey += 1;
+        return;
+      }
+
+      const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)$/);
+
+      if (headingMatch) {
+        nodes.push(
+          <div
+            key={`blk-${blockKey}`}
+            className={`md-heading md-h${headingMatch[1].length}`}
+          >
+            {parseInline(headingMatch[2], `blk-${blockKey}`)}
+          </div>
+        );
+        blockKey += 1;
+        return;
+      }
+
+      nodes.push(
+        <p key={`blk-${blockKey}`} className="md-paragraph">
+          {trimmed.split("\n").map((line, i, arr) => (
+            <span key={i}>
+              {parseInline(line, `blk-${blockKey}-${i}`)}
+              {i < arr.length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      );
+      blockKey += 1;
+    });
+  });
+
+  return nodes;
+}
+
+function Icon({ name, size = 18 }) {
   return (
-    <span
+    <svg
       className="icon"
+      width={size}
+      height={size}
       aria-hidden="true"
-      style={{ width: size, height: size, fontSize: Math.max(12, size - 2) }}
+      focusable="false"
     >
-      {icons[name] || "•"}
-    </span>
+      <use href={`/ozlind-icons.svg#i-${name}`} />
+    </svg>
+  );
+}
+
+function Logo({ size = 22, className = "" }) {
+  return (
+    <svg
+      className={`ozl-logo ${className}`}
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <use href="/ozlind-icons.svg#ozl-mark" />
+    </svg>
   );
 }
 
@@ -720,7 +891,7 @@ export default function OzlindApp() {
       >
         {!isUser && (
           <div className="assistant-avatar">
-            <span>O</span>
+            <Logo size={18} />
           </div>
         )}
 
@@ -742,7 +913,13 @@ export default function OzlindApp() {
             )}
 
             <div className="message-content">
-              {message.content || (
+              {message.content ? (
+                isUser ? (
+                  message.content
+                ) : (
+                  renderMarkdown(message.content)
+                )
+              ) : (
                 <span className="typing-dots">
                   <i />
                   <i />
@@ -880,7 +1057,7 @@ export default function OzlindApp() {
         {!hasMessages ? (
           <div className="empty-chat">
             <div className="hero-mark">
-              <span>O</span>
+              <Logo size={34} />
             </div>
 
             <div className="hero-kicker">
@@ -1327,7 +1504,7 @@ export default function OzlindApp() {
     return (
       <div className="boot-screen">
         <div className="boot-logo">
-          <span>O</span>
+          <Logo size={30} />
         </div>
 
         <div className="boot-wordmark">OZLIND</div>
@@ -1363,7 +1540,7 @@ export default function OzlindApp() {
             }}
           >
             <div className="brand-mark">
-              <span>O</span>
+              <Logo size={20} />
             </div>
 
             <div className="brand-text">
@@ -1403,46 +1580,10 @@ export default function OzlindApp() {
             }}
           >
             <span className="nav-icon">
-              <Icon name="search" size={17} />
+              <Icon name="chat" size={17} />
             </span>
             <span>AI Chat</span>
             <span className="live-dot">LIVE</span>
-          </button>
-
-          <div className="nav-label tools-label">
-            AI TOOLS
-          </div>
-
-          <button className="nav-item disabled">
-            <span className="nav-icon">
-              <Icon name="image" size={17} />
-            </span>
-            <span>Image Generator</span>
-            <span className="next-badge">NEXT</span>
-          </button>
-
-          <button className="nav-item disabled">
-            <span className="nav-icon">◫</span>
-            <span>Photo Editor</span>
-            <span className="next-badge">NEXT</span>
-          </button>
-
-          <button className="nav-item disabled">
-            <span className="nav-icon">⌘</span>
-            <span>Code Assistant</span>
-            <span className="next-badge">NEXT</span>
-          </button>
-
-          <button className="nav-item disabled">
-            <span className="nav-icon">▤</span>
-            <span>Documents</span>
-            <span className="next-badge">NEXT</span>
-          </button>
-
-          <button className="nav-item disabled">
-            <span className="nav-icon">◉</span>
-            <span>Voice AI</span>
-            <span className="next-badge">NEXT</span>
           </button>
 
           <button
@@ -1524,13 +1665,8 @@ export default function OzlindApp() {
             <Icon name="menu" size={20} />
           </button>
 
-          <div className="global-search">
-            <Icon name="search" size={17} />
-            <input
-              placeholder="Search anything…"
-              aria-label="Search"
-            />
-            <kbd>/</kbd>
+          <div className="topbar-title">
+            {conversation.title}
           </div>
 
           <div className="topbar-status">
