@@ -1,4 +1,4 @@
-import OzlindApp from "@/components/OzlindApp";
+import OzlindApp from "./components/OzlindApp";
 
 export default function Home() {
   return <OzlindApp />;
