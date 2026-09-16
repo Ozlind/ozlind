@@ -2,7 +2,13 @@ import "./globals.css";
 
 export const metadata = {
   title: "OZLIND AI",
-  description: "AI Platform"
+  description: "OZLIND AI — intelligent chat, research and creation platform.",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }) {
