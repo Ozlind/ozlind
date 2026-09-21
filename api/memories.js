@@ -19,40 +19,22 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { id } = req.query;
-      if (id) {
-        const { data: conv, error: convErr } = await supabase
-          .from('conversations')
-          .select('*')
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .single();
-        if (convErr) throw convErr;
-
-        const { data: messages, error: msgErr } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', id)
-          .order('created_at', { ascending: true });
-        if (msgErr) throw msgErr;
-
-        return res.status(200).json({ ...conv, messages });
-      }
-
       const { data, error } = await supabase
-        .from('conversations')
+        .from('memories')
         .select('*')
         .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return res.status(200).json(data);
     }
 
     if (req.method === 'POST') {
-      const { title } = req.body;
+      const { content, enabled } = req.body;
+      if (!content) return res.status(400).json({ error: 'Content required' });
+
       const { data, error } = await supabase
-        .from('conversations')
-        .insert({ user_id: user.id, title: title || 'New chat' })
+        .from('memories')
+        .insert({ user_id: user.id, content, enabled: enabled !== false })
         .select()
         .single();
       if (error) throw error;
@@ -60,14 +42,13 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PUT') {
-      const { id, title, pinned } = req.body;
+      const { id, content, enabled } = req.body;
       const updates = {};
-      if (title !== undefined) updates.title = title;
-      if (pinned !== undefined) updates.pinned = pinned;
-      updates.updated_at = new Date().toISOString();
+      if (content !== undefined) updates.content = content;
+      if (enabled !== undefined) updates.enabled = enabled;
 
       const { data, error } = await supabase
-        .from('conversations')
+        .from('memories')
         .update(updates)
         .eq('id', id)
         .eq('user_id', user.id)
@@ -81,10 +62,8 @@ export default async function handler(req, res) {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: 'ID required' });
 
-      // Delete messages first (cascade should handle but be safe)
-      await supabase.from('messages').delete().eq('conversation_id', id);
       const { error } = await supabase
-        .from('conversations')
+        .from('memories')
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
@@ -94,7 +73,7 @@ export default async function handler(req, res) {
 
     res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('Conversations API error:', err);
+    console.error('Memories API error:', err);
     res.status(500).json({ error: err.message });
   }
 }

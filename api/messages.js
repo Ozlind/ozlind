@@ -1,55 +1,47 @@
 import supabase from './db-client.js';
 
+async function verifyAuth(req) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return null;
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+  return user;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  const user = await verifyAuth(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
   try {
-    if (req.method === 'GET') {
-      const conversationId = req.query.conversation_id;
-      if (!conversationId) {
-        return res.status(200).json([]);
-      }
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.warn('Messages query warning:', error.message);
-        return res.status(200).json([]);
-      }
-      return res.status(200).json(data || []);
-    }
-
     if (req.method === 'POST') {
-      const { conversation_id, role, content, attachments = [], sources = [] } = req.body || {};
-      if (!conversation_id || !content) {
-        return res.status(400).json({ error: 'conversation_id and content are required' });
+      const { conversation_id, role, content, attachments } = req.body;
+      if (!conversation_id || !role || !content) {
+        return res.status(400).json({ error: 'conversation_id, role, content required' });
       }
+
+      // Verify ownership
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('id', conversation_id)
+        .eq('user_id', user.id)
+        .single();
+      if (!conv) return res.status(403).json({ error: 'Not your conversation' });
 
       const { data, error } = await supabase
         .from('messages')
-        .insert({
-          conversation_id,
-          role: role || 'user',
-          content,
-          attachments,
-          sources,
-          created_at: new Date().toISOString()
-        })
+        .insert({ conversation_id, role, content, attachments: attachments || [] })
         .select()
         .single();
-
       if (error) throw error;
 
-      // Update parent conversation updated_at
-      await supabase
-        .from('conversations')
+      // Update conversation updated_at
+      await supabase.from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversation_id);
 
@@ -57,18 +49,27 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      const { conversation_id, id } = req.body || req.query;
-      if (id) {
-        const { error } = await supabase.from('messages').delete().eq('id', id);
-        if (error) throw error;
-        return res.status(200).json({ ok: true });
-      }
-      if (conversation_id) {
-        const { error } = await supabase.from('messages').delete().eq('conversation_id', conversation_id);
-        if (error) throw error;
-        return res.status(200).json({ ok: true });
-      }
-      return res.status(400).json({ error: 'Missing id or conversation_id' });
+      const { id } = req.query;
+      if (!id) return res.status(400).json({ error: 'ID required' });
+
+      const { data: msg } = await supabase
+        .from('messages')
+        .select('conversation_id')
+        .eq('id', id)
+        .single();
+      if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('id', msg.conversation_id)
+        .eq('user_id', user.id)
+        .single();
+      if (!conv) return res.status(403).json({ error: 'Not your message' });
+
+      const { error } = await supabase.from('messages').delete().eq('id', id);
+      if (error) throw error;
+      return res.status(200).json({ ok: true });
     }
 
     res.status(405).json({ error: 'Method not allowed' });

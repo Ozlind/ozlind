@@ -23,4 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .vite-source-tags.js
+ .env*
+ .next
+ .vercel
 .vercel

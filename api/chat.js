@@ -1,113 +1,454 @@
 import supabase from './db-client.js';
 
+const MAX_INPUT_LENGTH = 32000;
+const MAX_OUTPUT_TOKENS = 4096;
+const DAILY_REQUEST_LIMIT = 100;
+
+function normalizeError(err, requestId) {
+  const msg = err.message || String(err);
+  if (msg.includes('401') || msg.includes('403')) {
+    return { error: 'AI service authentication failed. Please check configuration.', requestId };
+  }
+  if (msg.includes('429')) {
+    return { error: 'AI service is temporarily busy. Please try again shortly.', requestId };
+  }
+  if (msg.includes('timeout') || msg.includes('ETIMEDOUT')) {
+    return { error: 'Request timed out. Please try again.', requestId };
+  }
+  return { error: 'Something went wrong. Please try again.', requestId };
+}
+
+function getRequestId() {
+  return 'req_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+}
+
+async function verifyAuth(req) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return null;
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+  return user;
+}
+
+async function checkRateLimit(userId, ip) {
+  const today = new Date().toISOString().split('T')[0];
+  const { data: existing } = await supabase
+    .from('usage_counters')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', today)
+    .single();
+
+  const current = existing ? existing.requests_count : 0;
+  if (current >= DAILY_REQUEST_LIMIT) {
+    return { allowed: false, message: 'Daily request limit reached. Please try again tomorrow.' };
+  }
+
+  return { allowed: true };
+}
+
+async function incrementUsage(userId) {
+  const today = new Date().toISOString().split('T')[0];
+  const { data: existing } = await supabase
+    .from('usage_counters')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', today)
+    .single();
+
+  if (existing) {
+    await supabase.from('usage_counters').update({ requests_count: existing.requests_count + 1 }).eq('id', existing.id);
+  } else {
+    await supabase.from('usage_counters').insert({ user_id: userId, date: today, requests_count: 1, tokens_count: 0 });
+  }
+}
+
+function selectProvider(mode, hasImages, message) {
+  const len = message?.length || 0;
+  const mentionsResearch = /research|search|current|latest|news|today|now|recent|202[4-6]/.test(message?.toLowerCase() || '');
+
+  if (mode === 'research' || mentionsResearch) return 'research';
+  if (mode === 'vision' || hasImages) return 'vision';
+  if (mode === 'fast') return 'fast';
+  if (mode === 'pro' || len > 800) return 'pro';
+  if (mode === 'auto') {
+    if (hasImages) return 'vision';
+    if (mentionsResearch) return 'research';
+    if (len > 800) return 'pro';
+    if (len < 150) return 'fast';
+    return 'pro';
+  }
+  return 'pro';
+}
+
+async function streamGroq(messages, res, requestId, model) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    res.write(`data: ${JSON.stringify({ error: 'AI service not configured. Please add GROQ_API_KEY.' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model || 'llama-3.1-8b-instant',
+        messages,
+        stream: true,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        temperature: 0.7,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const err = await response.text();
+      const norm = normalizeError({ message: err }, requestId);
+      res.write(`data: ${JSON.stringify(norm)}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') {
+            res.write('data: [DONE]\n\n');
+            res.end();
+            return;
+          }
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content || '';
+            if (delta) {
+              res.write(`data: ${JSON.stringify({ chunk: delta, requestId })}\n\n`);
+            }
+          } catch (e) {
+            // ignore malformed chunks
+          }
+        }
+      }
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err) {
+    clearTimeout(timeout);
+    const norm = normalizeError(err, requestId);
+    res.write(`data: ${JSON.stringify(norm)}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+}
+
+async function streamGemini(messages, res, requestId, model, hasImages) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    res.write(`data: ${JSON.stringify({ error: 'AI service not configured. Please add GEMINI_API_KEY.' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+    return;
+  }
+
+  const geminiModel = model || (hasImages ? process.env.GEMINI_IMAGE_MODEL || 'gemini-1.5-flash' : process.env.GEMINI_TEXT_MODEL || 'gemini-1.5-flash');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    // Convert messages to Gemini format
+    const contents = messages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.7 },
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const err = await response.text();
+      const norm = normalizeError({ message: err }, requestId);
+      res.write(`data: ${JSON.stringify(norm)}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          try {
+            const parsed = JSON.parse(data);
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (text) {
+              res.write(`data: ${JSON.stringify({ chunk: text, requestId })}\n\n`);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err) {
+    clearTimeout(timeout);
+    const norm = normalizeError(err, requestId);
+    res.write(`data: ${JSON.stringify(norm)}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+}
+
+async function streamResearch(messages, res, requestId) {
+  const tavilyKey = process.env.TAVILY_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  if (!tavilyKey || !geminiKey) {
+    res.write(`data: ${JSON.stringify({ error: 'Research mode not configured. Please add TAVILY_API_KEY and GEMINI_API_KEY.' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+    return;
+  }
+
+  const userQuery = messages[messages.length - 1]?.content || '';
+
+  try {
+    // Step 1: Tavily search
+    const searchRes = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': tavilyKey },
+      body: JSON.stringify({ query: userQuery, search_depth: 'advanced', max_results: 6 }),
+    });
+
+    if (!searchRes.ok) throw new Error('Search failed');
+    const searchData = await searchRes.json();
+    const results = searchData.results || [];
+
+    // Send source cards
+    const sources = results.map((r, i) => ({
+      index: i + 1,
+      title: r.title,
+      url: r.url,
+      domain: new URL(r.url).hostname.replace('www.', ''),
+      snippet: r.content?.slice(0, 300) || '',
+    }));
+    res.write(`data: ${JSON.stringify({ sources, requestId })}\n\n`);
+
+    // Step 2: Synthesize with Gemini
+    const context = results.map((r, i) => `[${i + 1}] ${r.title}\n${r.content?.slice(0, 2000) || ''}`).join('\n\n');
+    const systemMsg = `You are a research assistant. Use the provided search results to answer the user's question. Cite sources using [1], [2], etc. format. Be concise and accurate.\n\nSearch results:\n${context}`;
+
+    const geminiMessages = [
+      { role: 'user', content: systemMsg },
+      { role: 'user', content: userQuery },
+    ];
+
+    const geminiModel = process.env.GEMINI_TEXT_MODEL || 'gemini-1.5-flash';
+    const contents = geminiMessages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.3 },
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const err = await response.text();
+      const norm = normalizeError({ message: err }, requestId);
+      res.write(`data: ${JSON.stringify(norm)}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          try {
+            const parsed = JSON.parse(data);
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (text) {
+              res.write(`data: ${JSON.stringify({ chunk: text, requestId })}\n\n`);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err) {
+    const norm = normalizeError(err, requestId);
+    res.write(`data: ${JSON.stringify(norm)}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(204).end();
+  res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID');
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const requestId = getRequestId();
+  res.setHeader('X-Request-ID', requestId);
 
   try {
-    const { messages = [], mode = 'smart', attachments = [], webSearch = false } = req.body || {};
-    const lastUserMsg = messages.filter(m => m.role === 'user').pop();
-    const prompt = (lastUserMsg?.content || '').trim();
+    const user = await verifyAuth(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // 1. Fetch user instructions/tone memory from DB
-    let customTone = 'executive';
-    let instructions = '';
-    try {
-      const { data: settings } = await supabase
-        .from('user_settings')
-        .select('custom_instructions, ai_tone')
-        .limit(1)
-        .maybeSingle();
-      if (settings) {
-        if (settings.ai_tone) customTone = settings.ai_tone;
-        if (settings.custom_instructions) instructions = settings.custom_instructions;
-      }
-    } catch {
-      // Continue safely with defaults
+    const { messages, mode, conversation_id, attachments, custom_instructions, style, length } = req.body;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Messages required' });
     }
 
-    // 2. Multimodal Vision Route
-    if (attachments && attachments.length > 0) {
-      const firstAtt = attachments[0];
-      const isImg = firstAtt.type?.startsWith('image/') || firstAtt.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i) || firstAtt.name?.match(/\.(jpg|jpeg|png|webp|gif)$/i);
-      
-      const content = `### 👁️ OZLIND Multimodal Vision Analysis\n\nI have visually parsed and processed your uploaded file (**${firstAtt.name || 'image attachment'}**).\n\n#### Structural & Visual Breakdown\n1. **Object & Entity Detection:** High-fidelity spatial features detected across the primary canvas plane.\n2. **Visual Hierarchy & Texture:** Balanced luminance distribution, clear focal points, and structured edge gradients.\n3. **Contextual Correlation:** Cross-evaluated visual data against your query: *" ${prompt || 'Analyze this file'} "*. \n\n#### Synthesized Intelligence\n- **Media Type:** ${isImg ? 'High-Resolution Raster / Vector Image' : 'Structured Document / Data Stream'}\n- **Processing Pipeline:** OZLIND Multimodal Vision Core v2\n- **Insight:** The attachment provides strong visual context for reasoning. All entities have been extracted into active memory.\n\n*Would you like me to extract specific text (OCR), analyze layout dimensions, or generate code matching this layout?*`;
-
-      return res.status(200).json({
-        role: 'assistant',
-        content,
-        sources: [],
-        autoTitle: prompt.substring(0, 32) || 'Vision Analysis',
-        modelUsed: 'OZLIND Multimodal Vision v2',
-        routerPath: 'multimodal_vision'
-      });
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.content?.length > MAX_INPUT_LENGTH) {
+      return res.status(400).json({ error: 'Input too long' });
     }
 
-    // 3. Deep Web Research Route
-    if (mode === 'research' || webSearch) {
-      const sources = [
-        {
-          title: `Autonomous AI Systems & Reasoning Pipelines (2026)`,
-          url: 'https://arxiv.org/abs/2603.intelligence-routing',
-          snippet: 'Comprehensive analysis of modern agentic workflows, memory persistence, and dynamic multi-model orchestration.'
-        },
-        {
-          title: 'IEEE Computer Society — Next-Gen AI Workspaces',
-          url: 'https://computer.org/publications/ai-workspaces-2026',
-          snippet: 'Evaluation of zero-leakage enterprise architecture and client-isolated serverless AI endpoints.'
-        },
-        {
-          title: 'Global Technology Review — Independent AI Innovations',
-          url: 'https://technologyreview.com/insights/independent-platforms',
-          snippet: 'Profiles of independent creator-led platforms like OZLIND AI setting new standards for accessible, private intelligence.'
-        }
-      ];
-
-      const content = `### 🔍 OZLIND Deep Web Research Report\n\n**Topic Focus:** ${prompt || 'Advanced Technology Analysis'}\n**Pipeline Status:** Multi-source Verified | Live Knowledge Base (2026)\n\n---\n\n#### Executive Summary\nOur autonomous research pipeline gathered real-time data on **"${prompt}"**. Findings show strong industry momentum toward resilient, sovereign AI platforms designed with server-side isolation, instantaneous model routing, and persistent context retention.\n\n#### Key Intelligence & Findings\n1. **Architectural Sovereignty:** Organizations and power users are shifting away from monolithic closed ecosystems in favor of unified environments like **OZLIND AI**, where context, identity, and data belong strictly to the owner.\n2. **Inference Acceleration:** State-of-the-art serverless execution has reduced latency by over **68%** in 2026 while maintaining deep analytical depth.\n3. **Multimodal Convergence:** Document understanding, image analysis, and deep web validation are now unified under cohesive agentic routing.\n\n#### Strategic Actionable Takeaways\n- Adopt modular AI routing to optimize between instant conversational speed and multi-step research synthesis.\n- Leverage persistent custom instructions to ensure domain-specific precision across every prompt cycle.\n\n*Synthesized autonomously by OZLIND AI Deep Research Engine • Owned & Created by Athul*`;
-
-      return res.status(200).json({
-        role: 'assistant',
-        content,
-        sources,
-        autoTitle: prompt.substring(0, 32) || 'Deep Web Research',
-        modelUsed: 'OZLIND Deep Research Engine',
-        routerPath: 'deep_research'
-      });
+    const rateCheck = await checkRateLimit(user.id, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: rateCheck.message });
     }
 
-    // 4. Smart AI Conversational Route
-    let responseText = '';
-    const lowerPrompt = prompt.toLowerCase();
+    await incrementUsage(user.id);
 
-    if (lowerPrompt.includes('who are you') || lowerPrompt.includes('what is ozlind') || lowerPrompt.includes('who created') || lowerPrompt.includes('who made') || lowerPrompt.includes('athul')) {
-      responseText = `Greetings! I am **OZLIND AI**, a unified artificial intelligence platform owned and created by **Athul**.\n\nI am engineered to serve as your sovereign intelligence workspace, featuring:\n- 💬 **High-Performance AI Chat & Reasoning**\n- 🔎 **Autonomous Deep Web Research & Citation Verification**\n- 👁️ **Multimodal Vision & Document Understanding**\n- 🧠 **Persistent Context & Persona Memory Directives**\n- ⚡ **Intelligent Model Routing Engine**\n\nEvery capability operates on a zero-leakage architecture where your data remains encrypted and server-side isolated.\n\nHow can I help you today?`;
-    } else if (lowerPrompt.includes('code') || lowerPrompt.includes('typescript') || lowerPrompt.includes('react') || lowerPrompt.includes('function') || lowerPrompt.includes('javascript') || lowerPrompt.includes('hook') || lowerPrompt.includes('python')) {
-      responseText = `Here is an optimized, production-ready implementation tailored to your request:\n\n\`\`\`typescript\n// OZLIND Core — High Performance Hook Architecture\nimport { useState, useEffect, useCallback, useRef } from 'react';\n\ninterface UseAIStreamOptions<T> {\n  endpoint: string;\n  onChunk?: (token: string) => void;\n  onError?: (err: Error) => void;\n  onComplete?: (fullResponse: T) => void;\n}\n\nexport function useAIStream<T = any>({ endpoint, onChunk, onError, onComplete }: UseAIStreamOptions<T>) {\n  const [data, setData] = useState<T | null>(null);\n  const [isLoading, setIsLoading] = useState<boolean>(false);\n  const [error, setError] = useState<Error | null>(null);\n  const abortControllerRef = useRef<AbortController | null>(null);\n\n  const execute = useCallback(async (payload: Record<string, any>) => {\n    setIsLoading(true);\n    setError(null);\n    abortControllerRef.current = new AbortController();\n\n    try {\n      const response = await fetch(endpoint, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify(payload),\n        signal: abortControllerRef.current.signal,\n      });\n\n      if (!response.ok) {\n        throw new Error(\`OZLIND Engine Error: \${response.statusText}\`);\n      }\n\n      const json = await response.json();\n      setData(json);\n      onComplete?.(json);\n      return json;\n    } catch (err: any) {\n      if (err.name !== 'AbortError') {\n        setError(err);\n        onError?.(err);\n      }\n    } finally {\n      setIsLoading(false);\n    }\n  }, [endpoint, onChunk, onError, onComplete]);\n\n  const stop = useCallback(() => {\n    abortControllerRef.current?.abort();\n    setIsLoading(false);\n  }, []);\n\n  useEffect(() => {\n    return () => { abortControllerRef.current?.abort(); };\n  }, []);\n\n  return { data, isLoading, error, execute, stop };\n}\n\`\`\`\n\n### Key Technical Highlights:\n1. **Zero Memory Leaks:** Employs \`AbortController\` cleanup on unmount.\n2. **Type-Safe Generics:** Allows custom return typing for flexible payload validation.\n3. **Resilient Error Boundaries:** Disregards manual user aborts while bubbling critical network faults.\n\nLet me know if you would like me to extend this with WebSocket streaming or local caching!`;
+    // Get memories
+    const { data: memories } = await supabase
+      .from('memories')
+      .select('content')
+      .eq('user_id', user.id)
+      .eq('enabled', true);
+
+    const memoryText = memories?.length ? `User preferences:\n${memories.map(m => `- ${m.content}`).join('\n')}` : '';
+    const instructionText = custom_instructions ? `Custom instructions: ${custom_instructions}` : '';
+    const styleText = style ? `Response style: ${style}` : '';
+    const lengthText = length ? `Response length: ${length}` : '';
+
+    const systemParts = [memoryText, instructionText, styleText, lengthText].filter(Boolean);
+    const systemContent = systemParts.length ? systemParts.join('\n\n') : 'You are a helpful AI assistant.';
+
+    const hasImages = attachments?.some(a => /image\/(png|jpeg|webp)/.test(a.type));
+    const provider = selectProvider(mode, hasImages, lastMsg.content);
+
+    const apiMessages = [
+      { role: 'system', content: systemContent },
+      ...messages.slice(-20).map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+    ];
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    if (provider === 'fast') {
+      const groqModel = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+      await streamGroq(apiMessages, res, requestId, groqModel);
+    } else if (provider === 'research') {
+      await streamResearch(apiMessages, res, requestId);
+    } else if (provider === 'vision' || provider === 'pro') {
+      await streamGemini(apiMessages, res, requestId, null, hasImages);
     } else {
-      // General executive reasoning
-      const tonePrefix = customTone === 'technical' ? 'Technical Briefing:' : customTone === 'creative' ? 'Creative Synthesis:' : customTone === 'concise' ? 'Direct Answer:' : 'Executive Assessment:';
-      
-      responseText = `**${tonePrefix}**\n\nRegarding: **${prompt}**\n\nOZLIND AI has processed your inquiry through the Core Routing Engine.\n\n### Key Considerations & Analysis\n1. **Core Concept:** When analyzing this domain, the key objective is ensuring structural efficiency, clarity of execution, and minimal operational overhead.\n2. **Strategic Impact:** Applying established first-principles reasoning helps de-risk implementation and accelerate high-value outcomes.\n3. **Practical Implementation:** Ensure all components integrate cleanly with persistent data layers and resilient state machines.\n\n*Need deeper research or code examples? Simply toggle "Deep Research" or ask for a detailed breakdown.*`;
+      await streamGemini(apiMessages, res, requestId, null, hasImages);
     }
 
-    const autoTitle = prompt.length > 30 ? prompt.substring(0, 30) + '...' : prompt;
-
-    return res.status(200).json({
-      role: 'assistant',
-      content: responseText,
-      sources: [],
-      autoTitle: autoTitle || 'Conversation',
-      modelUsed: 'OZLIND Core Engine v4.5',
-      routerPath: 'smart_ai'
-    });
+    // Save user message if conversation_id provided
+    if (conversation_id) {
+      await supabase.from('messages').insert({
+        conversation_id,
+        role: 'user',
+        content: lastMsg.content,
+        attachments: attachments || [],
+      });
+    }
   } catch (err) {
     console.error('Chat API error:', err);
-    res.status(500).json({ error: err.message });
+    const norm = normalizeError(err, requestId);
+    res.status(500).json(norm);
   }
 }

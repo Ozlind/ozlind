@@ -5,8 +5,8 @@ const isMobile = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function buildGoogleUrl(appName: string) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const redirectUri = import.meta.env.VITE_GOOGLE_AUTH_PROXY;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!clientId || !redirectUri) return null;
   const state = btoa(JSON.stringify({ origin: window.location.origin, appName, supabaseUrl, supabaseAnonKey }));
   return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&prompt=select_account&state=${encodeURIComponent(state)}`;
@@ -14,11 +14,7 @@ function buildGoogleUrl(appName: string) {
 
 export function signInWithGoogle(appName = 'OZLIND AI') {
   const url = buildGoogleUrl(appName);
-  if (!url) {
-    console.warn('[google-auth] Missing VITE_GOOGLE_CLIENT_ID or VITE_GOOGLE_AUTH_PROXY');
-    return;
-  }
-
+  if (!url) { console.warn('[google-auth] Missing VITE_GOOGLE_CLIENT_ID or VITE_GOOGLE_AUTH_PROXY'); return; }
   window.open(url, 'google-auth', isMobile() ? '' : 'width=500,height=600');
 
   const handler = async (event: MessageEvent) => {
@@ -45,9 +41,6 @@ export async function handleGoogleRedirect() {
   if (!token) return;
   window.history.replaceState({}, '', window.location.pathname);
   const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token });
-  if (error) {
-    console.error('[google-auth] signInWithIdToken failed:', error.message);
-    return;
-  }
+  if (error) { console.error('[google-auth] signInWithIdToken failed:', error.message); return; }
   try { window.close(); } catch {}
 }
