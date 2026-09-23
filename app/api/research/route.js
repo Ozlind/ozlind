@@ -36,7 +36,8 @@ export async function POST(request) {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        return json({ error: "Live research is temporarily unavailable." }, 502);
+        const detail = typeof data?.detail === "string" ? data.detail : "Live research is temporarily unavailable.";
+        return json({ error: detail }, 502);
       }
 
       return json({
@@ -58,6 +59,11 @@ export async function POST(request) {
           }))
           .filter((item) => /^https?:\/\//i.test(item.url)),
       });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return json({ error: "Live research timed out. Please try again." }, 504);
+      }
+      return json({ error: "Live research request failed." }, 502);
     } finally {
       clearTimeout(timer);
     }
