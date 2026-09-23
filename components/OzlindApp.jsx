@@ -99,6 +99,8 @@ export default function OzlindApp() {
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
+  const requestIdRef = useRef(0);
+  const conversationIdRef = useRef(makeId());
   const endRef = useRef(null);
 
   const title = messages[0]?.content
@@ -174,6 +176,9 @@ export default function OzlindApp() {
 
   function newConversation() {
     abortRef.current?.abort();
+    requestIdRef.current += 1;
+    abortRef.current = null;
+    conversationIdRef.current = makeId();
     setIsStreaming(false);
     setMessages([]);
     setInput("");
@@ -184,7 +189,14 @@ export default function OzlindApp() {
   }
 
   function loadConversation(item) {
-    setMessages(item.messages || []);
+    abortRef.current?.abort();
+    requestIdRef.current += 1;
+    abortRef.current = null;
+    conversationIdRef.current = item.id || makeId();
+    setIsStreaming(false);
+    setMessages(Array.isArray(item.messages) ? item.messages : []);
+    setInput("");
+    setFile(null);
     setSidebarOpen(false);
   }
 
@@ -221,7 +233,7 @@ export default function OzlindApp() {
     toast("Conversation copied");
   }
 
-  async function sendMessage(text = input) {
+  async function sendMessage(text = input, baseMessages = messages) {
     const prompt = text.trim();
     if (!prompt || isStreaming) return;
 
@@ -233,7 +245,10 @@ export default function OzlindApp() {
     };
 
     const assistantId = makeId();
-    const nextMessages = [...messages, userMessage];
+    const nextMessages = [...baseMessages, userMessage];
+    const requestId = ++requestIdRef.current;
+    const conversationId = conversationIdRef.current;
+    const attachedFile = file;
 
     setMessages([
       ...nextMessages,
@@ -251,9 +266,8 @@ export default function OzlindApp() {
     try {
       let userContent = prompt;
 
-      // Images are sent as data URLs for Gemini vision.
-      if (file && file.type.startsWith("image/")) {
-        const dataUrl = await fileToDataUrl(file);
+      if (attachedFile && attachedFile.type.startsWith("image/")) {
+        const dataUrl = await fileToDataUrl(attachedFile);
         userContent = [
           { type: "text", text: prompt },
           { type: "image_url", image_url: { url: dataUrl } },
@@ -265,9 +279,9 @@ export default function OzlindApp() {
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          messages: [...messages, { role: "user", content: userContent }],
-          mode: mode === "research" ? "research" : mode,
-          research: research || mode === "research",
+          messages: [...baseMessages, { role: "user", content: userContent }],
+          mode: mode,
+          research,
           memory: settings.memory,
           responseStyle: settings.style,
           responseLength: settings.length,
@@ -288,7 +302,9 @@ export default function OzlindApp() {
       let assistantText = "";
       let sources = [];
 
+      const isCurrentRequest = () => requestIdRef.current === requestId;
       const updateAssistant = (patch) => {
+        if (!isCurrentRequest()) return;
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId ? { ...message, ...patch } : message
@@ -332,24 +348,28 @@ export default function OzlindApp() {
         }
       }
 
-      updateAssistant({ content: assistantText || "I couldn't generate a response.", streaming: false });
+      if (!isCurrentRequest()) return;
+
+      updateAssistant({
+        content: assistantText || "I couldn't generate a response.",
+        streaming: false,
+      });
 
       if (settings.saveHistory) {
         const item = {
-          id: makeId(),
+          id: conversationId,
           title: prompt.slice(0, 64),
           updatedAt: Date.now(),
-          messages: [...nextMessages, {
-            id: assistantId,
-            role: "assistant",
-            content: assistantText,
-            sources,
-          }],
+          messages: [
+            ...nextMessages,
+            { id: assistantId, role: "assistant", content: assistantText, sources },
+          ],
         };
-        persistHistory([item, ...history.filter((entry) => entry.title !== item.title)]);
+        const nextHistory = [item, ...history.filter((entry) => entry.id !== conversationId)];
+        persistHistory(nextHistory);
       }
     } catch (error) {
-      if (error?.name !== "AbortError") {
+      if (error?.name !== "AbortError" && requestIdRef.current === requestId) {
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
@@ -364,13 +384,17 @@ export default function OzlindApp() {
         );
       }
     } finally {
-      abortRef.current = null;
-      setIsStreaming(false);
+      if (requestIdRef.current === requestId) {
+        abortRef.current = null;
+        setIsStreaming(false);
+      }
     }
   }
 
   function stopGeneration() {
+    requestIdRef.current += 1;
     abortRef.current?.abort();
+    abortRef.current = null;
     setIsStreaming(false);
     setMessages((current) =>
       current.map((message) =>
@@ -382,13 +406,17 @@ export default function OzlindApp() {
   async function regenerate(index) {
     const target = messages[index - 1];
     if (!target || target.role !== "user" || isStreaming) return;
-    setMessages(messages.slice(0, index));
-    await sendMessage(target.content);
+
+    const baseMessages = messages.slice(0, index - 1);
+    setMessages(baseMessages);
+    await sendMessage(target.content, baseMessages);
   }
 
   function editMessage(message) {
+    const index = messages.findIndex((item) => item.id === message.id);
+    if (index < 0) return;
     setInput(message.content);
-    setMessages((current) => current.filter((item) => item.id !== message.id));
+    setMessages(messages.slice(0, index));
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
       autosize();
@@ -402,16 +430,8 @@ export default function OzlindApp() {
   function onFileChange(event) {
     const selected = event.target.files?.[0];
     if (!selected) return;
-    const allowed = [
-      "application/pdf",
-      "text/plain",
-      "text/markdown",
-      "text/csv",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    if (!selected.type.startsWith("image/") && !allowed.includes(selected.type)) {
-      toast("This file type is not supported.");
+    if (!selected.type.startsWith("image/")) {
+      toast("Only image attachments are supported right now.");
       event.target.value = "";
       return;
     }
@@ -528,7 +548,7 @@ export default function OzlindApp() {
                     type="button"
                     onClick={() => {
                       setMode(id);
-                      setResearch(id === "research");
+                      if (id === "research") setResearch(true);
                       setModelOpen(false);
                     }}
                   >
@@ -726,16 +746,13 @@ export default function OzlindApp() {
                   ref={fileRef}
                   type="file"
                   hidden
-                  accept=".pdf,.txt,.md,.doc,.docx,.csv,.png,.jpg,.jpeg"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
                   onChange={onFileChange}
                 />
                 <button
                   className={`tool-button web-label ${research ? "active" : ""}`}
                   type="button"
-                  onClick={() => {
-                    setResearch((value) => !value);
-                    setMode((current) => current === "research" ? "auto" : "research");
-                  }}
+                  onClick={() => setResearch((value) => !value)}
                   aria-label="Search the web"
                 >
                   <Telescope size={17} />
