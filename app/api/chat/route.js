@@ -19,83 +19,65 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 async function tavilySearch(query) {
-  if (!process.env.TAVILY_API_KEY) {
-    return null;
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    throw new Error("Web search is not configured on the server.");
   }
 
   const controller = new AbortController();
-
-  const timer = setTimeout(
-    () => controller.abort(),
-    15000
-  );
+  const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(
-      "https://api.tavily.com/search",
-      {
-        method: "POST",
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        query: query.slice(0, 500),
+        topic: "general",
+        search_depth: "basic",
+        max_results: 5,
+        include_answer: true,
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
 
-        headers: {
-          "Content-Type": "application/json",
-          Authorization:
-            `Bearer ${process.env.TAVILY_API_KEY}`,
-        },
-
-        body: JSON.stringify({
-          query: query.slice(0, 500),
-          topic: "general",
-          search_depth: "basic",
-          max_results: 5,
-          include_answer: true,
-        }),
-
-        signal: controller.signal,
-        cache: "no-store",
-      }
-    );
-
-    const data =
-      await response.json().catch(
-        () => ({})
-      );
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      return null;
+      const detail = typeof data?.detail === "string" ? data.detail : "Web search request failed.";
+      throw new Error(detail);
     }
 
-    const results =
-      (data.results || [])
-        .slice(0, 5)
-        .map((item) => {
-          let domain = "";
+    const results = (data.results || [])
+      .slice(0, 5)
+      .map((item) => {
+        let domain = "";
+        try {
+          domain = new URL(item.url || "").hostname.replace(/^www\./, "");
+        } catch {}
 
-          try {
-            domain = new URL(
-              item.url || ""
-            ).hostname.replace(
-              /^www\./,
-              ""
-            );
-          } catch {}
-
-          return {
-            title: item.title || "",
-            url: item.url || "",
-            domain,
-            content: item.content || "",
-          };
-        })
-        .filter((item) =>
-          /^https?:\/\//i.test(
-            item.url
-          )
-        );
+        return {
+          title: item.title || "",
+          url: item.url || "",
+          domain,
+          content: item.content || "",
+        };
+      })
+      .filter((item) => /^https?:\/\//i.test(item.url));
 
     return {
       answer: data.answer || "",
       results,
     };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Web search timed out. Please try again.");
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
