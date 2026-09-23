@@ -8,55 +8,93 @@ import {
   systemPrompt,
   validateMessages,
 } from "@/lib/server";
-import { providerOrder, streamFromProviders } from "@/lib/providers";
+
+import {
+  providerOrder,
+  streamFromProviders,
+} from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-async function tavily(query) {
-  if (!process.env.TAVILY_API_KEY) return null;
+async function tavilySearch(query) {
+  if (!process.env.TAVILY_API_KEY) {
+    return null;
+  }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+
+  const timer = setTimeout(
+    () => controller.abort(),
+    15000
+  );
 
   try {
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        query: query.slice(0, 500),
-        topic: "general",
-        search_depth: "basic",
-        max_results: 5,
-        include_answer: true,
-      }),
-      signal: controller.signal,
-    });
+    const response = await fetch(
+      "https://api.tavily.com/search",
+      {
+        method: "POST",
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return null;
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:
+            `Bearer ${process.env.TAVILY_API_KEY}`,
+        },
+
+        body: JSON.stringify({
+          query: query.slice(0, 500),
+          topic: "general",
+          search_depth: "basic",
+          max_results: 5,
+          include_answer: true,
+        }),
+
+        signal: controller.signal,
+        cache: "no-store",
+      }
+    );
+
+    const data =
+      await response.json().catch(
+        () => ({})
+      );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const results =
+      (data.results || [])
+        .slice(0, 5)
+        .map((item) => {
+          let domain = "";
+
+          try {
+            domain = new URL(
+              item.url || ""
+            ).hostname.replace(
+              /^www\./,
+              ""
+            );
+          } catch {}
+
+          return {
+            title: item.title || "",
+            url: item.url || "",
+            domain,
+            content: item.content || "",
+          };
+        })
+        .filter((item) =>
+          /^https?:\/\//i.test(
+            item.url
+          )
+        );
 
     return {
       answer: data.answer || "",
-      results: (data.results || [])
-        .slice(0, 5)
-        .map((item) => ({
-          title: item.title || "",
-          url: item.url || "",
-          domain: (() => {
-            try {
-              return new URL(item.url || "").hostname.replace(/^www\./, "");
-            } catch {
-              return "";
-            }
-          })(),
-          content: item.content || "",
-        }))
-        .filter((item) => /^https?:\/\//i.test(item.url)),
+      results,
     };
   } finally {
     clearTimeout(timer);
@@ -65,65 +103,136 @@ async function tavily(query) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const messages = validateMessages(body?.messages);
-    const query = latestUserMessage(messages);
-    const vision = hasVision(messages);
+    const body =
+      await request.json();
+
+    const messages =
+      validateMessages(
+        body?.messages
+      );
+
+    const query =
+      latestUserMessage(messages);
+
+    const vision =
+      hasVision(messages);
 
     if (!query.trim() && !vision) {
-      return json({ error: "Please enter a message." }, 400);
+      return json(
+        {
+          error:
+            "Please enter a message.",
+        },
+        400
+      );
     }
 
-    const research = shouldResearch(body, query) ? await tavily(query) : null;
-    const system = systemPrompt(body || {}, research);
-    const order = providerOrder(body?.mode || "auto", vision);
+    const research =
+      shouldResearch(
+        body || {},
+        query
+      )
+        ? await tavilySearch(query)
+        : null;
 
-    const encoder = new TextEncoder();
+    const system =
+      systemPrompt(
+        body || {},
+        research
+      );
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const send = (payload) => {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
-          );
-        };
+    const order =
+      providerOrder(
+        body?.mode || "auto",
+        vision
+      );
 
-        try {
-          send({ type: "ready" });
+    const encoder =
+      new TextEncoder();
 
-          const result = await streamFromProviders({
-            order,
-            messages,
-            system,
-            onDelta(delta) {
-              send({ type: "delta", content: delta });
-            },
-          });
+    const stream =
+      new ReadableStream({
+        async start(controller) {
+          const send = (payload) => {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify(
+                  payload
+                )}\n\n`
+              )
+            );
+          };
 
-          if (research?.results?.length) {
-            send({ type: "sources", sources: research.results });
+          try {
+            send({
+              type: "ready",
+            });
+
+            const result =
+              await streamFromProviders({
+                order,
+                messages,
+                system,
+
+                onDelta(delta) {
+                  send({
+                    type: "delta",
+                    content: delta,
+                  });
+                },
+              });
+
+            if (
+              research?.results?.length
+            ) {
+              send({
+                type: "sources",
+                sources:
+                  research.results,
+              });
+            }
+
+            send({
+              type: "done",
+            });
+
+            controller.close();
+          } catch (error) {
+            send({
+              type: "error",
+              error: safeError(error),
+            });
+
+            controller.close();
           }
-
-          // Provider/model identifiers stay server-side; do not expose them in UI.
-          send({ type: "done" });
-          controller.close();
-        } catch (error) {
-          send({ type: "error", error: safeError(error) });
-          controller.close();
-        }
-      },
-    });
+        },
+      });
 
     return new Response(stream, {
       status: 200,
+
       headers: {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
+        "Content-Type":
+          "text/event-stream; charset=utf-8",
+
+        "Cache-Control":
+          "no-cache, no-transform",
+
         Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
+
+        "X-Accel-Buffering":
+          "no",
       },
     });
   } catch (error) {
-    return json({ error: clean(safeError(error), 220) }, 400);
+    return json(
+      {
+        error: clean(
+          safeError(error),
+          220
+        ),
+      },
+      400
+    );
   }
 }
