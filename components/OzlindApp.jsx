@@ -31,6 +31,7 @@ import {
   Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { createClient } from "@/lib/supabase/client";
 
 const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
@@ -104,6 +105,8 @@ function OzlindMark({ className = "", size = 35 }) {
 }
 
 export default function OzlindApp() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
@@ -143,6 +146,43 @@ export default function OzlindApp() {
   }, [history, historySearch]);
 
   useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    async function loadSession() {
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      setUser(data.session?.user ?? null);
+      setAuthLoading(false);
+    }
+
+    loadSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.replace("/login");
+    }
+  }, [authLoading, user]);
+
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.replace("/login");
+  }
+
+  useEffect(() => {
     const savedTheme = localStorage.getItem("ozlind-theme");
     const preferred =
       savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -173,6 +213,14 @@ export default function OzlindApp() {
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  if (authLoading || !user) {
+    return (
+      <main className="workspace" style={{ minHeight: "100dvh", display: "grid", placeItems: "center" }}>
+        <div aria-live="polite">Loading Ozlind…</div>
+      </main>
+    );
+  }
 
   function toast(message) {
     setNotice(message);
@@ -511,10 +559,15 @@ export default function OzlindApp() {
           </div>
 
           <button className="user-row" type="button" onClick={() => setSettingsOpen(true)}>
-            <span className="user-avatar">OS</span>
+            <span className="user-avatar">
+              {(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "O")
+                .trim()
+                .slice(0, 1)
+                .toUpperCase()}
+            </span>
             <span className="user-details">
-              <strong>Ozlind Studio</strong>
-              <small>Personal workspace</small>
+              <strong>{user.user_metadata?.full_name || user.user_metadata?.name || "Ozlind User"}</strong>
+              <small>{user.email || "Signed in"}</small>
             </span>
             <OzlindIcon id="i-settings" size={17} />
           </button>
@@ -807,9 +860,20 @@ export default function OzlindApp() {
             </div>
 
             <div className="settings-profile">
-              <span className="user-avatar">OS</span>
-              <span><strong>Ozlind Studio</strong><small>Personal workspace</small></span>
+              <span className="user-avatar">
+                {(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "O")
+                  .trim()
+                  .slice(0, 1)
+                  .toUpperCase()}
+              </span>
+              <span>
+                <strong>{user.user_metadata?.full_name || user.user_metadata?.name || "Ozlind User"}</strong>
+                <small>{user.email || "Signed in"}</small>
+              </span>
             </div>
+            <button className="secondary-button" type="button" onClick={signOut}>
+              Sign out
+            </button>
 
             <label className="setting-row">
               <span><strong>Save conversation history</strong><small>Keep chats on this device.</small></span>
