@@ -31,902 +31,1735 @@ import {
   Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { createClient } from "@/lib/supabase/client";
 
 const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
 
+const DEFAULT_SETTINGS = {
+  provider: "auto",
+  research: false,
+  memory: true,
+  style: "balanced",
+  length: "medium",
+  customInstructions: "",
+};
+
 const MODES = [
-  { id: "auto", label: "Auto", icon: Sparkles },
-  { id: "fast", label: "Fast", icon: Zap },
-  { id: "pro", label: "Pro", icon: BrainCircuit },
-  { id: "vision", label: "Vision", icon: Sparkles },
-  { id: "research", label: "Research", icon: Telescope },
+  {
+    id: "auto",
+    label: "Auto",
+    description: "Balanced reasoning and speed",
+    icon: Sparkles,
+  },
+  {
+    id: "fast",
+    label: "Fast",
+    description: "Quick answers for everyday tasks",
+    icon: Zap,
+  },
+  {
+    id: "pro",
+    label: "Pro",
+    description: "Deeper reasoning and complex tasks",
+    icon: BrainCircuit,
+  },
+  {
+    id: "vision",
+    label: "Vision",
+    description: "Understand images and visual files",
+    icon: Telescope,
+  },
 ];
 
-const suggestions = [
-  ["Strategy", Rocket, "Design a launch strategy for my sustainable skincare brand."],
-  ["Writing", PenLine, "Turn my rough notes into a polished client proposal."],
-  ["Planning", Map, "Build a seven-day Japan itinerary focused on design and food."],
-  ["Analysis", Code2, "Analyze this quarter's customer data and surface the key trends."],
+const SUGGESTIONS = [
+  {
+    icon: Lightbulb,
+    title: "Explain something",
+    prompt: "Explain a difficult topic in a simple way.",
+  },
+  {
+    icon: Code2,
+    title: "Write code",
+    prompt: "Help me build a clean production-ready solution.",
+  },
+  {
+    icon: FileText,
+    title: "Work with a document",
+    prompt: "Analyze this document and summarize the important points.",
+  },
+  {
+    icon: Map,
+    title: "Plan something",
+    prompt: "Create a practical step-by-step plan for my goal.",
+  },
 ];
-
-function makeId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function readJSON(key, fallback) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return value ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function favicon(url) {
-  try {
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
-      new URL(url).hostname
-    )}&sz=32`;
-  } catch {
-    return "";
-  }
-}
-
-function OzlindIcon({ id, size = 18, className = "", title }) {
-  return (
-    <svg
-      className={`ozlind-svg-icon ${className}`.trim()}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      aria-hidden={title ? undefined : "true"}
-      role={title ? "img" : undefined}
-    >
-      {title ? <title>{title}</title> : null}
-      <use href={`/ozlind-icons.svg#${id}`} />
-    </svg>
-  );
-}
-
-function OzlindMark({ className = "", size = 35 }) {
-  return (
-    <svg
-      className={`ozlind-mark-svg ${className}`.trim()}
-      width={size}
-      height={size}
-      viewBox="0 0 96 96"
-      aria-hidden="true"
-    >
-      <use href="/ozlind-icons.svg#ozl-mark" />
-    </svg>
-  );
-}
 
 export default function OzlindApp() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
-  const [research, setResearch] = useState(false);
-  const [file, setFile] = useState(null);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [history, setHistory] = useState([]);
-  const [historySearch, setHistorySearch] = useState("");
-  const [dark, setDark] = useState(false);
+  const [activeChatId, setActiveChatId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [modelOpen, setModelOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modeOpen, setModeOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
   const [notice, setNotice] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [copiedId, setCopiedId] = useState("");
-  const [settings, setSettings] = useState({
-    memory: true,
-    saveHistory: true,
-    style: "balanced",
-    length: "medium",
-    customInstructions: "",
-  });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [error, setError] = useState("");
+  const [copiedMessage, setCopiedMessage] = useState(null);
 
-  const fileRef = useRef(null);
   const textareaRef = useRef(null);
-  const abortRef = useRef(null);
-  const endRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const bottomRef = useRef(null);
+  const modeRef = useRef(null);
+  const noticeTimerRef = useRef(null);
 
-  const title = messages[0]?.content
-    ? messages.find((message) => message.role === "user")?.content.slice(0, 42) ||
-      "New conversation"
-    : "New conversation";
+  const selectedMode = useMemo(
+    () => MODES.find((item) => item.id === mode) || MODES[0],
+    [mode]
+  );
 
   const filteredHistory = useMemo(() => {
     const query = historySearch.trim().toLowerCase();
-    if (!query) return history;
-    return history.filter((item) => item.title.toLowerCase().includes(query));
+
+    if (!query) {
+      return history;
+    }
+
+    return history.filter((item) =>
+      String(item.title || "").toLowerCase().includes(query)
+    );
   }, [history, historySearch]);
 
   useEffect(() => {
-    const supabase = createClient();
-    let active = true;
+    try {
+      const storedHistory = localStorage.getItem(HISTORY_KEY);
+      const storedSettings = localStorage.getItem(SETTINGS_KEY);
 
-    async function loadSession() {
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      setUser(data.session?.user ?? null);
-      setAuthLoading(false);
+      if (storedHistory) {
+        const parsedHistory = JSON.parse(storedHistory);
+
+        if (Array.isArray(parsedHistory)) {
+          setHistory(parsedHistory);
+        }
+      }
+
+      if (storedSettings) {
+        const parsedSettings = JSON.parse(storedSettings);
+
+        if (parsedSettings && typeof parsedSettings === "object") {
+          setSettings({
+            ...DEFAULT_SETTINGS,
+            ...parsedSettings,
+          });
+        }
+      }
+    } catch {
+      setHistory([]);
+      setSettings(DEFAULT_SETTINGS);
     }
+  }, []);
 
-    loadSession();
+  useEffect(() => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch {
+      // Ignore localStorage failures.
+    }
+  }, [history]);
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // Ignore localStorage failures.
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (
+        modeRef.current &&
+        !modeRef.current.contains(event.target)
+      ) {
+        setModeOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
 
     return () => {
-      active = false;
-      listener.subscription.unsubscribe();
+      document.removeEventListener("mousedown", handleClick);
     };
   }, []);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      window.location.replace("/login");
-    }
-  }, [authLoading, user]);
-
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.replace("/login");
-  }
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("ozlind-theme");
-    const preferred =
-      savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    setDark(preferred === "dark");
-    setHistory(readJSON(HISTORY_KEY, []));
-    setSettings({
-      memory: true,
-      saveHistory: true,
-      style: "balanced",
-      length: "medium",
-      customInstructions: "",
-      ...readJSON(SETTINGS_KEY, {}),
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
     });
-  }, []);
-
-  useEffect(() => {
-    document.body.classList.toggle("dark", dark);
-    document.documentElement.style.colorScheme = dark ? "dark" : "light";
-    try {
-      localStorage.setItem("ozlind-theme", dark ? "dark" : "light");
-    } catch {}
-  }, [dark]);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isStreaming]);
 
   useEffect(() => {
-    return () => abortRef.current?.abort();
+    if (!notice) {
+      return undefined;
+    }
+
+    clearTimeout(noticeTimerRef.current);
+
+    noticeTimerRef.current = setTimeout(() => {
+      setNotice("");
+    }, 2600);
+
+    return () => {
+      clearTimeout(noticeTimerRef.current);
+    };
+  }, [notice]);
+
+  useEffect(() => {
+    const handleKeyboard = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "k") {
+        event.preventDefault();
+        textareaRef.current?.focus();
+      }
+
+      if (event.key === "Escape") {
+        setModeOpen(false);
+        setSettingsOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboard);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyboard);
+    };
   }, []);
 
-  if (authLoading || !user) {
-    return (
-      <main className="workspace" style={{ minHeight: "100dvh", display: "grid", placeItems: "center" }}>
-        <div aria-live="polite">Loading Ozlind…</div>
-      </main>
-    );
-  }
-
-  function toast(message) {
+  function showNotice(message) {
     setNotice(message);
-    window.clearTimeout(toast.timer);
-    toast.timer = window.setTimeout(() => setNotice(""), 2600);
   }
 
-  function autosize() {
-    const element = textareaRef.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 180)}px`;
-  }
-
-  function persistHistory(next) {
-    setHistory(next);
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(next.slice(0, 50)));
-    } catch {}
-  }
-
-  function saveSettings() {
-    try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch {}
-    setSettingsOpen(false);
-    toast("Preferences saved");
-  }
-
-  function newConversation() {
-    abortRef.current?.abort();
-    setIsStreaming(false);
-    setMessages([]);
-    setInput("");
-    setFile(null);
-    setSidebarOpen(false);
-    toast("New conversation");
-    requestAnimationFrame(autosize);
-  }
-
-  function loadConversation(item) {
-    setMessages(item.messages || []);
-    setSidebarOpen(false);
-  }
-
-  async function copyMessage(message) {
-    try {
-      await navigator.clipboard.writeText(message.content);
-      setCopiedId(message.id);
-      window.setTimeout(() => setCopiedId(""), 1400);
-    } catch {
-      toast("Copy failed");
+  function createId() {
+    if (
+      typeof crypto !== "undefined" &&
+      typeof crypto.randomUUID === "function"
+    ) {
+      return crypto.randomUUID();
     }
+
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
-  async function shareConversation() {
-    const text = messages
-      .map((message) => `${message.role === "user" ? "You" : "OZLIND"}:\n${message.content}`)
-      .join("\n\n");
+  function createTitle(text) {
+    const cleaned = String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    if (!text) {
-      toast("Nothing to share yet");
+    if (!cleaned) {
+      return "New conversation";
+    }
+
+    return cleaned.length > 52
+      ? `${cleaned.slice(0, 52).trim()}…`
+      : cleaned;
+  }
+
+  function updateHistoryFromMessages(nextMessages, chatId = activeChatId) {
+    if (!chatId || !nextMessages?.length) {
       return;
     }
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `${title} 鈥� Ozlind AI`, text });
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-      }
-    }
+    const firstUserMessage = nextMessages.find(
+      (item) => item.role === "user"
+    );
 
-    await navigator.clipboard.writeText(text);
-    toast("Conversation copied");
+    const title = firstUserMessage
+      ? createTitle(firstUserMessage.content)
+      : "New conversation";
+
+    const updatedAt = Date.now();
+
+    setHistory((current) => {
+      const existing = current.find((item) => item.id === chatId);
+
+      const record = {
+        id: chatId,
+        title: existing?.title || title,
+        messages: nextMessages,
+        updatedAt,
+      };
+
+      if (!existing) {
+        return [record, ...current];
+      }
+
+      return [
+        record,
+        ...current.filter((item) => item.id !== chatId),
+      ];
+    });
   }
 
-  async function sendMessage(text = input) {
-    const prompt = text.trim();
-    if (!prompt || isStreaming) return;
+  function startNewChat() {
+    abortControllerRef.current?.abort();
 
-    const userMessage = {
-      id: makeId(),
-      role: "user",
-      content: prompt,
-      attachments: file ? [{ name: file.name, mimeType: file.type }] : [],
-    };
-
-    const assistantId = makeId();
-    const nextMessages = [...messages, userMessage];
-
-    setMessages([
-      ...nextMessages,
-      { id: assistantId, role: "assistant", content: "", streaming: true },
-    ]);
+    setMessages([]);
     setInput("");
-    setFile(null);
+    setSelectedFile(null);
+    setError("");
+    setActiveChatId(null);
+    setIsStreaming(false);
     setSidebarOpen(false);
-    setIsStreaming(true);
-    requestAnimationFrame(autosize);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  }
+
+  function openHistoryItem(item) {
+    abortControllerRef.current?.abort();
+
+    setMessages(Array.isArray(item.messages) ? item.messages : []);
+    setActiveChatId(item.id);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setIsStreaming(false);
+    setSidebarOpen(false);
+  }
+
+  function deleteHistoryItem(id) {
+    setHistory((current) =>
+      current.filter((item) => item.id !== id)
+    );
+
+    if (activeChatId === id) {
+      startNewChat();
+    }
+
+    showNotice("Conversation deleted");
+  }
+
+  function clearHistory() {
+    if (!history.length) {
+      return;
+    }
+
+    setHistory([]);
+
+    if (activeChatId) {
+      startNewChat();
+    }
+
+    showNotice("History cleared");
+  }
+
+  function clearCurrentChat() {
+    abortControllerRef.current?.abort();
+
+    setMessages([]);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setIsStreaming(false);
+
+    if (activeChatId) {
+      setHistory((current) =>
+        current.filter((item) => item.id !== activeChatId)
+      );
+    }
+
+    setActiveChatId(null);
+    showNotice("Chat cleared");
+  }
+
+  function updateSettings(patch) {
+    setSettings((current) => ({
+      ...current,
+      ...patch,
+    }));
+  }
+
+  function autoResizeTextarea() {
+    const element = textareaRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    element.style.height = "auto";
+    element.style.height = `${Math.min(
+      Math.max(element.scrollHeight, 48),
+      180
+    )}px`;
+  }
+
+  function handleInputChange(event) {
+    setInput(event.target.value);
+    autoResizeTextarea();
+  }
+
+  function handleTextareaKeyDown(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+
+      if (!isStreaming) {
+        sendMessage();
+      }
+    }
+  }
+
+  async function handleFileChange(event) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const maxSize = 12 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setError("This file is too large. Please choose a file under 12 MB.");
+      return;
+    }
+
+    setError("");
+
+    const isImage = file.type.startsWith("image/");
 
     try {
-      let userContent = prompt;
+      let dataUrl = null;
 
-      // Images are sent as data URLs for Gemini vision.
-      if (file && file.type.startsWith("image/")) {
-        const dataUrl = await fileToDataUrl(file);
-        userContent = [
-          { type: "text", text: prompt },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ];
+      if (isImage) {
+        dataUrl = await fileToDataUrl(file);
+      }
+
+      setSelectedFile({
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        size: file.size,
+        dataUrl,
+        file,
+      });
+
+      showNotice(`${file.name} attached`);
+    } catch {
+      setError("Could not read the selected file.");
+    }
+  }
+
+  function removeSelectedFile() {
+    setSelectedFile(null);
+  }
+
+  async function copyMessage(content, index) {
+    try {
+      await navigator.clipboard.writeText(String(content || ""));
+      setCopiedMessage(index);
+      showNotice("Copied");
+
+      setTimeout(() => {
+        setCopiedMessage((current) =>
+          current === index ? null : current
+        );
+      }, 1600);
+    } catch {
+      setError("Could not copy the message.");
+    }
+  }
+
+  function getMessageText(message) {
+    if (!message) {
+      return "";
+    }
+
+    if (typeof message.content === "string") {
+      return message.content;
+    }
+
+    if (Array.isArray(message.content)) {
+      return message.content
+        .map((part) => {
+          if (typeof part === "string") {
+            return part;
+          }
+
+          return part?.text || "";
+        })
+        .join("");
+    }
+
+    return "";
+  }
+
+  function buildApiMessages(currentMessages) {
+    return currentMessages.map((message) => ({
+      role: message.role,
+      content: getMessageText(message),
+    }));
+  }
+
+  async function sendMessage(customPrompt) {
+    if (isStreaming) {
+      return;
+    }
+
+    const prompt = String(
+      customPrompt !== undefined ? customPrompt : input
+    ).trim();
+
+    if (!prompt && !selectedFile) {
+      textareaRef.current?.focus();
+      return;
+    }
+
+    setError("");
+
+    const chatId = activeChatId || createId();
+
+    if (!activeChatId) {
+      setActiveChatId(chatId);
+    }
+
+    const userMessage = {
+      id: createId(),
+      role: "user",
+      content: prompt || "Please analyze the attached file.",
+      createdAt: Date.now(),
+      attachment: selectedFile
+        ? {
+            name: selectedFile.name,
+            type: selectedFile.type,
+            size: selectedFile.size,
+            dataUrl: selectedFile.dataUrl,
+          }
+        : null,
+    };
+
+    const nextMessages = [...messages, userMessage];
+
+    setMessages(nextMessages);
+    setInput("");
+    setSelectedFile(null);
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "48px";
+      }
+    });
+
+    const assistantId = createId();
+
+    const assistantMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      createdAt: Date.now(),
+      streaming: true,
+    };
+
+    setMessages((current) => [...current, assistantMessage]);
+    setIsStreaming(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const body = {
+        messages: buildApiMessages(nextMessages),
+        mode,
+        provider: settings.provider,
+        research: settings.research,
+        memory: settings.memory,
+        style: settings.style,
+        length: settings.length,
+        customInstructions: settings.customInstructions,
+      };
+
+      if (selectedFile) {
+        body.file = {
+          name: selectedFile.name,
+          type: selectedFile.type,
+          size: selectedFile.size,
+          dataUrl: selectedFile.dataUrl,
+        };
       }
 
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
         signal: controller.signal,
-        body: JSON.stringify({
-          messages: [...messages, { role: "user", content: userContent }],
-          mode: mode === "research" ? "research" : mode,
-          research: research || mode === "research",
-          memory: settings.memory,
-          responseStyle: settings.style,
-          responseLength: settings.length,
-          customInstructions: settings.customInstructions,
-        }),
       });
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "OZLIND could not complete the request.");
+        let message = "Something went wrong.";
+
+        try {
+          const data = await response.json();
+
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {
+          // Ignore malformed error bodies.
+        }
+
+        throw new Error(message);
       }
 
-      if (!response.body) throw new Error("The AI response stream is unavailable.");
+      if (!response.body) {
+        throw new Error("The server returned an empty response.");
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+
       let buffer = "";
-      let assistantText = "";
-      let sources = [];
+      let fullText = "";
 
-      const updateAssistant = (patch) => {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId ? { ...message, ...patch } : message
-          )
-        );
-      };
+      const appendAssistantText = (chunk) => {
+        fullText += chunk;
 
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data:")) continue;
-          const raw = line.slice(5).trim();
-          if (!raw) continue;
-
-          let event;
-          try {
-            event = JSON.parse(raw);
-          } catch {
-            continue;
-          }
-
-          if (event.type === "delta") {
-            assistantText += event.content || "";
-            updateAssistant({ content: assistantText });
-          }
-
-          if (event.type === "sources") {
-            sources = event.sources || [];
-            updateAssistant({ sources });
-          }
-
-          if (event.type === "error") {
-            throw new Error(event.error || "Generation failed.");
-          }
-        }
-      }
-
-      updateAssistant({ content: assistantText || "I couldn't generate a response.", streaming: false });
-
-      if (settings.saveHistory) {
-        const item = {
-          id: makeId(),
-          title: prompt.slice(0, 64),
-          updatedAt: Date.now(),
-          messages: [...nextMessages, {
-            id: assistantId,
-            role: "assistant",
-            content: assistantText,
-            sources,
-          }],
-        };
-        persistHistory([item, ...history.filter((entry) => entry.title !== item.title)]);
-      }
-    } catch (error) {
-      if (error?.name !== "AbortError") {
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
               ? {
                   ...message,
-                  content: error?.message || "Something went wrong.",
-                  streaming: false,
-                  error: true,
+                  content: fullText,
+                  streaming: true,
                 }
               : message
           )
         );
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, {
+          stream: true,
+        });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+
+          if (!line) {
+            continue;
+          }
+
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim();
+
+            if (!payload || payload === "[DONE]") {
+              continue;
+            }
+
+            try {
+              const parsed = JSON.parse(payload);
+
+              const delta =
+                parsed?.delta ??
+                parsed?.text ??
+                parsed?.content ??
+                parsed?.message?.content ??
+                "";
+
+              if (typeof delta === "string" && delta) {
+                appendAssistantText(delta);
+              }
+
+              if (parsed?.error) {
+                throw new Error(parsed.error);
+              }
+            } catch (parseError) {
+              if (
+                parseError instanceof Error &&
+                parseError.message &&
+                !parseError.message.includes("JSON")
+              ) {
+                throw parseError;
+              }
+            }
+          } else {
+            appendAssistantText(line);
+          }
+        }
       }
+
+      buffer += decoder.decode();
+
+      if (buffer.trim()) {
+        const remaining = buffer.trim();
+
+        if (remaining.startsWith("data:")) {
+          const payload = remaining.slice(5).trim();
+
+          if (payload && payload !== "[DONE]") {
+            try {
+              const parsed = JSON.parse(payload);
+
+              const delta =
+                parsed?.delta ??
+                parsed?.text ??
+                parsed?.content ??
+                parsed?.message?.content ??
+                "";
+
+              if (typeof delta === "string" && delta) {
+                appendAssistantText(delta);
+              }
+            } catch {
+              // Ignore incomplete trailing stream data.
+            }
+          }
+        } else {
+          appendAssistantText(remaining);
+        }
+      }
+
+      const completedMessages = [
+        ...nextMessages,
+        {
+          ...assistantMessage,
+          content: fullText || "No response was returned.",
+          streaming: false,
+        },
+      ];
+
+      setMessages(completedMessages);
+      updateHistoryFromMessages(completedMessages, chatId);
+    } catch (requestError) {
+      if (requestError?.name === "AbortError") {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  streaming: false,
+                  content:
+                    message.content ||
+                    "Generation stopped.",
+                }
+              : message
+          )
+        );
+
+        return;
+      }
+
+      const message =
+        requestError?.message ||
+        "Unable to connect to the AI service.";
+
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === assistantId
+            ? {
+                ...item,
+                streaming: false,
+                content: `**Error:** ${message}`,
+              }
+            : item
+        )
+      );
+
+      setError(message);
     } finally {
-      abortRef.current = null;
       setIsStreaming(false);
+      abortControllerRef.current = null;
     }
   }
 
   function stopGeneration() {
-    abortRef.current?.abort();
+    abortControllerRef.current?.abort();
     setIsStreaming(false);
-    setMessages((current) =>
-      current.map((message) =>
-        message.streaming ? { ...message, streaming: false } : message
-      )
-    );
   }
 
-  async function regenerate(index) {
-    const target = messages[index - 1];
-    if (!target || target.role !== "user" || isStreaming) return;
-    setMessages(messages.slice(0, index));
-    await sendMessage(target.content);
-  }
+  async function regenerateLastResponse() {
+    if (isStreaming || !messages.length) {
+      return;
+    }
 
-  function editMessage(message) {
-    setInput(message.content);
-    setMessages((current) => current.filter((item) => item.id !== message.id));
+    const lastAssistantIndex = [...messages]
+      .reverse()
+      .findIndex((item) => item.role === "assistant");
+
+    if (lastAssistantIndex === -1) {
+      return;
+    }
+
+    const assistantIndex =
+      messages.length - 1 - lastAssistantIndex;
+
+    const previousMessages = messages.slice(0, assistantIndex);
+    const lastUserMessage = [...previousMessages]
+      .reverse()
+      .find((item) => item.role === "user");
+
+    if (!lastUserMessage) {
+      return;
+    }
+
+    setMessages(previousMessages);
+    setInput(getMessageText(lastUserMessage));
+
     requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      autosize();
+      sendMessage(getMessageText(lastUserMessage));
     });
   }
 
-  function deleteMessage(id) {
-    setMessages((current) => current.filter((message) => message.id !== id));
+  function editMessage(message) {
+    const content = getMessageText(message);
+
+    setInput(content);
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      autoResizeTextarea();
+    });
   }
 
-  function onFileChange(event) {
-    const selected = event.target.files?.[0];
-    if (!selected) return;
-    const allowed = [
-      "application/pdf",
-      "text/plain",
-      "text/markdown",
-      "text/csv",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    if (!selected.type.startsWith("image/") && !allowed.includes(selected.type)) {
-      toast("This file type is not supported.");
-      event.target.value = "";
+  async function shareConversation() {
+    const text = messages
+      .map((message) => {
+        const role =
+          message.role === "user" ? "You" : "Ozlind AI";
+
+        return `${role}:\n${getMessageText(message)}`;
+      })
+      .join("\n\n");
+
+    if (!text) {
+      showNotice("Nothing to share yet");
       return;
     }
-    if (selected.size > 10 * 1024 * 1024) {
-      toast("File is too large. Keep attachments under 10 MB.");
-      event.target.value = "";
-      return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Ozlind AI conversation",
+          text,
+        });
+
+        return;
+      }
+
+      await navigator.clipboard.writeText(text);
+      showNotice("Conversation copied");
+    } catch {
+      // User cancelled share or browser denied clipboard access.
     }
-    setFile(selected);
-    toast("File attached");
   }
+
+  function selectSuggestion(prompt) {
+    setInput(prompt);
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      autoResizeTextarea();
+    });
+  }
+
+  function renderMarkdown(content) {
+    return (
+      <ReactMarkdown
+        components={{
+          a: ({ children, ...props }) => (
+            <a
+              {...props}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {children}
+            </a>
+          ),
+          code: ({
+            inline,
+            className,
+            children,
+            ...props
+          }) => {
+            if (inline) {
+              return (
+                <code
+                  className={className}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
+
+            return (
+              <pre>
+                <code
+                  className={className}
+                  {...props}
+                >
+                  {children}
+                </code>
+              </pre>
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    );
+  }
+
+  const hasMessages = messages.length > 0;
 
   return (
-    <div className="app-shell">
-      <aside className={`sidebar ${sidebarOpen ? "mobile-open" : ""}`} aria-label="Ozlind navigation">
-        <div className="brand-row">
-          <button className="brand" onClick={newConversation} aria-label="Ozlind AI home">
-            <span className="brand-mark" aria-hidden="true"><OzlindMark size={35} /></span>
-            <span className="brand-name">Ozlind <span>AI</span></span>
+    <div className="ozlind-app">
+      {sidebarOpen && (
+        <button
+          className="mobile-sidebar-backdrop"
+          aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`ozlind-sidebar ${
+          sidebarOpen ? "is-open" : ""
+        }`}
+      >
+        <div className="sidebar-header">
+          <button
+            className="brand-button"
+            onClick={startNewChat}
+            aria-label="Ozlind home"
+          >
+            <span className="brand-mark">
+              <img
+                src="/ozlind-icons.svg"
+                alt=""
+                aria-hidden="true"
+              />
+            </span>
+
+            <span className="brand-copy">
+              <strong>OZLIND</strong>
+              <span>AI PLATFORM</span>
+            </span>
           </button>
-          <button className="sidebar-collapse" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
-            <OzlindIcon id="i-close" size={18} />
+
+          <button
+            className="icon-button sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <PanelLeftClose size={18} />
           </button>
         </div>
 
-        <button className="primary-action" type="button" onClick={newConversation}>
-          <span className="primary-action-left"><OzlindIcon id="i-new-conversation" size={17} /> New conversation</span>
-          <span className="shortcut">鈱� N</span>
-        </button>
+        <div className="sidebar-content">
+          <button
+            className="new-chat-button"
+            onClick={startNewChat}
+          >
+            <PenLine size={17} />
+            <span>New chat</span>
+          </button>
 
-        <div className="search-wrap">
-          <OzlindIcon id="i-search" size={16} />
-          <input
-            className="search-input"
-            value={historySearch}
-            onChange={(event) => setHistorySearch(event.target.value)}
-            type="search"
-            placeholder="Search conversations"
-            aria-label="Search conversations"
-          />
-        </div>
+          <nav className="sidebar-nav">
+            <button
+              className="sidebar-nav-item active"
+              onClick={startNewChat}
+            >
+              <MessageSquare size={17} />
+              <span>AI Chat</span>
+              <span className="live-dot">LIVE</span>
+            </button>
 
-        <div className="history-scroll">
-          <p className="history-label">Conversations</p>
-          {filteredHistory.length === 0 ? (
-            <p className="history-empty">No saved conversations yet.</p>
-          ) : (
-            filteredHistory.map((item) => (
-              <button
-                className="history-item"
-                key={item.id}
-                type="button"
-                onClick={() => loadConversation(item)}
-              >
-                <OzlindIcon id="i-history" size={15} />
-                <span>{item.title}</span>
-              </button>
-            ))
-          )}
-        </div>
+            <button
+              className="sidebar-nav-item"
+              onClick={() => {
+                updateSettings({ research: true });
+                showNotice("Research enabled");
+              }}
+            >
+              <Search size={17} />
+              <span>Web Research</span>
+              <span className="live-dot">LIVE</span>
+            </button>
+          </nav>
 
-        <div className="sidebar-bottom">
-          <div className="upgrade-card">
-            <strong>Unlock Ozlind Pro</strong>
-            <p>More intelligence, longer context, and priority access.</p>
-            <button type="button" onClick={() => toast("Pro plans are coming soon")}>View plans</button>
+          <div className="sidebar-section">
+            <div className="sidebar-section-heading">
+              <span>Workspace</span>
+            </div>
+
+            <button className="sidebar-nav-item disabled">
+              <Sparkles size={17} />
+              <span>Image Generator</span>
+              <span className="next-label">NEXT</span>
+            </button>
+
+            <button className="sidebar-nav-item disabled">
+              <FileText size={17} />
+              <span>Documents</span>
+              <span className="next-label">NEXT</span>
+            </button>
+
+            <button className="sidebar-nav-item disabled">
+              <Code2 size={17} />
+              <span>Code Assistant</span>
+              <span className="next-label">NEXT</span>
+            </button>
           </div>
 
-          <button className="user-row" type="button" onClick={() => setSettingsOpen(true)}>
-            <span className="user-avatar">
-              {(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "O")
-                .trim()
-                .slice(0, 1)
-                .toUpperCase()}
-            </span>
-            <span className="user-details">
-              <strong>{user.user_metadata?.full_name || user.user_metadata?.name || "Ozlind User"}</strong>
-              <small>{user.email || "Signed in"}</small>
-            </span>
-            <OzlindIcon id="i-settings" size={17} />
+          <div className="sidebar-section history-section">
+            <div className="sidebar-section-heading">
+              <span>History</span>
+
+              {history.length > 0 && (
+                <button
+                  className="text-button"
+                  onClick={clearHistory}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {history.length > 0 && (
+              <div className="history-search">
+                <Search size={14} />
+                <input
+                  value={historySearch}
+                  onChange={(event) =>
+                    setHistorySearch(event.target.value)
+                  }
+                  placeholder="Search history"
+                  aria-label="Search history"
+                />
+              </div>
+            )}
+
+            <div className="history-list">
+              {filteredHistory.length === 0 ? (
+                <div className="history-empty">
+                  <span>No conversations yet.</span>
+                </div>
+              ) : (
+                filteredHistory.map((item) => (
+                  <div
+                    className={`history-item ${
+                      activeChatId === item.id
+                        ? "active"
+                        : ""
+                    }`}
+                    key={item.id}
+                  >
+                    <button
+                      className="history-item-main"
+                      onClick={() => openHistoryItem(item)}
+                    >
+                      <MessageSquare size={14} />
+                      <span>{item.title}</span>
+                    </button>
+
+                    <button
+                      className="history-delete"
+                      onClick={() =>
+                        deleteHistoryItem(item.id)
+                      }
+                      aria-label={`Delete ${item.title}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="sidebar-footer">
+          <button
+            className="sidebar-nav-item"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings2 size={17} />
+            <span>Settings</span>
           </button>
+
+          <div className="profile-card">
+            <div className="profile-avatar">
+              <span>A</span>
+            </div>
+
+            <div className="profile-info">
+              <strong>Athul</strong>
+              <span>OZLIND User</span>
+            </div>
+
+            <ShieldCheck size={16} />
+          </div>
         </div>
       </aside>
 
-      <div
-        className={`sidebar-overlay ${sidebarOpen ? "visible" : ""}`}
-        onClick={() => setSidebarOpen(false)}
-        aria-hidden="true"
-      />
-
-      <section className="workspace">
-        <header className="topbar">
+      <main className="ozlind-main">
+        <header className="ozlind-topbar">
           <div className="topbar-left">
-            <button className="icon-button mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
-              <OzlindIcon id="i-menu" size={19} />
+            <button
+              className="icon-button mobile-menu-button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
+              <Menu size={19} />
             </button>
 
-            <span className="top-title">{title}</span>
-            <span className="top-divider" aria-hidden="true" />
+            <div className="mobile-brand">
+              <strong>OZLIND</strong>
+              <span>AI</span>
+            </div>
 
-            <div className={`model-switcher ${modelOpen ? "open" : ""}`}>
-              <button
-                className="model-button"
-                onClick={() => setModelOpen((value) => !value)}
-                aria-haspopup="true"
-                aria-expanded={modelOpen}
-              >
-                <span className="model-gem"><Sparkles size={14} /></span>
-                <strong>{MODES.find((item) => item.id === mode)?.label || "Auto"}</strong>
-                <ChevronDown size={14} />
-              </button>
-
-              <div className="model-menu" role="menu">
-                <div className="model-menu-title">Choose a mode</div>
-                {MODES.map(({ id, label, icon: Icon }) => (
-                  <button
-                    className={`model-option ${mode === id ? "active" : ""}`}
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      setMode(id);
-                      setResearch(id === "research");
-                      setModelOpen(false);
-                    }}
-                  >
-                    <span className="model-option-icon"><Icon size={16} /></span>
-                    <span>
-                      <strong>{label}</strong>
-                      <small>
-                        {id === "auto" ? "Automatic routing" :
-                          id === "fast" ? "Quick everyday responses" :
-                          id === "pro" ? "Deeper reasoning" :
-                          id === "vision" ? "Images and visual understanding" :
-                          "Current web information"}
-                      </small>
-                    </span>
-                    {mode === id && <Check className="check" size={15} />}
-                  </button>
-                ))}
-              </div>
+            <div className="status-badge">
+              <span className="status-dot" />
+              Online
             </div>
           </div>
 
-          <div className="topbar-right">
-            <span className="privacy-pill"><ShieldCheck size={14} /> Private</span>
-            <button className="icon-button share-button" onClick={shareConversation} aria-label="Share conversation">
-              <Share2 size={17} />
+          <div className="topbar-actions">
+            <button
+              className="icon-button"
+              onClick={shareConversation}
+              aria-label="Share conversation"
+              title="Share"
+            >
+              <Share2 size={18} />
             </button>
-            <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="Switch theme">
-              {dark ? <Sun size={17} /> : <Moon size={17} />}
+
+            <button
+              className="clear-chat-button"
+              onClick={clearCurrentChat}
+            >
+              <Trash2 size={16} />
+              <span>Clear chat</span>
             </button>
           </div>
         </header>
 
-        <main className="conversation">
-          {messages.length === 0 ? (
-            <section className="welcome">
-              <div className="welcome-kicker">
-                <span className="pulse-dot" />
-                Ozlind is ready to create
+        <section className="workspace">
+          {!hasMessages ? (
+            <div className="welcome-screen">
+              <div className="welcome-badge">
+                <Sparkles size={15} />
+                <span>OZLIND AI</span>
               </div>
 
-              <h1>What will we <span className="gradient-text">make possible</span> today?</h1>
-              <p className="welcome-subtitle">
-                Think, write, research, and build with an AI workspace designed to keep your ideas clear and moving forward.
+              <h1>
+                What can I help
+                <br />
+                you with?
+              </h1>
+
+              <p>
+                Ask questions, analyze files, research topics,
+                write code, or plan your next idea.
               </p>
 
               <div className="suggestion-grid">
-                {suggestions.map(([tag, Icon, prompt]) => (
-                  <button className="suggestion-card" key={tag} type="button" onClick={() => sendMessage(prompt)}>
-                    <span className="suggestion-top">
-                      <span className="suggestion-icon"><Icon size={17} /></span>
-                      <span className="suggestion-tag">{tag}</span>
-                    </span>
-                    <p>{prompt}</p>
-                  </button>
-                ))}
-              </div>
+                {SUGGESTIONS.map((suggestion) => {
+                  const Icon = suggestion.icon;
 
-              <div className="capabilities">
-                <span className="capability-label">Start with</span>
-                {[
-                  ["Brainstorm", Lightbulb, "Help me brainstorm "],
-                  ["Write", FileText, "Help me write "],
-                  ["Research", Telescope, "Research and summarize "],
-                  ["Code", Code2, "Help me code "],
-                ].map(([label, Icon, value]) => (
-                  <button className="capability" key={label} type="button" onClick={() => {
-                    setInput(value);
-                    requestAnimationFrame(() => {
-                      autosize();
-                      textareaRef.current?.focus();
-                    });
-                  }}>
-                    <Icon size={15} /> {label}
-                  </button>
-                ))}
+                  return (
+                    <button
+                      className="suggestion-card"
+                      key={suggestion.title}
+                      onClick={() =>
+                        selectSuggestion(
+                          suggestion.prompt
+                        )
+                      }
+                    >
+                      <span className="suggestion-icon">
+                        <Icon size={18} />
+                      </span>
+
+                      <span className="suggestion-content">
+                        <strong>{suggestion.title}</strong>
+                        <span>{suggestion.prompt}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </section>
+            </div>
           ) : (
-            <section className="messages" aria-live="polite">
-              {messages.map((message, index) => (
-                <article className={`message-row ${message.role}`} key={message.id}>
-                  <div className="assistant-avatar" aria-hidden="true">
-                    {message.role === "user" ? "Y" : ""}
-                  </div>
+            <div className="chat-area">
+              <div className="messages-list">
+                {messages.map((message, index) => {
+                  const isUser = message.role === "user";
+                  const content = getMessageText(message);
 
-                  <div className="message-body">
-                    <div className="message-meta">
-                      <strong>{message.role === "user" ? "You" : "OZLIND"}</strong>
-                      {message.streaming && <span className="streaming-label"><i /> Generating</span>}
-                    </div>
-
-                    <div className="message-content">
-                      {message.content ? (
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                      ) : (
-                        <div className="thinking"><i /><i /><i /></div>
-                      )}
-                      {message.streaming && message.content && <span className="typing-cursor" />}
-                    </div>
-
-                    {message.attachments?.length > 0 && (
-                      <div className="message-files">
-                        {message.attachments.map((attachment) => (
-                          <span key={`${attachment.name}-${attachment.mimeType}`}>
-                            <Paperclip size={12} /> {attachment.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {message.sources?.length > 0 && (
-                      <details className="sources-panel">
-                        <summary>
-                          <span className="source-icons">
-                            {message.sources.slice(0, 4).map((source) => (
-                              <img key={source.url} src={favicon(source.url)} alt="" />
-                            ))}
-                          </span>
-                          <span>Sources</span>
-                          <b>{message.sources.length}</b>
-                          <ChevronDown size={13} />
-                        </summary>
-                        <div className="source-list">
-                          {message.sources.map((source) => (
-                            <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
-                              <img src={favicon(source.url)} alt="" />
-                              <span><strong>{source.title || source.domain}</strong><small>{source.domain}</small></span>
-                              <ArrowUp size={13} style={{ transform: "rotate(45deg)" }} />
-                            </a>
-                          ))}
+                  return (
+                    <article
+                      className={`message-row ${
+                        isUser ? "user" : "assistant"
+                      }`}
+                      key={message.id || index}
+                    >
+                      {!isUser && (
+                        <div className="assistant-avatar">
+                          <Sparkles size={15} />
                         </div>
-                      </details>
-                    )}
+                      )}
 
-                    {!message.streaming && (
-                      <div className="message-actions">
-                        <button onClick={() => copyMessage(message)}>
-                          <OzlindIcon id="i-copy" size={13} /> {copiedId === message.id ? "Copied" : "Copy"}
-                        </button>
-                        {message.role === "user" && (
-                          <button onClick={() => editMessage(message)}>Edit</button>
-                        )}
-                        {message.role === "assistant" && (
-                          <button onClick={() => regenerate(index)}>
-                            <OzlindIcon id="i-regenerate" size={13} /> Regenerate
+                      <div className="message-column">
+                        <div className="message-meta">
+                          <span>
+                            {isUser ? "You" : "Ozlind AI"}
+                          </span>
+                        </div>
+
+                        <div className="message-bubble">
+                          {message.attachment && (
+                            <div className="message-attachment">
+                              {message.attachment.dataUrl &&
+                              message.attachment.type?.startsWith(
+                                "image/"
+                              ) ? (
+                                <img
+                                  src={
+                                    message.attachment.dataUrl
+                                  }
+                                  alt={
+                                    message.attachment.name
+                                  }
+                                />
+                              ) : (
+                                <div className="attachment-file">
+                                  <FileText size={16} />
+                                  <span>
+                                    {message.attachment.name}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {content ? (
+                            isUser ? (
+                              <p>{content}</p>
+                            ) : (
+                              <div className="markdown-content">
+                                {renderMarkdown(content)}
+                              </div>
+                            )
+                          ) : message.streaming ? (
+                            <div className="streaming-indicator">
+                              <span />
+                              <span />
+                              <span />
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="message-actions">
+                          <button
+                            onClick={() =>
+                              copyMessage(content, index)
+                            }
+                            aria-label="Copy message"
+                          >
+                            {copiedMessage === index ? (
+                              <Check size={14} />
+                            ) : (
+                              <Copy size={14} />
+                            )}
                           </button>
-                        )}
-                        <button onClick={() => deleteMessage(message.id)}>
-                          <OzlindIcon id="i-delete" size={13} /> Delete
-                        </button>
+
+                          {isUser && (
+                            <button
+                              onClick={() =>
+                                editMessage(message)
+                              }
+                              aria-label="Edit message"
+                            >
+                              <PenLine size={14} />
+                            </button>
+                          )}
+
+                          {!isUser &&
+                            index === messages.length - 1 &&
+                            !isStreaming && (
+                              <button
+                                onClick={regenerateLastResponse}
+                                aria-label="Regenerate response"
+                              >
+                                <RefreshCw size={14} />
+                              </button>
+                            )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+
+                <div ref={bottomRef} />
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="error-banner" role="alert">
+              <span>{error}</span>
+
+              <button
+                onClick={() => setError("")}
+                aria-label="Dismiss error"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
+          <div className="composer-area">
+            {selectedFile && (
+              <div className="selected-file">
+                <div className="selected-file-info">
+                  {selectedFile.dataUrl &&
+                  selectedFile.type?.startsWith("image/") ? (
+                    <img
+                      src={selectedFile.dataUrl}
+                      alt={selectedFile.name}
+                    />
+                  ) : (
+                    <FileText size={18} />
+                  )}
+
+                  <div>
+                    <strong>{selectedFile.name}</strong>
+                    <span>
+                      {formatFileSize(selectedFile.size)}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  className="icon-button"
+                  onClick={removeSelectedFile}
+                  aria-label="Remove attachment"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+            )}
+
+            <div className="composer-shell">
+              <div className="composer-toolbar">
+                <div className="composer-left">
+                  <button
+                    className="composer-icon-button"
+                    onClick={() =>
+                      fileInputRef.current?.click()
+                    }
+                    aria-label="Attach file"
+                    title="Attach file"
+                  >
+                    <Paperclip size={19} />
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    onChange={handleFileChange}
+                    accept="image/*,.pdf,.txt,.csv,.md,.json,.doc,.docx"
+                  />
+
+                  <div
+                    className="mode-selector"
+                    ref={modeRef}
+                  >
+                    <button
+                      className="mode-button"
+                      onClick={() =>
+                        setModeOpen((current) => !current)
+                      }
+                      aria-expanded={modeOpen}
+                    >
+                      <selectedMode.icon size={16} />
+                      <span>{selectedMode.label}</span>
+                      <ChevronDown size={14} />
+                    </button>
+
+                    {modeOpen && (
+                      <div className="mode-menu">
+                        {MODES.map((item) => {
+                          const Icon = item.icon;
+
+                          return (
+                            <button
+                              key={item.id}
+                              className={`mode-menu-item ${
+                                mode === item.id
+                                  ? "active"
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                setMode(item.id);
+                                setModeOpen(false);
+                              }}
+                            >
+                              <span className="mode-menu-icon">
+                                <Icon size={16} />
+                              </span>
+
+                              <span className="mode-menu-copy">
+                                <strong>{item.label}</strong>
+                                <span>
+                                  {item.description}
+                                </span>
+                              </span>
+
+                              {mode === item.id && (
+                                <Check size={15} />
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                </article>
-              ))}
-              <div ref={endRef} />
-            </section>
-          )}
-        </main>
 
-        <footer className="composer-wrap">
-          {file && (
-            <div className="attached-file">
-              <span><OzlindIcon id="i-attach" size={14} /><span>{file.name}</span></span>
-              <button type="button" onClick={() => setFile(null)} aria-label="Remove file"><OzlindIcon id="i-close" size={14} /></button>
-            </div>
-          )}
+                  <button
+                    className={`research-toggle ${
+                      settings.research ? "active" : ""
+                    }`}
+                    onClick={() =>
+                      updateSettings({
+                        research: !settings.research,
+                      })
+                    }
+                    aria-pressed={settings.research}
+                  >
+                    <Search size={15} />
+                    <span>Research</span>
+                  </button>
+                </div>
 
-          <form className="composer" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
-            <textarea
-              ref={textareaRef}
-              className="prompt-input"
-              rows={1}
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                requestAnimationFrame(autosize);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  sendMessage();
-                }
-              }}
-              placeholder={mode === "research" ? "What should OZLIND research?" : "Ask Ozlind anything..."}
-              aria-label="Message Ozlind"
-            />
-
-            <div className="composer-footer">
-              <div className="composer-tools">
-                <button className="tool-button" type="button" onClick={() => fileRef.current?.click()} aria-label="Attach a file">
-                  <OzlindIcon id="i-attach" size={17} />
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  hidden
-                  accept=".pdf,.txt,.md,.doc,.docx,.csv,.png,.jpg,.jpeg"
-                  onChange={onFileChange}
-                />
-                <button
-                  className={`tool-button web-label ${research ? "active" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    setResearch((value) => !value);
-                    setMode((current) => current === "research" ? "auto" : "research");
-                  }}
-                  aria-label="Search the web"
-                >
-                  <OzlindIcon id="i-web-research" size={17} />
-                  <span>Web</span>
-                </button>
+                <div className="composer-right">
+                  {isStreaming ? (
+                    <button
+                      className="send-button stop"
+                      onClick={stopGeneration}
+                      aria-label="Stop generation"
+                    >
+                      <span className="stop-square" />
+                    </button>
+                  ) : (
+                    <button
+                      className="send-button"
+                      onClick={() => sendMessage()}
+                      disabled={
+                        !input.trim() && !selectedFile
+                      }
+                      aria-label="Send message"
+                    >
+                      <ArrowUp size={19} />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="composer-send">
-                {isStreaming ? (
-                  <button className="send-button" type="button" onClick={stopGeneration} aria-label="Stop generation">
-                    <span className="stop-square" />
-                  </button>
-                ) : (
-                  <button className="send-button" type="submit" disabled={!input.trim()} aria-label="Send message">
-                    <OzlindIcon id="i-send" size={18} />
-                  </button>
-                )}
+              <textarea
+                ref={textareaRef}
+                className="composer-input"
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleTextareaKeyDown}
+                placeholder="Message OZLIND AI..."
+                rows={1}
+                disabled={isStreaming}
+                aria-label="Message OZLIND AI"
+              />
+
+              <div className="composer-footer">
+                <span>
+                  OZLIND can make mistakes. Verify important
+                  information.
+                </span>
+
+                <span className="keyboard-hint">
+                  <kbd>Enter</kbd> send
+                  <kbd>Shift</kbd>+
+                  <kbd>Enter</kbd> new line
+                </span>
               </div>
             </div>
-          </form>
-
-          <p className="composer-note">Ozlind may make mistakes. Verify important information.</p>
-        </footer>
-      </section>
+          </div>
+        </section>
+      </main>
 
       {settingsOpen && (
-        <div className="settings-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSettingsOpen(false);
-        }}>
-          <div className="settings-dialog" role="dialog" aria-modal="true" aria-label="Preferences">
+        <div
+          className="dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSettingsOpen(false);
+            }
+          }}
+        >
+          <section
+            className="settings-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Settings"
+          >
             <div className="dialog-header">
               <div>
-                <strong>Preferences</strong>
-                <small>Control how OZLIND behaves on this device.</small>
+                <span className="dialog-eyebrow">
+                  Preferences
+                </span>
+                <h2>Settings</h2>
               </div>
-              <button className="dialog-close" onClick={() => setSettingsOpen(false)} aria-label="Close preferences">
-                <X size={17} />
+
+              <button
+                className="icon-button"
+                onClick={() => setSettingsOpen(false)}
+                aria-label="Close settings"
+              >
+                <X size={18} />
               </button>
             </div>
 
-            <div className="settings-profile">
-              <span className="user-avatar">
-                {(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "O")
-                  .trim()
-                  .slice(0, 1)
-                  .toUpperCase()}
-              </span>
-              <span>
-                <strong>{user.user_metadata?.full_name || user.user_metadata?.name || "Ozlind User"}</strong>
-                <small>{user.email || "Signed in"}</small>
-              </span>
+            <div className="settings-content">
+              <section className="settings-section">
+                <div className="settings-section-heading">
+                  <strong>AI behavior</strong>
+                  <span>
+                    Configure how OZLIND responds.
+                  </span>
+                </div>
+
+                <div className="setting-row">
+                  <div>
+                    <strong>Provider routing</strong>
+                    <span>
+                      Automatically select an available
+                      provider when possible.
+                    </span>
+                  </div>
+
+                  <select
+                    value={settings.provider}
+                    onChange={(event) =>
+                      updateSettings({
+                        provider: event.target.value,
+                      })
+                    }
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="groq">Fast</option>
+                    <option value="gemini">Vision</option>
+                    <option value="experiential">
+                      Pro
+                    </option>
+                  </select>
+                </div>
+
+                <div className="setting-row">
+                  <div>
+                    <strong>Research</strong>
+                    <span>
+                      Allow web research when enabled.
+                    </span>
+                  </div>
+
+                  <button
+                    className={`switch ${
+                      settings.research ? "active" : ""
+                    }`}
+                    onClick={() =>
+                      updateSettings({
+                        research: !settings.research,
+                      })
+                    }
+                    role="switch"
+                    aria-checked={settings.research}
+                  >
+                    <span />
+                  </button>
+                </div>
+
+                <div className="setting-row">
+                  <div>
+                    <strong>Memory</strong>
+                    <span>
+                      Keep useful local conversation context.
+                    </span>
+                  </div>
+
+                  <button
+                    className={`switch ${
+                      settings.memory ? "active" : ""
+                    }`}
+                    onClick={() =>
+                      updateSettings({
+                        memory: !settings.memory,
+                      })
+                    }
+                    role="switch"
+                    aria-checked={settings.memory}
+                  >
+                    <span />
+                  </button>
+                </div>
+              </section>
+
+              <section className="settings-section">
+                <div className="settings-section-heading">
+                  <strong>Response style</strong>
+                  <span>
+                    Adjust answer length and writing style.
+                  </span>
+                </div>
+
+                <div className="segmented-control">
+                  {[
+                    ["concise", "Concise"],
+                    ["balanced", "Balanced"],
+                    ["detailed", "Detailed"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      className={
+                        settings.length === value
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        updateSettings({
+                          length: value,
+                        })
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="segmented-control">
+                  {[
+                    ["balanced", "Balanced"],
+                    ["professional", "Professional"],
+                    ["friendly", "Friendly"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      className={
+                        settings.style === value
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        updateSettings({
+                          style: value,
+                        })
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="settings-section">
+                <div className="settings-section-heading">
+                  <strong>Custom instructions</strong>
+                  <span>
+                    Optional instructions applied to your
+                    conversations.
+                  </span>
+                </div>
+
+                <textarea
+                  className="settings-textarea"
+                  value={settings.customInstructions}
+                  onChange={(event) =>
+                    updateSettings({
+                      customInstructions:
+                        event.target.value,
+                    })
+                  }
+                  placeholder="Tell OZLIND how you want responses to be written..."
+                  rows={5}
+                />
+              </section>
+
+              <section className="settings-section account-section">
+                <div className="settings-section-heading">
+                  <strong>Account</strong>
+                  <span>
+                    Your current OZLIND profile.
+                  </span>
+                </div>
+
+                <div className="account-card">
+                  <div className="profile-avatar large">
+                    <span>A</span>
+                  </div>
+
+                  <div>
+                    <strong>Athul</strong>
+                    <span>OZLIND User</span>
+                  </div>
+                </div>
+              </section>
             </div>
-            <button className="secondary-button" type="button" onClick={signOut}>
-              Sign out
-            </button>
 
-            <label className="setting-row">
-              <span><strong>Save conversation history</strong><small>Keep chats on this device.</small></span>
-              <input type="checkbox" checked={settings.saveHistory} onChange={(event) => setSettings({ ...settings, saveHistory: event.target.checked })} />
-            </label>
+            <div className="dialog-footer">
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  setSettings(DEFAULT_SETTINGS);
+                  showNotice("Settings reset");
+                }}
+              >
+                Reset
+              </button>
 
-            <label className="setting-row">
-              <span><strong>Memory</strong><small>Use relevant supplied conversation context.</small></span>
-              <input type="checkbox" checked={settings.memory} onChange={(event) => setSettings({ ...settings, memory: event.target.checked })} />
-            </label>
-
-            <div className="setting-field">
-              <label htmlFor="responseStyle">Response style</label>
-              <select id="responseStyle" value={settings.style} onChange={(event) => setSettings({ ...settings, style: event.target.value })}>
-                <option value="balanced">Balanced</option>
-                <option value="professional">Professional</option>
-                <option value="friendly">Friendly</option>
-                <option value="direct">Direct</option>
-              </select>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  showNotice("Settings saved");
+                }}
+              >
+                Done
+              </button>
             </div>
-
-            <div className="setting-field">
-              <label htmlFor="responseLength">Response length</label>
-              <select id="responseLength" value={settings.length} onChange={(event) => setSettings({ ...settings, length: event.target.value })}>
-                <option value="short">Short</option>
-                <option value="medium">Medium</option>
-                <option value="long">Long</option>
-              </select>
-            </div>
-
-            <div className="setting-field">
-              <label htmlFor="customInstructions">Custom instructions</label>
-              <textarea
-                id="customInstructions"
-                rows={4}
-                value={settings.customInstructions}
-                maxLength={5000}
-                onChange={(event) => setSettings({ ...settings, customInstructions: event.target.value })}
-                placeholder="Tell OZLIND how you want responses written."
-              />
-            </div>
-
-            <div className="dialog-actions">
-              <button className="dialog-button" onClick={() => setSettingsOpen(false)}>Cancel</button>
-              <button className="dialog-button primary" onClick={saveSettings}>Save changes</button>
-            </div>
-          </div>
+          </section>
         </div>
       )}
 
       {notice && (
         <div className="toast" role="status" aria-live="polite">
-          <span className="toast-icon"><Check size={15} /></span>
+          <span className="toast-icon">
+            <Check size={15} />
+          </span>
           <span>{notice}</span>
         </div>
       )}
@@ -934,11 +1767,36 @@ export default function OzlindApp() {
   );
 }
 
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 async function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read the image."));
+
+    reader.onload = () =>
+      resolve(String(reader.result));
+
+    reader.onerror = () =>
+      reject(
+        new Error(
+          "Could not read the image."
+        )
+      );
+
     reader.readAsDataURL(file);
   });
-      }
+}
