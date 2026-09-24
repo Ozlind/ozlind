@@ -73,6 +73,36 @@ function favicon(url) {
   }
 }
 
+function OzlindIcon({ id, size = 18, className = "", title }) {
+  return (
+    <svg
+      className={`ozlind-svg-icon ${className}`.trim()}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden={title ? undefined : "true"}
+      role={title ? "img" : undefined}
+    >
+      {title ? <title>{title}</title> : null}
+      <use href={`/ozlind-icons.svg#${id}`} />
+    </svg>
+  );
+}
+
+function OzlindMark({ className = "", size = 35 }) {
+  return (
+    <svg
+      className={`ozlind-mark-svg ${className}`.trim()}
+      width={size}
+      height={size}
+      viewBox="0 0 96 96"
+      aria-hidden="true"
+    >
+      <use href="/ozlind-icons.svg#ozl-mark" />
+    </svg>
+  );
+}
+
 export default function OzlindApp() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -99,8 +129,6 @@ export default function OzlindApp() {
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
-  const requestIdRef = useRef(0);
-  const conversationIdRef = useRef(makeId());
   const endRef = useRef(null);
 
   const title = messages[0]?.content
@@ -176,9 +204,6 @@ export default function OzlindApp() {
 
   function newConversation() {
     abortRef.current?.abort();
-    requestIdRef.current += 1;
-    abortRef.current = null;
-    conversationIdRef.current = makeId();
     setIsStreaming(false);
     setMessages([]);
     setInput("");
@@ -189,14 +214,7 @@ export default function OzlindApp() {
   }
 
   function loadConversation(item) {
-    abortRef.current?.abort();
-    requestIdRef.current += 1;
-    abortRef.current = null;
-    conversationIdRef.current = item.id || makeId();
-    setIsStreaming(false);
-    setMessages(Array.isArray(item.messages) ? item.messages : []);
-    setInput("");
-    setFile(null);
+    setMessages(item.messages || []);
     setSidebarOpen(false);
   }
 
@@ -222,7 +240,7 @@ export default function OzlindApp() {
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: `${title} — Ozlind AI`, text });
+        await navigator.share({ title: `${title} 鈥� Ozlind AI`, text });
         return;
       } catch (error) {
         if (error?.name === "AbortError") return;
@@ -233,7 +251,7 @@ export default function OzlindApp() {
     toast("Conversation copied");
   }
 
-  async function sendMessage(text = input, baseMessages = messages) {
+  async function sendMessage(text = input) {
     const prompt = text.trim();
     if (!prompt || isStreaming) return;
 
@@ -245,10 +263,7 @@ export default function OzlindApp() {
     };
 
     const assistantId = makeId();
-    const nextMessages = [...baseMessages, userMessage];
-    const requestId = ++requestIdRef.current;
-    const conversationId = conversationIdRef.current;
-    const attachedFile = file;
+    const nextMessages = [...messages, userMessage];
 
     setMessages([
       ...nextMessages,
@@ -266,8 +281,9 @@ export default function OzlindApp() {
     try {
       let userContent = prompt;
 
-      if (attachedFile && attachedFile.type.startsWith("image/")) {
-        const dataUrl = await fileToDataUrl(attachedFile);
+      // Images are sent as data URLs for Gemini vision.
+      if (file && file.type.startsWith("image/")) {
+        const dataUrl = await fileToDataUrl(file);
         userContent = [
           { type: "text", text: prompt },
           { type: "image_url", image_url: { url: dataUrl } },
@@ -279,9 +295,9 @@ export default function OzlindApp() {
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          messages: [...baseMessages, { role: "user", content: userContent }],
-          mode: mode,
-          research,
+          messages: [...messages, { role: "user", content: userContent }],
+          mode: mode === "research" ? "research" : mode,
+          research: research || mode === "research",
           memory: settings.memory,
           responseStyle: settings.style,
           responseLength: settings.length,
@@ -302,9 +318,7 @@ export default function OzlindApp() {
       let assistantText = "";
       let sources = [];
 
-      const isCurrentRequest = () => requestIdRef.current === requestId;
       const updateAssistant = (patch) => {
-        if (!isCurrentRequest()) return;
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId ? { ...message, ...patch } : message
@@ -348,28 +362,24 @@ export default function OzlindApp() {
         }
       }
 
-      if (!isCurrentRequest()) return;
-
-      updateAssistant({
-        content: assistantText || "I couldn't generate a response.",
-        streaming: false,
-      });
+      updateAssistant({ content: assistantText || "I couldn't generate a response.", streaming: false });
 
       if (settings.saveHistory) {
         const item = {
-          id: conversationId,
+          id: makeId(),
           title: prompt.slice(0, 64),
           updatedAt: Date.now(),
-          messages: [
-            ...nextMessages,
-            { id: assistantId, role: "assistant", content: assistantText, sources },
-          ],
+          messages: [...nextMessages, {
+            id: assistantId,
+            role: "assistant",
+            content: assistantText,
+            sources,
+          }],
         };
-        const nextHistory = [item, ...history.filter((entry) => entry.id !== conversationId)];
-        persistHistory(nextHistory);
+        persistHistory([item, ...history.filter((entry) => entry.title !== item.title)]);
       }
     } catch (error) {
-      if (error?.name !== "AbortError" && requestIdRef.current === requestId) {
+      if (error?.name !== "AbortError") {
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
@@ -384,17 +394,13 @@ export default function OzlindApp() {
         );
       }
     } finally {
-      if (requestIdRef.current === requestId) {
-        abortRef.current = null;
-        setIsStreaming(false);
-      }
+      abortRef.current = null;
+      setIsStreaming(false);
     }
   }
 
   function stopGeneration() {
-    requestIdRef.current += 1;
     abortRef.current?.abort();
-    abortRef.current = null;
     setIsStreaming(false);
     setMessages((current) =>
       current.map((message) =>
@@ -406,17 +412,13 @@ export default function OzlindApp() {
   async function regenerate(index) {
     const target = messages[index - 1];
     if (!target || target.role !== "user" || isStreaming) return;
-
-    const baseMessages = messages.slice(0, index - 1);
-    setMessages(baseMessages);
-    await sendMessage(target.content, baseMessages);
+    setMessages(messages.slice(0, index));
+    await sendMessage(target.content);
   }
 
   function editMessage(message) {
-    const index = messages.findIndex((item) => item.id === message.id);
-    if (index < 0) return;
     setInput(message.content);
-    setMessages(messages.slice(0, index));
+    setMessages((current) => current.filter((item) => item.id !== message.id));
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
       autosize();
@@ -430,8 +432,16 @@ export default function OzlindApp() {
   function onFileChange(event) {
     const selected = event.target.files?.[0];
     if (!selected) return;
-    if (!selected.type.startsWith("image/")) {
-      toast("Only image attachments are supported right now.");
+    const allowed = [
+      "application/pdf",
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (!selected.type.startsWith("image/") && !allowed.includes(selected.type)) {
+      toast("This file type is not supported.");
       event.target.value = "";
       return;
     }
@@ -449,21 +459,21 @@ export default function OzlindApp() {
       <aside className={`sidebar ${sidebarOpen ? "mobile-open" : ""}`} aria-label="Ozlind navigation">
         <div className="brand-row">
           <button className="brand" onClick={newConversation} aria-label="Ozlind AI home">
-            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-mark" aria-hidden="true"><OzlindMark size={35} /></span>
             <span className="brand-name">Ozlind <span>AI</span></span>
           </button>
           <button className="sidebar-collapse" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
-            <PanelLeftClose size={18} />
+            <OzlindIcon id="i-close" size={18} />
           </button>
         </div>
 
         <button className="primary-action" type="button" onClick={newConversation}>
-          <span className="primary-action-left"><PenLine size={17} /> New conversation</span>
-          <span className="shortcut">⌘ N</span>
+          <span className="primary-action-left"><OzlindIcon id="i-new-conversation" size={17} /> New conversation</span>
+          <span className="shortcut">鈱� N</span>
         </button>
 
         <div className="search-wrap">
-          <Search size={16} />
+          <OzlindIcon id="i-search" size={16} />
           <input
             className="search-input"
             value={historySearch}
@@ -486,7 +496,7 @@ export default function OzlindApp() {
                 type="button"
                 onClick={() => loadConversation(item)}
               >
-                <MessageSquare size={15} />
+                <OzlindIcon id="i-history" size={15} />
                 <span>{item.title}</span>
               </button>
             ))
@@ -506,7 +516,7 @@ export default function OzlindApp() {
               <strong>Ozlind Studio</strong>
               <small>Personal workspace</small>
             </span>
-            <Settings2 size={17} />
+            <OzlindIcon id="i-settings" size={17} />
           </button>
         </div>
       </aside>
@@ -521,7 +531,7 @@ export default function OzlindApp() {
         <header className="topbar">
           <div className="topbar-left">
             <button className="icon-button mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
-              <Menu size={19} />
+              <OzlindIcon id="i-menu" size={19} />
             </button>
 
             <span className="top-title">{title}</span>
@@ -548,7 +558,7 @@ export default function OzlindApp() {
                     type="button"
                     onClick={() => {
                       setMode(id);
-                      if (id === "research") setResearch(true);
+                      setResearch(id === "research");
                       setModelOpen(false);
                     }}
                   >
@@ -686,18 +696,18 @@ export default function OzlindApp() {
                     {!message.streaming && (
                       <div className="message-actions">
                         <button onClick={() => copyMessage(message)}>
-                          <Copy size={13} /> {copiedId === message.id ? "Copied" : "Copy"}
+                          <OzlindIcon id="i-copy" size={13} /> {copiedId === message.id ? "Copied" : "Copy"}
                         </button>
                         {message.role === "user" && (
                           <button onClick={() => editMessage(message)}>Edit</button>
                         )}
                         {message.role === "assistant" && (
                           <button onClick={() => regenerate(index)}>
-                            <RefreshCw size={13} /> Regenerate
+                            <OzlindIcon id="i-regenerate" size={13} /> Regenerate
                           </button>
                         )}
                         <button onClick={() => deleteMessage(message.id)}>
-                          <Trash2 size={13} /> Delete
+                          <OzlindIcon id="i-delete" size={13} /> Delete
                         </button>
                       </div>
                     )}
@@ -712,8 +722,8 @@ export default function OzlindApp() {
         <footer className="composer-wrap">
           {file && (
             <div className="attached-file">
-              <span><Paperclip size={14} /><span>{file.name}</span></span>
-              <button type="button" onClick={() => setFile(null)} aria-label="Remove file"><X size={14} /></button>
+              <span><OzlindIcon id="i-attach" size={14} /><span>{file.name}</span></span>
+              <button type="button" onClick={() => setFile(null)} aria-label="Remove file"><OzlindIcon id="i-close" size={14} /></button>
             </div>
           )}
 
@@ -740,22 +750,25 @@ export default function OzlindApp() {
             <div className="composer-footer">
               <div className="composer-tools">
                 <button className="tool-button" type="button" onClick={() => fileRef.current?.click()} aria-label="Attach a file">
-                  <Paperclip size={17} />
+                  <OzlindIcon id="i-attach" size={17} />
                 </button>
                 <input
                   ref={fileRef}
                   type="file"
                   hidden
-                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  accept=".pdf,.txt,.md,.doc,.docx,.csv,.png,.jpg,.jpeg"
                   onChange={onFileChange}
                 />
                 <button
                   className={`tool-button web-label ${research ? "active" : ""}`}
                   type="button"
-                  onClick={() => setResearch((value) => !value)}
+                  onClick={() => {
+                    setResearch((value) => !value);
+                    setMode((current) => current === "research" ? "auto" : "research");
+                  }}
                   aria-label="Search the web"
                 >
-                  <Telescope size={17} />
+                  <OzlindIcon id="i-web-research" size={17} />
                   <span>Web</span>
                 </button>
               </div>
@@ -767,7 +780,7 @@ export default function OzlindApp() {
                   </button>
                 ) : (
                   <button className="send-button" type="submit" disabled={!input.trim()} aria-label="Send message">
-                    <ArrowUp size={18} />
+                    <OzlindIcon id="i-send" size={18} />
                   </button>
                 )}
               </div>
@@ -864,4 +877,4 @@ async function fileToDataUrl(file) {
     reader.onerror = () => reject(new Error("Could not read the image."));
     reader.readAsDataURL(file);
   });
-}
+      }
