@@ -10,6 +10,8 @@ export async function middleware(request) {
   const supabasePublishableKey =
     process.env.SUPABASE_PUBLISHABLE_KEY;
 
+  // Supabase auth is optional until the environment
+  // variables are configured.
   if (!supabaseUrl || !supabasePublishableKey) {
     return response;
   }
@@ -25,7 +27,7 @@ export async function middleware(request) {
 
         setAll(cookiesToSet) {
           cookiesToSet.forEach(
-            ({ name, value }) => {
+            ({ name, value, options }) => {
               request.cookies.set(name, value);
             }
           );
@@ -57,30 +59,39 @@ export async function middleware(request) {
   const isLoginPage = pathname === "/login";
   const isAuthCallback =
     pathname.startsWith("/auth/callback");
-  const isApiRoute =
-    pathname.startsWith("/api/");
 
-  if (
-    !user &&
-    !isLoginPage &&
-    !isAuthCallback &&
-    !isApiRoute
-  ) {
+  const isPublicApi =
+    pathname === "/api/supabase/config";
+
+  // Public authentication/config routes.
+  if (isLoginPage || isAuthCallback || isPublicApi) {
+    if (user && isLoginPage) {
+      const homeUrl = request.nextUrl.clone();
+
+      homeUrl.pathname = "/";
+      homeUrl.search = "";
+
+      return NextResponse.redirect(homeUrl);
+    }
+
+    return response;
+  }
+
+  // Keep existing AI API routes available.
+  // Individual API routes can perform their own
+  // authentication checks when required.
+  if (pathname.startsWith("/api/")) {
+    return response;
+  }
+
+  // Protect the main OZLIND application.
+  if (!user) {
     const loginUrl = request.nextUrl.clone();
 
     loginUrl.pathname = "/login";
     loginUrl.search = "";
 
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (user && isLoginPage) {
-    const homeUrl = request.nextUrl.clone();
-
-    homeUrl.pathname = "/";
-    homeUrl.search = "";
-
-    return NextResponse.redirect(homeUrl);
   }
 
   return response;
