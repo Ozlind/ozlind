@@ -32,10 +32,7 @@ export async function GET(request) {
       new URL("/", request.url)
     );
   } catch (error) {
-    console.error(
-      "OAuth callback failed:",
-      error
-    );
+    console.error("OAuth callback failed:", error);
 
     return NextResponse.redirect(
       new URL("/login?error=callback_failed", request.url)
