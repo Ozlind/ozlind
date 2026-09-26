@@ -118,6 +118,10 @@ export default function OzlindApp() {
   const modeRef = useRef(null);
   const noticeTimerRef = useRef(null);
 
+  // Keeps async streaming callbacks attached to the correct chat.
+  const activeChatIdRef = useRef(null);
+  const streamingControllerRef = useRef(null);
+
   const selectedMode = useMemo(
     () => MODES.find((item) => item.id === mode) || MODES[0],
     [mode]
@@ -341,7 +345,7 @@ export default function OzlindApp() {
 
   function updateHistoryFromMessages(
     nextMessages,
-    chatId = activeChatId
+    chatId = activeChatIdRef.current
   ) {
     if (!chatId || !Array.isArray(nextMessages)) {
       return;
@@ -382,8 +386,16 @@ export default function OzlindApp() {
     });
   }
 
-  function startNewChat() {
+  function abortCurrentGeneration() {
     abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    streamingControllerRef.current = null;
+  }
+
+  function startNewChat() {
+    abortCurrentGeneration();
+
+    activeChatIdRef.current = null;
 
     setMessages([]);
     setInput("");
@@ -400,7 +412,9 @@ export default function OzlindApp() {
   }
 
   function openHistoryItem(item) {
-    abortControllerRef.current?.abort();
+    abortCurrentGeneration();
+
+    const chatId = item?.id || null;
 
     const restoredMessages = Array.isArray(
       item?.messages
@@ -408,8 +422,10 @@ export default function OzlindApp() {
       ? item.messages
       : [];
 
+    activeChatIdRef.current = chatId;
+
     setMessages(restoredMessages);
-    setActiveChatId(item?.id || null);
+    setActiveChatId(chatId);
     setInput("");
     setSelectedFile(null);
     setError("");
@@ -427,8 +443,11 @@ export default function OzlindApp() {
       current.filter((item) => item.id !== id)
     );
 
-    if (activeChatId === id) {
-      abortControllerRef.current?.abort();
+    if (activeChatIdRef.current === id) {
+      abortCurrentGeneration();
+
+      activeChatIdRef.current = null;
+
       setMessages([]);
       setInput("");
       setSelectedFile(null);
@@ -445,10 +464,12 @@ export default function OzlindApp() {
       return;
     }
 
-    setHistory([]);
-    setHistorySearch("");
+    abortCurrentGeneration();
 
-    abortControllerRef.current?.abort();
+    setHistory([]);
+    setHistorySearch([]);
+
+    activeChatIdRef.current = null;
 
     setMessages([]);
     setInput("");
@@ -461,7 +482,9 @@ export default function OzlindApp() {
   }
 
   function clearCurrentChat() {
-    abortControllerRef.current?.abort();
+    abortCurrentGeneration();
+
+    activeChatIdRef.current = null;
 
     setMessages([]);
     setInput("");
@@ -536,7 +559,7 @@ export default function OzlindApp() {
 
     if (!file.type.startsWith("image/")) {
       setError(
-        "Image uploads are currently supported. Document processing will be enabled separately."
+        "Image uploads are currently supported."
       );
       return;
     }
@@ -603,7 +626,11 @@ export default function OzlindApp() {
     }));
   }
 
-  async function sendMessage(customPrompt) {
+  async function sendMessage(
+    customPrompt,
+    baseMessagesOverride = null,
+    attachedFileOverride = undefined
+  ) {
     if (isStreaming) {
       return;
     }
@@ -612,7 +639,10 @@ export default function OzlindApp() {
       customPrompt !== undefined ? customPrompt : input
     ).trim();
 
-    const attachedFile = selectedFile;
+    const attachedFile =
+      attachedFileOverride !== undefined
+        ? attachedFileOverride
+        : selectedFile;
 
     if (!prompt && !attachedFile) {
       textareaRef.current?.focus();
@@ -621,7 +651,13 @@ export default function OzlindApp() {
 
     setError("");
 
-    const chatId = activeChatId || createId();
+    const chatId =
+      activeChatIdRef.current || createId();
+
+    const sourceMessages =
+      Array.isArray(baseMessagesOverride)
+        ? baseMessagesOverride
+        : messages;
 
     const userMessage = {
       id: createId(),
@@ -640,7 +676,7 @@ export default function OzlindApp() {
     };
 
     const nextMessages = [
-      ...messages,
+      ...sourceMessages,
       userMessage,
     ];
 
@@ -653,6 +689,8 @@ export default function OzlindApp() {
       createdAt: Date.now(),
       streaming: true,
     };
+
+    activeChatIdRef.current = chatId;
 
     setActiveChatId(chatId);
     setMessages([
@@ -672,6 +710,9 @@ export default function OzlindApp() {
     const controller = new AbortController();
 
     abortControllerRef.current = controller;
+    streamingControllerRef.current = controller;
+
+    let fullText = "";
 
     try {
       const body = {
@@ -732,62 +773,56 @@ export default function OzlindApp() {
       const decoder = new TextDecoder();
 
       let buffer = "";
-      let fullText = "";
 
-      const updateAssistant = (content) => {
-        fullText = content;
+      function updateVisibleAssistant(content) {
+        // If the user switched to another chat while this
+        // request was running, do not overwrite that chat.
+        if (activeChatIdRef.current !== chatId) {
+          return;
+        }
 
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
               ? {
                   ...message,
-                  content: fullText,
+                  content,
                   streaming: true,
                 }
               : message
           )
         );
-      };
+      }
 
-      const appendAssistantText = (chunk) => {
+      function appendAssistantText(chunk) {
         if (!chunk) {
           return;
         }
 
-        updateAssistant(
-          `${fullText}${chunk}`
-        );
-      };
+        fullText += chunk;
+        updateVisibleAssistant(fullText);
+      }
 
-      const processLine = (rawLine) => {
-        const line = rawLine.trim();
-
-        if (!line) {
-          return;
-        }
-
-        if (!line.startsWith("data:")) {
-          appendAssistantText(line);
-          return;
-        }
-
-        const payload = line
-          .slice(5)
-          .trim();
+      function processPayload(payload) {
+        const cleanPayload = String(
+          payload || ""
+        ).trim();
 
         if (
-          !payload ||
-          payload === "[DONE]"
+          !cleanPayload ||
+          cleanPayload === "[DONE]"
         ) {
           return;
         }
 
-        let parsed;
+        let parsed = null;
 
         try {
-          parsed = JSON.parse(payload);
+          parsed = JSON.parse(cleanPayload);
         } catch {
+          // Some compatible stream implementations can
+          // return plain text chunks.
+          appendAssistantText(cleanPayload);
           return;
         }
 
@@ -802,6 +837,7 @@ export default function OzlindApp() {
           parsed?.text ??
           parsed?.content ??
           parsed?.message?.content ??
+          parsed?.choices?.[0]?.delta?.content ??
           "";
 
         if (
@@ -810,7 +846,35 @@ export default function OzlindApp() {
         ) {
           appendAssistantText(delta);
         }
-      };
+      }
+
+      function processLine(rawLine) {
+        const line = String(rawLine || "").trim();
+
+        if (!line) {
+          return;
+        }
+
+        if (line.startsWith("data:")) {
+          processPayload(
+            line.slice(5).trim()
+          );
+          return;
+        }
+
+        // Ignore SSE comments/metadata.
+        if (line.startsWith(":")) {
+          return;
+        }
+
+        // Support plain JSON/NDJSON responses too.
+        if (
+          line.startsWith("{") ||
+          line.startsWith("[")
+        ) {
+          processPayload(line);
+        }
+      }
 
       while (true) {
         const { value, done } =
@@ -824,11 +888,9 @@ export default function OzlindApp() {
           stream: true,
         });
 
-        const lines =
-          buffer.split("\n");
+        const lines = buffer.split(/\r?\n/);
 
-        buffer =
-          lines.pop() || "";
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           processLine(line);
@@ -841,46 +903,51 @@ export default function OzlindApp() {
         processLine(buffer);
       }
 
-      const finalContent =
-        fullText.trim()
-          ? fullText
-          : "No response was returned.";
+      const finalContent = fullText.trim();
 
       const completedMessages = [
         ...nextMessages,
         {
           ...assistantMessage,
-          content: finalContent,
+          content:
+            finalContent ||
+            "No response was returned.",
           streaming: false,
         },
       ];
 
-      setMessages(completedMessages);
-
+      // Always save the response to its originating
+      // conversation. Never replace another opened chat.
       updateHistoryFromMessages(
         completedMessages,
         chatId
       );
+
+      if (activeChatIdRef.current === chatId) {
+        setMessages(completedMessages);
+      }
     } catch (requestError) {
       if (
-        requestError?.name ===
-        "AbortError"
+        requestError?.name === "AbortError"
       ) {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  streaming: false,
-                  content:
-                    getMessageText(
-                      message
-                    ) ||
-                    "Generation stopped.",
-                }
-              : message
-          )
-        );
+        // A chat switch/new chat/clear action can abort
+        // this request. Never write into the new chat.
+        if (activeChatIdRef.current === chatId) {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    streaming: false,
+                    content:
+                      getMessageText(
+                        message
+                      ),
+                  }
+                : message
+            )
+          );
+        }
 
         return;
       }
@@ -894,33 +961,65 @@ export default function OzlindApp() {
         requestError?.message ||
         "Unable to connect to the AI service.";
 
-      setMessages((current) =>
-        current.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                streaming: false,
-                content: `**Error:** ${message}`,
-              }
-            : item
-        )
-      );
+      if (activeChatIdRef.current === chatId) {
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  streaming: false,
+                  content: `**Error:** ${message}`,
+                }
+              : item
+          )
+        );
 
-      setError(message);
+        setError(message);
+      }
     } finally {
-      setIsStreaming(false);
-
       if (
         abortControllerRef.current ===
         controller
       ) {
         abortControllerRef.current = null;
       }
+
+      if (
+        streamingControllerRef.current ===
+        controller
+      ) {
+        streamingControllerRef.current = null;
+      }
+
+      // An older request must never stop a newer request.
+      if (
+        streamingControllerRef.current === null &&
+        abortControllerRef.current === null
+      ) {
+        setIsStreaming(false);
+      }
     }
   }
 
   function stopGeneration() {
-    abortControllerRef.current?.abort();
+    const controller =
+      abortControllerRef.current;
+
+    if (!controller) {
+      setIsStreaming(false);
+      return;
+    }
+
+    controller.abort();
+
+    if (streamingControllerRef.current === controller) {
+      streamingControllerRef.current = null;
+    }
+
+    if (abortControllerRef.current === controller) {
+      abortControllerRef.current = null;
+    }
+
     setIsStreaming(false);
   }
 
@@ -972,13 +1071,36 @@ export default function OzlindApp() {
         lastUserMessage
       );
 
-    setMessages(
-      previousMessages
-    );
+    // Preserve the original image when regenerating.
+    const previousAttachment =
+      lastUserMessage.attachment
+        ? {
+            name:
+              lastUserMessage
+                .attachment.name,
+            type:
+              lastUserMessage
+                .attachment.type,
+            size:
+              lastUserMessage
+                .attachment.size,
+            dataUrl:
+              lastUserMessage
+                .attachment.dataUrl,
+          }
+        : null;
 
+    setMessages(previousMessages);
     setInput("");
 
-    await sendMessage(userText);
+    // Important: pass previousMessages directly.
+    // This avoids React state timing causing the deleted
+    // assistant response to be sent again.
+    await sendMessage(
+      userText,
+      previousMessages,
+      previousAttachment
+    );
   }
 
   function editMessage(message) {
@@ -1008,9 +1130,7 @@ export default function OzlindApp() {
       .join("\n\n");
 
     if (!text) {
-      showNotice(
-        "Nothing to share yet"
-      );
+      showNotice("Nothing to share yet");
       return;
     }
 
@@ -1262,8 +1382,7 @@ export default function OzlindApp() {
             <div className="sidebar-section-heading">
               <span>History</span>
 
-              {history.length >
-                0 && (
+              {history.length > 0 && (
                 <button
                   className="text-button"
                   onClick={
@@ -1275,8 +1394,7 @@ export default function OzlindApp() {
               )}
             </div>
 
-            {history.length >
-              0 && (
+            {history.length > 0 && (
               <div className="history-search">
                 <Search
                   size={14}
@@ -1286,9 +1404,7 @@ export default function OzlindApp() {
                   value={
                     historySearch
                   }
-                  onChange={(
-                    event
-                  ) =>
+                  onChange={(event) =>
                     setHistorySearch(
                       event.target
                         .value
@@ -1308,9 +1424,7 @@ export default function OzlindApp() {
                     }
                     aria-label="Clear history search"
                   >
-                    <X
-                      size={13}
-                    />
+                    <X size={13} />
                   </button>
                 )}
               </div>
@@ -2159,7 +2273,7 @@ export default function OzlindApp() {
                       "Concise",
                     ],
                     [
-                      "balanced",
+                      "medium",
                       "Balanced",
                     ],
                     [
@@ -2291,9 +2405,9 @@ export default function OzlindApp() {
               <button
                 className="secondary-button"
                 onClick={() => {
-                  setSettings(
-                    DEFAULT_SETTINGS
-                  );
+                  setSettings({
+                    ...DEFAULT_SETTINGS,
+                  });
 
                   showNotice(
                     "Settings reset"
