@@ -34,6 +34,7 @@ import ReactMarkdown from "react-markdown";
 
 const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
+const THEME_KEY = "ozlind_theme_v1";
 
 const DEFAULT_SETTINGS = {
   provider: "auto",
@@ -110,6 +111,7 @@ export default function OzlindApp() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState("");
   const [copiedMessage, setCopiedMessage] = useState(null);
+  const [isDark, setIsDark] = useState(false);
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -162,7 +164,32 @@ export default function OzlindApp() {
       setHistory([]);
       setSettings(DEFAULT_SETTINGS);
     }
+
+    try {
+      const storedTheme = localStorage.getItem(THEME_KEY);
+      const prefersDark =
+        typeof window !== "undefined" &&
+        window.matchMedia?.(
+          "(prefers-color-scheme: dark)"
+        ).matches;
+
+      setIsDark(
+        storedTheme ? storedTheme === "dark" : Boolean(prefersDark)
+      );
+    } catch {
+      // Ignore theme read failures; default stays light.
+    }
   }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("dark", isDark);
+
+    try {
+      localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+    } catch {
+      // Ignore localStorage failures.
+    }
+  }, [isDark]);
 
   useEffect(() => {
     try {
@@ -949,11 +976,9 @@ export default function OzlindApp() {
             aria-label="Ozlind home"
           >
             <span className="brand-mark">
-              <img
-                src="/ozlind-icons.svg"
-                alt=""
-                aria-hidden="true"
-              />
+              <svg viewBox="0 0 96 96" aria-hidden="true">
+                <use href="/ozlind-icons.svg#ozl-mark" />
+              </svg>
             </span>
 
             <span className="brand-copy">
@@ -1141,6 +1166,17 @@ export default function OzlindApp() {
           </div>
 
           <div className="topbar-actions">
+            <button
+              className="icon-button"
+              onClick={() => setIsDark((current) => !current)}
+              aria-label={
+                isDark ? "Switch to light mode" : "Switch to dark mode"
+              }
+              title={isDark ? "Light mode" : "Dark mode"}
+            >
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
             <button
               className="icon-button"
               onClick={shareConversation}
