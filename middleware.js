@@ -9,8 +9,6 @@ export async function middleware(request) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 
-  // If Supabase environment variables are missing,
-  // don't create a redirect loop.
   if (!supabaseUrl || !supabaseKey) {
     return response;
   }
@@ -41,24 +39,20 @@ export async function middleware(request) {
     }
   );
 
-  // Refresh and validate the Supabase session.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const pathname = request.nextUrl.pathname;
 
-  // Public routes required for authentication.
-  const isLoginPage = pathname === "/login";
-  const isAuthCallback = pathname.startsWith("/auth/callback");
-  const isSupabaseConfig = pathname === "/api/supabase/config";
-
-  // Keep authentication routes accessible.
-  if (isLoginPage || isAuthCallback || isSupabaseConfig) {
-    // If already authenticated, don't show the login page again.
-    if (isLoginPage && user) {
+  // Authentication routes must remain accessible.
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/auth/callback") ||
+    pathname === "/api/supabase/config"
+  ) {
+    if (pathname === "/login" && user) {
       const url = request.nextUrl.clone();
-
       url.pathname = "/";
       url.search = "";
 
@@ -71,7 +65,6 @@ export async function middleware(request) {
   // Protect the application.
   if (!user) {
     const url = request.nextUrl.clone();
-
     url.pathname = "/login";
     url.search = "";
 
