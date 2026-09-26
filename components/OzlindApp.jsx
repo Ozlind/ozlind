@@ -13,12 +13,10 @@ import {
   Map,
   Menu,
   MessageSquare,
-  Moon,
   Paperclip,
   PanelLeftClose,
   PenLine,
   RefreshCw,
-  Rocket,
   Search,
   Settings2,
   Share2,
@@ -28,7 +26,6 @@ import {
   Trash2,
   X,
   Zap,
-  Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -84,8 +81,8 @@ const SUGGESTIONS = [
   },
   {
     icon: FileText,
-    title: "Work with a document",
-    prompt: "Analyze this document and summarize the important points.",
+    title: "Analyze an image",
+    prompt: "Analyze the attached image and explain the important details.",
   },
   {
     icon: Map,
@@ -101,12 +98,15 @@ export default function OzlindApp() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [history, setHistory] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
+
   const [historySearch, setHistorySearch] = useState("");
   const [notice, setNotice] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState("");
   const [copiedMessage, setCopiedMessage] = useState(null);
@@ -131,7 +131,9 @@ export default function OzlindApp() {
     }
 
     return history.filter((item) =>
-      String(item.title || "").toLowerCase().includes(query)
+      String(item.title || "")
+        .toLowerCase()
+        .includes(query)
     );
   }, [history, historySearch]);
 
@@ -151,14 +153,22 @@ export default function OzlindApp() {
       if (storedSettings) {
         const parsedSettings = JSON.parse(storedSettings);
 
-        if (parsedSettings && typeof parsedSettings === "object") {
+        if (
+          parsedSettings &&
+          typeof parsedSettings === "object"
+        ) {
           setSettings({
             ...DEFAULT_SETTINGS,
             ...parsedSettings,
           });
         }
       }
-    } catch {
+    } catch (storageError) {
+      console.error(
+        "Ozlind local storage initialization failed:",
+        storageError
+      );
+
       setHistory([]);
       setSettings(DEFAULT_SETTINGS);
     }
@@ -166,22 +176,34 @@ export default function OzlindApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    } catch {
-      // Ignore localStorage failures.
+      localStorage.setItem(
+        HISTORY_KEY,
+        JSON.stringify(history)
+      );
+    } catch (storageError) {
+      console.error(
+        "Could not save Ozlind history:",
+        storageError
+      );
     }
   }, [history]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch {
-      // Ignore localStorage failures.
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify(settings)
+      );
+    } catch (storageError) {
+      console.error(
+        "Could not save Ozlind settings:",
+        storageError
+      );
     }
   }, [settings]);
 
   useEffect(() => {
-    const handleClick = (event) => {
+    const handleOutsideClick = (event) => {
       if (
         modeRef.current &&
         !modeRef.current.contains(event.target)
@@ -190,10 +212,16 @@ export default function OzlindApp() {
       }
     };
 
-    document.addEventListener("mousedown", handleClick);
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
 
     return () => {
-      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
     };
   }, []);
 
@@ -222,7 +250,10 @@ export default function OzlindApp() {
 
   useEffect(() => {
     const handleKeyboard = (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "k") {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "k"
+      ) {
         event.preventDefault();
         textareaRef.current?.focus();
       }
@@ -233,10 +264,23 @@ export default function OzlindApp() {
       }
     };
 
-    window.addEventListener("keydown", handleKeyboard);
+    window.addEventListener(
+      "keydown",
+      handleKeyboard
+    );
 
     return () => {
-      window.removeEventListener("keydown", handleKeyboard);
+      window.removeEventListener(
+        "keydown",
+        handleKeyboard
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      clearTimeout(noticeTimerRef.current);
     };
   }, []);
 
@@ -252,7 +296,9 @@ export default function OzlindApp() {
       return crypto.randomUUID();
     }
 
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return `${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}`;
   }
 
   function createTitle(text) {
@@ -267,212 +313,6 @@ export default function OzlindApp() {
     return cleaned.length > 52
       ? `${cleaned.slice(0, 52).trim()}…`
       : cleaned;
-  }
-
-  function updateHistoryFromMessages(nextMessages, chatId = activeChatId) {
-    if (!chatId || !nextMessages?.length) {
-      return;
-    }
-
-    const firstUserMessage = nextMessages.find(
-      (item) => item.role === "user"
-    );
-
-    const title = firstUserMessage
-      ? createTitle(firstUserMessage.content)
-      : "New conversation";
-
-    const updatedAt = Date.now();
-
-    setHistory((current) => {
-      const existing = current.find((item) => item.id === chatId);
-
-      const record = {
-        id: chatId,
-        title: existing?.title || title,
-        messages: nextMessages,
-        updatedAt,
-      };
-
-      if (!existing) {
-        return [record, ...current];
-      }
-
-      return [
-        record,
-        ...current.filter((item) => item.id !== chatId),
-      ];
-    });
-  }
-
-  function startNewChat() {
-    abortControllerRef.current?.abort();
-
-    setMessages([]);
-    setInput("");
-    setSelectedFile(null);
-    setError("");
-    setActiveChatId(null);
-    setIsStreaming(false);
-    setSidebarOpen(false);
-
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-    });
-  }
-
-  function openHistoryItem(item) {
-    abortControllerRef.current?.abort();
-
-    setMessages(Array.isArray(item.messages) ? item.messages : []);
-    setActiveChatId(item.id);
-    setInput("");
-    setSelectedFile(null);
-    setError("");
-    setIsStreaming(false);
-    setSidebarOpen(false);
-  }
-
-  function deleteHistoryItem(id) {
-    setHistory((current) =>
-      current.filter((item) => item.id !== id)
-    );
-
-    if (activeChatId === id) {
-      startNewChat();
-    }
-
-    showNotice("Conversation deleted");
-  }
-
-  function clearHistory() {
-    if (!history.length) {
-      return;
-    }
-
-    setHistory([]);
-
-    if (activeChatId) {
-      startNewChat();
-    }
-
-    showNotice("History cleared");
-  }
-
-  function clearCurrentChat() {
-    abortControllerRef.current?.abort();
-
-    setMessages([]);
-    setInput("");
-    setSelectedFile(null);
-    setError("");
-    setIsStreaming(false);
-
-    if (activeChatId) {
-      setHistory((current) =>
-        current.filter((item) => item.id !== activeChatId)
-      );
-    }
-
-    setActiveChatId(null);
-    showNotice("Chat cleared");
-  }
-
-  function updateSettings(patch) {
-    setSettings((current) => ({
-      ...current,
-      ...patch,
-    }));
-  }
-
-  function autoResizeTextarea() {
-    const element = textareaRef.current;
-
-    if (!element) {
-      return;
-    }
-
-    element.style.height = "auto";
-    element.style.height = `${Math.min(
-      Math.max(element.scrollHeight, 48),
-      180
-    )}px`;
-  }
-
-  function handleInputChange(event) {
-    setInput(event.target.value);
-    autoResizeTextarea();
-  }
-
-  function handleTextareaKeyDown(event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-
-      if (!isStreaming) {
-        sendMessage();
-      }
-    }
-  }
-
-  async function handleFileChange(event) {
-    const file = event.target.files?.[0];
-
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    const maxSize = 12 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      setError("This file is too large. Please choose a file under 12 MB.");
-      return;
-    }
-
-    setError("");
-
-    const isImage = file.type.startsWith("image/");
-
-    try {
-      let dataUrl = null;
-
-      if (isImage) {
-        dataUrl = await fileToDataUrl(file);
-      }
-
-      setSelectedFile({
-        name: file.name,
-        type: file.type || "application/octet-stream",
-        size: file.size,
-        dataUrl,
-        file,
-      });
-
-      showNotice(`${file.name} attached`);
-    } catch {
-      setError("Could not read the selected file.");
-    }
-  }
-
-  function removeSelectedFile() {
-    setSelectedFile(null);
-  }
-
-  async function copyMessage(content, index) {
-    try {
-      await navigator.clipboard.writeText(String(content || ""));
-      setCopiedMessage(index);
-      showNotice("Copied");
-
-      setTimeout(() => {
-        setCopiedMessage((current) =>
-          current === index ? null : current
-        );
-      }, 1600);
-    } catch {
-      setError("Could not copy the message.");
-    }
   }
 
   function getMessageText(message) {
@@ -499,6 +339,263 @@ export default function OzlindApp() {
     return "";
   }
 
+  function updateHistoryFromMessages(
+    nextMessages,
+    chatId = activeChatId
+  ) {
+    if (!chatId || !Array.isArray(nextMessages)) {
+      return;
+    }
+
+    const firstUserMessage = nextMessages.find(
+      (item) => item.role === "user"
+    );
+
+    if (!firstUserMessage) {
+      return;
+    }
+
+    const title = createTitle(
+      getMessageText(firstUserMessage)
+    );
+
+    const updatedAt = Date.now();
+
+    setHistory((current) => {
+      const existing = current.find(
+        (item) => item.id === chatId
+      );
+
+      const record = {
+        id: chatId,
+        title: existing?.title || title,
+        messages: nextMessages,
+        updatedAt,
+      };
+
+      return [
+        record,
+        ...current.filter(
+          (item) => item.id !== chatId
+        ),
+      ];
+    });
+  }
+
+  function startNewChat() {
+    abortControllerRef.current?.abort();
+
+    setMessages([]);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setActiveChatId(null);
+    setIsStreaming(false);
+    setModeOpen(false);
+    setSidebarOpen(false);
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  }
+
+  function openHistoryItem(item) {
+    abortControllerRef.current?.abort();
+
+    const restoredMessages = Array.isArray(
+      item?.messages
+    )
+      ? item.messages
+      : [];
+
+    setMessages(restoredMessages);
+    setActiveChatId(item?.id || null);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setIsStreaming(false);
+    setModeOpen(false);
+    setSidebarOpen(false);
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  }
+
+  function deleteHistoryItem(id) {
+    setHistory((current) =>
+      current.filter((item) => item.id !== id)
+    );
+
+    if (activeChatId === id) {
+      abortControllerRef.current?.abort();
+      setMessages([]);
+      setInput("");
+      setSelectedFile(null);
+      setError("");
+      setActiveChatId(null);
+      setIsStreaming(false);
+    }
+
+    showNotice("Conversation deleted");
+  }
+
+  function clearHistory() {
+    if (!history.length) {
+      return;
+    }
+
+    setHistory([]);
+    setHistorySearch("");
+
+    abortControllerRef.current?.abort();
+
+    setMessages([]);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setActiveChatId(null);
+    setIsStreaming(false);
+
+    showNotice("History cleared");
+  }
+
+  function clearCurrentChat() {
+    abortControllerRef.current?.abort();
+
+    setMessages([]);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setIsStreaming(false);
+    setActiveChatId(null);
+
+    showNotice("Chat cleared");
+  }
+
+  function updateSettings(patch) {
+    setSettings((current) => ({
+      ...current,
+      ...patch,
+    }));
+  }
+
+  function autoResizeTextarea() {
+    const element = textareaRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    element.style.height = "auto";
+
+    const nextHeight = Math.min(
+      Math.max(element.scrollHeight, 48),
+      180
+    );
+
+    element.style.height = `${nextHeight}px`;
+  }
+
+  function handleInputChange(event) {
+    setInput(event.target.value);
+    autoResizeTextarea();
+  }
+
+  function handleTextareaKeyDown(event) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent?.isComposing
+    ) {
+      event.preventDefault();
+
+      if (!isStreaming) {
+        sendMessage();
+      }
+    }
+  }
+
+  async function handleFileChange(event) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const maxSize = 12 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setError(
+        "This image is too large. Please choose an image under 12 MB."
+      );
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError(
+        "Image uploads are currently supported. Document processing will be enabled separately."
+      );
+      return;
+    }
+
+    setError("");
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+
+      setSelectedFile({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl,
+      });
+
+      showNotice(`${file.name} attached`);
+    } catch (fileError) {
+      console.error(
+        "Could not read selected image:",
+        fileError
+      );
+
+      setError("Could not read the selected image.");
+    }
+  }
+
+  function removeSelectedFile() {
+    setSelectedFile(null);
+  }
+
+  async function copyMessage(content, index) {
+    if (!content) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        String(content)
+      );
+
+      setCopiedMessage(index);
+      showNotice("Copied");
+
+      window.setTimeout(() => {
+        setCopiedMessage((current) =>
+          current === index ? null : current
+        );
+      }, 1600);
+    } catch (copyError) {
+      console.error(
+        "Could not copy message:",
+        copyError
+      );
+
+      setError("Could not copy the message.");
+    }
+  }
+
   function buildApiMessages(currentMessages) {
     return currentMessages.map((message) => ({
       role: message.role,
@@ -515,7 +612,9 @@ export default function OzlindApp() {
       customPrompt !== undefined ? customPrompt : input
     ).trim();
 
-    if (!prompt && !selectedFile) {
+    const attachedFile = selectedFile;
+
+    if (!prompt && !attachedFile) {
       textareaRef.current?.focus();
       return;
     }
@@ -524,36 +623,26 @@ export default function OzlindApp() {
 
     const chatId = activeChatId || createId();
 
-    if (!activeChatId) {
-      setActiveChatId(chatId);
-    }
-
     const userMessage = {
       id: createId(),
       role: "user",
-      content: prompt || "Please analyze the attached file.",
+      content:
+        prompt || "Please analyze the attached image.",
       createdAt: Date.now(),
-      attachment: selectedFile
+      attachment: attachedFile
         ? {
-            name: selectedFile.name,
-            type: selectedFile.type,
-            size: selectedFile.size,
-            dataUrl: selectedFile.dataUrl,
+            name: attachedFile.name,
+            type: attachedFile.type,
+            size: attachedFile.size,
+            dataUrl: attachedFile.dataUrl,
           }
         : null,
     };
 
-    const nextMessages = [...messages, userMessage];
-
-    setMessages(nextMessages);
-    setInput("");
-    setSelectedFile(null);
-
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "48px";
-      }
-    });
+    const nextMessages = [
+      ...messages,
+      userMessage,
+    ];
 
     const assistantId = createId();
 
@@ -565,10 +654,23 @@ export default function OzlindApp() {
       streaming: true,
     };
 
-    setMessages((current) => [...current, assistantMessage]);
+    setActiveChatId(chatId);
+    setMessages([
+      ...nextMessages,
+      assistantMessage,
+    ]);
+    setInput("");
+    setSelectedFile(null);
     setIsStreaming(true);
 
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "48px";
+      }
+    });
+
     const controller = new AbortController();
+
     abortControllerRef.current = controller;
 
     try {
@@ -580,15 +682,16 @@ export default function OzlindApp() {
         memory: settings.memory,
         style: settings.style,
         length: settings.length,
-        customInstructions: settings.customInstructions,
+        customInstructions:
+          settings.customInstructions,
       };
 
-      if (selectedFile) {
+      if (attachedFile) {
         body.file = {
-          name: selectedFile.name,
-          type: selectedFile.type,
-          size: selectedFile.size,
-          dataUrl: selectedFile.dataUrl,
+          name: attachedFile.name,
+          type: attachedFile.type,
+          size: attachedFile.size,
+          dataUrl: attachedFile.dataUrl,
         };
       }
 
@@ -608,27 +711,31 @@ export default function OzlindApp() {
           const data = await response.json();
 
           if (data?.error) {
-            message = data.error;
+            message = String(data.error);
           }
         } catch {
-          // Ignore malformed error bodies.
+          // Ignore invalid error response bodies.
         }
 
         throw new Error(message);
       }
 
       if (!response.body) {
-        throw new Error("The server returned an empty response.");
+        throw new Error(
+          "The server returned an empty response."
+        );
       }
 
-      const reader = response.body.getReader();
+      const reader =
+        response.body.getReader();
+
       const decoder = new TextDecoder();
 
       let buffer = "";
       let fullText = "";
 
-      const appendAssistantText = (chunk) => {
-        fullText += chunk;
+      const updateAssistant = (content) => {
+        fullText = content;
 
         setMessages((current) =>
           current.map((message) =>
@@ -643,8 +750,71 @@ export default function OzlindApp() {
         );
       };
 
+      const appendAssistantText = (chunk) => {
+        if (!chunk) {
+          return;
+        }
+
+        updateAssistant(
+          `${fullText}${chunk}`
+        );
+      };
+
+      const processLine = (rawLine) => {
+        const line = rawLine.trim();
+
+        if (!line) {
+          return;
+        }
+
+        if (!line.startsWith("data:")) {
+          appendAssistantText(line);
+          return;
+        }
+
+        const payload = line
+          .slice(5)
+          .trim();
+
+        if (
+          !payload ||
+          payload === "[DONE]"
+        ) {
+          return;
+        }
+
+        let parsed;
+
+        try {
+          parsed = JSON.parse(payload);
+        } catch {
+          return;
+        }
+
+        if (parsed?.error) {
+          throw new Error(
+            String(parsed.error)
+          );
+        }
+
+        const delta =
+          parsed?.delta ??
+          parsed?.text ??
+          parsed?.content ??
+          parsed?.message?.content ??
+          "";
+
+        if (
+          typeof delta === "string" &&
+          delta
+        ) {
+          appendAssistantText(delta);
+        }
+      };
+
       while (true) {
-        const { value, done } = await reader.read();
+        const { value, done } =
+          await reader.read();
 
         if (done) {
           break;
@@ -654,99 +824,48 @@ export default function OzlindApp() {
           stream: true,
         });
 
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        const lines =
+          buffer.split("\n");
 
-        for (const rawLine of lines) {
-          const line = rawLine.trim();
+        buffer =
+          lines.pop() || "";
 
-          if (!line) {
-            continue;
-          }
-
-          if (line.startsWith("data:")) {
-            const payload = line.slice(5).trim();
-
-            if (!payload || payload === "[DONE]") {
-              continue;
-            }
-
-            try {
-              const parsed = JSON.parse(payload);
-
-              const delta =
-                parsed?.delta ??
-                parsed?.text ??
-                parsed?.content ??
-                parsed?.message?.content ??
-                "";
-
-              if (typeof delta === "string" && delta) {
-                appendAssistantText(delta);
-              }
-
-              if (parsed?.error) {
-                throw new Error(parsed.error);
-              }
-            } catch (parseError) {
-              if (
-                parseError instanceof Error &&
-                parseError.message &&
-                !parseError.message.includes("JSON")
-              ) {
-                throw parseError;
-              }
-            }
-          } else {
-            appendAssistantText(line);
-          }
+        for (const line of lines) {
+          processLine(line);
         }
       }
 
       buffer += decoder.decode();
 
       if (buffer.trim()) {
-        const remaining = buffer.trim();
-
-        if (remaining.startsWith("data:")) {
-          const payload = remaining.slice(5).trim();
-
-          if (payload && payload !== "[DONE]") {
-            try {
-              const parsed = JSON.parse(payload);
-
-              const delta =
-                parsed?.delta ??
-                parsed?.text ??
-                parsed?.content ??
-                parsed?.message?.content ??
-                "";
-
-              if (typeof delta === "string" && delta) {
-                appendAssistantText(delta);
-              }
-            } catch {
-              // Ignore incomplete trailing stream data.
-            }
-          }
-        } else {
-          appendAssistantText(remaining);
-        }
+        processLine(buffer);
       }
+
+      const finalContent =
+        fullText.trim()
+          ? fullText
+          : "No response was returned.";
 
       const completedMessages = [
         ...nextMessages,
         {
           ...assistantMessage,
-          content: fullText || "No response was returned.",
+          content: finalContent,
           streaming: false,
         },
       ];
 
       setMessages(completedMessages);
-      updateHistoryFromMessages(completedMessages, chatId);
+
+      updateHistoryFromMessages(
+        completedMessages,
+        chatId
+      );
     } catch (requestError) {
-      if (requestError?.name === "AbortError") {
+      if (
+        requestError?.name ===
+        "AbortError"
+      ) {
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
@@ -754,7 +873,9 @@ export default function OzlindApp() {
                   ...message,
                   streaming: false,
                   content:
-                    message.content ||
+                    getMessageText(
+                      message
+                    ) ||
                     "Generation stopped.",
                 }
               : message
@@ -763,6 +884,11 @@ export default function OzlindApp() {
 
         return;
       }
+
+      console.error(
+        "Ozlind chat request failed:",
+        requestError
+      );
 
       const message =
         requestError?.message ||
@@ -783,7 +909,13 @@ export default function OzlindApp() {
       setError(message);
     } finally {
       setIsStreaming(false);
-      abortControllerRef.current = null;
+
+      if (
+        abortControllerRef.current ===
+        controller
+      ) {
+        abortControllerRef.current = null;
+      }
     }
   }
 
@@ -793,40 +925,65 @@ export default function OzlindApp() {
   }
 
   async function regenerateLastResponse() {
-    if (isStreaming || !messages.length) {
+    if (
+      isStreaming ||
+      !messages.length
+    ) {
       return;
     }
 
-    const lastAssistantIndex = [...messages]
-      .reverse()
-      .findIndex((item) => item.role === "assistant");
+    const lastAssistantIndex =
+      [...messages]
+        .reverse()
+        .findIndex(
+          (item) =>
+            item.role === "assistant"
+        );
 
     if (lastAssistantIndex === -1) {
       return;
     }
 
     const assistantIndex =
-      messages.length - 1 - lastAssistantIndex;
+      messages.length -
+      1 -
+      lastAssistantIndex;
 
-    const previousMessages = messages.slice(0, assistantIndex);
-    const lastUserMessage = [...previousMessages]
-      .reverse()
-      .find((item) => item.role === "user");
+    const previousMessages =
+      messages.slice(
+        0,
+        assistantIndex
+      );
+
+    const lastUserMessage =
+      [...previousMessages]
+        .reverse()
+        .find(
+          (item) =>
+            item.role === "user"
+        );
 
     if (!lastUserMessage) {
       return;
     }
 
-    setMessages(previousMessages);
-    setInput(getMessageText(lastUserMessage));
+    const userText =
+      getMessageText(
+        lastUserMessage
+      );
 
-    requestAnimationFrame(() => {
-      sendMessage(getMessageText(lastUserMessage));
-    });
+    setMessages(
+      previousMessages
+    );
+
+    setInput("");
+
+    await sendMessage(userText);
   }
 
   function editMessage(message) {
-    const content = getMessageText(message);
+    const content =
+      getMessageText(message);
 
     setInput(content);
 
@@ -840,31 +997,46 @@ export default function OzlindApp() {
     const text = messages
       .map((message) => {
         const role =
-          message.role === "user" ? "You" : "Ozlind AI";
+          message.role === "user"
+            ? "You"
+            : "Ozlind AI";
 
-        return `${role}:\n${getMessageText(message)}`;
+        return `${role}:\n${getMessageText(
+          message
+        )}`;
       })
       .join("\n\n");
 
     if (!text) {
-      showNotice("Nothing to share yet");
+      showNotice(
+        "Nothing to share yet"
+      );
       return;
     }
 
     try {
-      if (navigator.share) {
+      if (
+        typeof navigator.share ===
+        "function"
+      ) {
         await navigator.share({
-          title: "Ozlind AI conversation",
+          title:
+            "Ozlind AI conversation",
           text,
         });
 
         return;
       }
 
-      await navigator.clipboard.writeText(text);
-      showNotice("Conversation copied");
+      await navigator.clipboard.writeText(
+        text
+      );
+
+      showNotice(
+        "Conversation copied"
+      );
     } catch {
-      // User cancelled share or browser denied clipboard access.
+      // Share cancellation is intentionally ignored.
     }
   }
 
@@ -881,7 +1053,10 @@ export default function OzlindApp() {
     return (
       <ReactMarkdown
         components={{
-          a: ({ children, ...props }) => (
+          a: ({
+            children,
+            ...props
+          }) => (
             <a
               {...props}
               target="_blank"
@@ -890,6 +1065,7 @@ export default function OzlindApp() {
               {children}
             </a>
           ),
+
           code: ({
             inline,
             className,
@@ -925,7 +1101,8 @@ export default function OzlindApp() {
     );
   }
 
-  const hasMessages = messages.length > 0;
+  const hasMessages =
+    messages.length > 0;
 
   return (
     <div className="ozlind-app">
@@ -933,13 +1110,17 @@ export default function OzlindApp() {
         <button
           className="mobile-sidebar-backdrop"
           aria-label="Close sidebar"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() =>
+            setSidebarOpen(false)
+          }
         />
       )}
 
       <aside
         className={`ozlind-sidebar ${
-          sidebarOpen ? "is-open" : ""
+          sidebarOpen
+            ? "is-open"
+            : ""
         }`}
       >
         <div className="sidebar-header">
@@ -958,16 +1139,22 @@ export default function OzlindApp() {
 
             <span className="brand-copy">
               <strong>OZLIND</strong>
-              <span>AI PLATFORM</span>
+              <span>
+                AI PLATFORM
+              </span>
             </span>
           </button>
 
           <button
             className="icon-button sidebar-close"
-            onClick={() => setSidebarOpen(false)}
+            onClick={() =>
+              setSidebarOpen(false)
+            }
             aria-label="Close sidebar"
           >
-            <PanelLeftClose size={18} />
+            <PanelLeftClose
+              size={18}
+            />
           </button>
         </div>
 
@@ -980,26 +1167,42 @@ export default function OzlindApp() {
             <span>New chat</span>
           </button>
 
-          <nav className="sidebar-nav">
+          <nav
+            className="sidebar-nav"
+            aria-label="Primary navigation"
+          >
             <button
               className="sidebar-nav-item active"
               onClick={startNewChat}
             >
-              <MessageSquare size={17} />
+              <MessageSquare
+                size={17}
+              />
               <span>AI Chat</span>
-              <span className="live-dot">LIVE</span>
+              <span className="live-dot">
+                LIVE
+              </span>
             </button>
 
             <button
               className="sidebar-nav-item"
               onClick={() => {
-                updateSettings({ research: true });
-                showNotice("Research enabled");
+                updateSettings({
+                  research: true,
+                });
+                showNotice(
+                  "Research enabled"
+                );
+                setSidebarOpen(false);
               }}
             >
               <Search size={17} />
-              <span>Web Research</span>
-              <span className="live-dot">LIVE</span>
+              <span>
+                Web Research
+              </span>
+              <span className="live-dot">
+                LIVE
+              </span>
             </button>
           </nav>
 
@@ -1008,22 +1211,50 @@ export default function OzlindApp() {
               <span>Workspace</span>
             </div>
 
-            <button className="sidebar-nav-item disabled">
-              <Sparkles size={17} />
-              <span>Image Generator</span>
-              <span className="next-label">NEXT</span>
+            <button
+              className="sidebar-nav-item disabled"
+              type="button"
+              disabled
+            >
+              <Sparkles
+                size={17}
+              />
+              <span>
+                Image Generator
+              </span>
+              <span className="next-label">
+                NEXT
+              </span>
             </button>
 
-            <button className="sidebar-nav-item disabled">
-              <FileText size={17} />
-              <span>Documents</span>
-              <span className="next-label">NEXT</span>
+            <button
+              className="sidebar-nav-item disabled"
+              type="button"
+              disabled
+            >
+              <FileText
+                size={17}
+              />
+              <span>
+                Documents
+              </span>
+              <span className="next-label">
+                NEXT
+              </span>
             </button>
 
-            <button className="sidebar-nav-item disabled">
+            <button
+              className="sidebar-nav-item disabled"
+              type="button"
+              disabled
+            >
               <Code2 size={17} />
-              <span>Code Assistant</span>
-              <span className="next-label">NEXT</span>
+              <span>
+                Code Assistant
+              </span>
+              <span className="next-label">
+                NEXT
+              </span>
             </button>
           </div>
 
@@ -1031,64 +1262,117 @@ export default function OzlindApp() {
             <div className="sidebar-section-heading">
               <span>History</span>
 
-              {history.length > 0 && (
+              {history.length >
+                0 && (
                 <button
                   className="text-button"
-                  onClick={clearHistory}
+                  onClick={
+                    clearHistory
+                  }
                 >
                   Clear
                 </button>
               )}
             </div>
 
-            {history.length > 0 && (
+            {history.length >
+              0 && (
               <div className="history-search">
-                <Search size={14} />
+                <Search
+                  size={14}
+                />
+
                 <input
-                  value={historySearch}
-                  onChange={(event) =>
-                    setHistorySearch(event.target.value)
+                  value={
+                    historySearch
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setHistorySearch(
+                      event.target
+                        .value
+                    )
                   }
                   placeholder="Search history"
                   aria-label="Search history"
                 />
+
+                {historySearch && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHistorySearch(
+                        ""
+                      )
+                    }
+                    aria-label="Clear history search"
+                  >
+                    <X
+                      size={13}
+                    />
+                  </button>
+                )}
               </div>
             )}
 
             <div className="history-list">
-              {filteredHistory.length === 0 ? (
+              {filteredHistory.length ===
+              0 ? (
                 <div className="history-empty">
-                  <span>No conversations yet.</span>
+                  <span>
+                    {history.length
+                      ? "No matching conversations."
+                      : "No conversations yet."}
+                  </span>
                 </div>
               ) : (
-                filteredHistory.map((item) => (
-                  <div
-                    className={`history-item ${
-                      activeChatId === item.id
-                        ? "active"
-                        : ""
-                    }`}
-                    key={item.id}
-                  >
-                    <button
-                      className="history-item-main"
-                      onClick={() => openHistoryItem(item)}
+                filteredHistory.map(
+                  (item) => (
+                    <div
+                      className={`history-item ${
+                        activeChatId ===
+                        item.id
+                          ? "active"
+                          : ""
+                      }`}
+                      key={item.id}
                     >
-                      <MessageSquare size={14} />
-                      <span>{item.title}</span>
-                    </button>
+                      <button
+                        className="history-item-main"
+                        onClick={() =>
+                          openHistoryItem(
+                            item
+                          )
+                        }
+                      >
+                        <MessageSquare
+                          size={14}
+                        />
 
-                    <button
-                      className="history-delete"
-                      onClick={() =>
-                        deleteHistoryItem(item.id)
-                      }
-                      aria-label={`Delete ${item.title}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))
+                        <span>
+                          {
+                            item.title
+                          }
+                        </span>
+                      </button>
+
+                      <button
+                        className="history-delete"
+                        onClick={() =>
+                          deleteHistoryItem(
+                            item.id
+                          )
+                        }
+                        aria-label={`Delete ${item.title}`}
+                      >
+                        <Trash2
+                          size={14}
+                        />
+                      </button>
+                    </div>
+                  )
+                )
               )}
             </div>
           </div>
@@ -1097,9 +1381,13 @@ export default function OzlindApp() {
         <div className="sidebar-footer">
           <button
             className="sidebar-nav-item"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() =>
+              setSettingsOpen(true)
+            }
           >
-            <Settings2 size={17} />
+            <Settings2
+              size={17}
+            />
             <span>Settings</span>
           </button>
 
@@ -1110,10 +1398,14 @@ export default function OzlindApp() {
 
             <div className="profile-info">
               <strong>Athul</strong>
-              <span>OZLIND User</span>
+              <span>
+                OZLIND User
+              </span>
             </div>
 
-            <ShieldCheck size={16} />
+            <ShieldCheck
+              size={16}
+            />
           </div>
         </div>
       </aside>
@@ -1123,14 +1415,18 @@ export default function OzlindApp() {
           <div className="topbar-left">
             <button
               className="icon-button mobile-menu-button"
-              onClick={() => setSidebarOpen(true)}
+              onClick={() =>
+                setSidebarOpen(true)
+              }
               aria-label="Open sidebar"
             >
               <Menu size={19} />
             </button>
 
             <div className="mobile-brand">
-              <strong>OZLIND</strong>
+              <strong>
+                OZLIND
+              </strong>
               <span>AI</span>
             </div>
 
@@ -1143,19 +1439,27 @@ export default function OzlindApp() {
           <div className="topbar-actions">
             <button
               className="icon-button"
-              onClick={shareConversation}
+              onClick={
+                shareConversation
+              }
               aria-label="Share conversation"
               title="Share"
             >
-              <Share2 size={18} />
+              <Share2
+                size={18}
+              />
             </button>
 
             <button
               className="clear-chat-button"
-              onClick={clearCurrentChat}
+              onClick={
+                clearCurrentChat
+              }
             >
               <Trash2 size={16} />
-              <span>Clear chat</span>
+              <span>
+                Clear chat
+              </span>
             </button>
           </div>
         </header>
@@ -1164,8 +1468,12 @@ export default function OzlindApp() {
           {!hasMessages ? (
             <div className="welcome-screen">
               <div className="welcome-badge">
-                <Sparkles size={15} />
-                <span>OZLIND AI</span>
+                <Sparkles
+                  size={15}
+                />
+                <span>
+                  OZLIND AI
+                </span>
               </div>
 
               <h1>
@@ -1175,147 +1483,221 @@ export default function OzlindApp() {
               </h1>
 
               <p>
-                Ask questions, analyze files, research topics,
-                write code, or plan your next idea.
+                Ask questions, analyze
+                images, research topics,
+                write code, or plan your
+                next idea.
               </p>
 
               <div className="suggestion-grid">
-                {SUGGESTIONS.map((suggestion) => {
-                  const Icon = suggestion.icon;
+                {SUGGESTIONS.map(
+                  (suggestion) => {
+                    const Icon =
+                      suggestion.icon;
 
-                  return (
-                    <button
-                      className="suggestion-card"
-                      key={suggestion.title}
-                      onClick={() =>
-                        selectSuggestion(
-                          suggestion.prompt
-                        )
-                      }
-                    >
-                      <span className="suggestion-icon">
-                        <Icon size={18} />
-                      </span>
+                    return (
+                      <button
+                        className="suggestion-card"
+                        key={
+                          suggestion.title
+                        }
+                        onClick={() =>
+                          selectSuggestion(
+                            suggestion.prompt
+                          )
+                        }
+                      >
+                        <span className="suggestion-icon">
+                          <Icon
+                            size={18}
+                          />
+                        </span>
 
-                      <span className="suggestion-content">
-                        <strong>{suggestion.title}</strong>
-                        <span>{suggestion.prompt}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+                        <span className="suggestion-content">
+                          <strong>
+                            {
+                              suggestion.title
+                            }
+                          </strong>
+
+                          <span>
+                            {
+                              suggestion.prompt
+                            }
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
               </div>
             </div>
           ) : (
             <div className="chat-area">
               <div className="messages-list">
-                {messages.map((message, index) => {
-                  const isUser = message.role === "user";
-                  const content = getMessageText(message);
+                {messages.map(
+                  (
+                    message,
+                    index
+                  ) => {
+                    const isUser =
+                      message.role ===
+                      "user";
 
-                  return (
-                    <article
-                      className={`message-row ${
-                        isUser ? "user" : "assistant"
-                      }`}
-                      key={message.id || index}
-                    >
-                      {!isUser && (
-                        <div className="assistant-avatar">
-                          <Sparkles size={15} />
-                        </div>
-                      )}
+                    const content =
+                      getMessageText(
+                        message
+                      );
 
-                      <div className="message-column">
-                        <div className="message-meta">
-                          <span>
-                            {isUser ? "You" : "Ozlind AI"}
-                          </span>
-                        </div>
+                    return (
+                      <article
+                        className={`message-row ${
+                          isUser
+                            ? "user"
+                            : "assistant"
+                        }`}
+                        key={
+                          message.id ||
+                          index
+                        }
+                      >
+                        {!isUser && (
+                          <div className="assistant-avatar">
+                            <Sparkles
+                              size={15}
+                            />
+                          </div>
+                        )}
 
-                        <div className="message-bubble">
-                          {message.attachment && (
-                            <div className="message-attachment">
-                              {message.attachment.dataUrl &&
-                              message.attachment.type?.startsWith(
-                                "image/"
-                              ) ? (
-                                <img
-                                  src={
-                                    message.attachment.dataUrl
-                                  }
-                                  alt={
-                                    message.attachment.name
-                                  }
-                                />
-                              ) : (
+                        <div className="message-column">
+                          <div className="message-meta">
+                            <span>
+                              {isUser
+                                ? "You"
+                                : "Ozlind AI"}
+                            </span>
+                          </div>
+
+                          <div className="message-bubble">
+                            {message.attachment && (
+                              <div className="message-attachment">
+                                {message
+                                  .attachment
+                                  .dataUrl ? (
+                                  <img
+                                    src={
+                                      message
+                                        .attachment
+                                        .dataUrl
+                                    }
+                                    alt={
+                                      message
+                                        .attachment
+                                        .name
+                                    }
+                                  />
+                                ) : null}
+
                                 <div className="attachment-file">
-                                  <FileText size={16} />
+                                  <FileText
+                                    size={16}
+                                  />
+
                                   <span>
-                                    {message.attachment.name}
+                                    {
+                                      message
+                                        .attachment
+                                        .name
+                                    }
                                   </span>
                                 </div>
-                              )}
-                            </div>
-                          )}
-
-                          {content ? (
-                            isUser ? (
-                              <p>{content}</p>
-                            ) : (
-                              <div className="markdown-content">
-                                {renderMarkdown(content)}
                               </div>
-                            )
-                          ) : message.streaming ? (
-                            <div className="streaming-indicator">
-                              <span />
-                              <span />
-                              <span />
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="message-actions">
-                          <button
-                            onClick={() =>
-                              copyMessage(content, index)
-                            }
-                            aria-label="Copy message"
-                          >
-                            {copiedMessage === index ? (
-                              <Check size={14} />
-                            ) : (
-                              <Copy size={14} />
                             )}
-                          </button>
 
-                          {isUser && (
+                            {content ? (
+                              isUser ? (
+                                <p>
+                                  {
+                                    content
+                                  }
+                                </p>
+                              ) : (
+                                <div className="markdown-content">
+                                  {renderMarkdown(
+                                    content
+                                  )}
+                                </div>
+                              )
+                            ) : message.streaming ? (
+                              <div className="streaming-indicator">
+                                <span />
+                                <span />
+                                <span />
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="message-actions">
                             <button
                               onClick={() =>
-                                editMessage(message)
+                                copyMessage(
+                                  content,
+                                  index
+                                )
                               }
-                              aria-label="Edit message"
+                              aria-label="Copy message"
                             >
-                              <PenLine size={14} />
+                              {copiedMessage ===
+                              index ? (
+                                <Check
+                                  size={14}
+                                />
+                              ) : (
+                                <Copy
+                                  size={14}
+                                />
+                              )}
                             </button>
-                          )}
 
-                          {!isUser &&
-                            index === messages.length - 1 &&
-                            !isStreaming && (
+                            {isUser && (
                               <button
-                                onClick={regenerateLastResponse}
-                                aria-label="Regenerate response"
+                                onClick={() =>
+                                  editMessage(
+                                    message
+                                  )
+                                }
+                                aria-label="Edit message"
                               >
-                                <RefreshCw size={14} />
+                                <PenLine
+                                  size={14}
+                                />
                               </button>
                             )}
+
+                            {!isUser &&
+                              index ===
+                                messages.length -
+                                  1 &&
+                              !isStreaming && (
+                                <button
+                                  onClick={
+                                    regenerateLastResponse
+                                  }
+                                  aria-label="Regenerate response"
+                                >
+                                  <RefreshCw
+                                    size={
+                                      14
+                                    }
+                                  />
+                                </button>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                      </article>
+                    );
+                  }
+                )}
 
                 <div ref={bottomRef} />
               </div>
@@ -1323,11 +1705,16 @@ export default function OzlindApp() {
           )}
 
           {error && (
-            <div className="error-banner" role="alert">
+            <div
+              className="error-banner"
+              role="alert"
+            >
               <span>{error}</span>
 
               <button
-                onClick={() => setError("")}
+                onClick={() =>
+                  setError("")
+                }
                 aria-label="Dismiss error"
               >
                 <X size={15} />
@@ -1339,27 +1726,35 @@ export default function OzlindApp() {
             {selectedFile && (
               <div className="selected-file">
                 <div className="selected-file-info">
-                  {selectedFile.dataUrl &&
-                  selectedFile.type?.startsWith("image/") ? (
-                    <img
-                      src={selectedFile.dataUrl}
-                      alt={selectedFile.name}
-                    />
-                  ) : (
-                    <FileText size={18} />
-                  )}
+                  <img
+                    src={
+                      selectedFile.dataUrl
+                    }
+                    alt={
+                      selectedFile.name
+                    }
+                  />
 
                   <div>
-                    <strong>{selectedFile.name}</strong>
+                    <strong>
+                      {
+                        selectedFile.name
+                      }
+                    </strong>
+
                     <span>
-                      {formatFileSize(selectedFile.size)}
+                      {formatFileSize(
+                        selectedFile.size
+                      )}
                     </span>
                   </div>
                 </div>
 
                 <button
                   className="icon-button"
-                  onClick={removeSelectedFile}
+                  onClick={
+                    removeSelectedFile
+                  }
                   aria-label="Remove attachment"
                 >
                   <X size={17} />
@@ -1375,18 +1770,22 @@ export default function OzlindApp() {
                     onClick={() =>
                       fileInputRef.current?.click()
                     }
-                    aria-label="Attach file"
-                    title="Attach file"
+                    aria-label="Attach image"
+                    title="Attach image"
                   >
-                    <Paperclip size={19} />
+                    <Paperclip
+                      size={19}
+                    />
                   </button>
 
                   <input
                     ref={fileInputRef}
                     type="file"
                     hidden
-                    onChange={handleFileChange}
-                    accept="image/*,.pdf,.txt,.csv,.md,.json,.doc,.docx"
+                    onChange={
+                      handleFileChange
+                    }
+                    accept="image/*"
                   />
 
                   <div
@@ -1396,67 +1795,117 @@ export default function OzlindApp() {
                     <button
                       className="mode-button"
                       onClick={() =>
-                        setModeOpen((current) => !current)
+                        setModeOpen(
+                          (current) =>
+                            !current
+                        )
                       }
-                      aria-expanded={modeOpen}
+                      aria-expanded={
+                        modeOpen
+                      }
                     >
-                      <selectedMode.icon size={16} />
-                      <span>{selectedMode.label}</span>
-                      <ChevronDown size={14} />
+                      <selectedMode.icon
+                        size={16}
+                      />
+
+                      <span>
+                        {
+                          selectedMode.label
+                        }
+                      </span>
+
+                      <ChevronDown
+                        size={14}
+                      />
                     </button>
 
                     {modeOpen && (
                       <div className="mode-menu">
-                        {MODES.map((item) => {
-                          const Icon = item.icon;
+                        {MODES.map(
+                          (item) => {
+                            const Icon =
+                              item.icon;
 
-                          return (
-                            <button
-                              key={item.id}
-                              className={`mode-menu-item ${
-                                mode === item.id
-                                  ? "active"
-                                  : ""
-                              }`}
-                              onClick={() => {
-                                setMode(item.id);
-                                setModeOpen(false);
-                              }}
-                            >
-                              <span className="mode-menu-icon">
-                                <Icon size={16} />
-                              </span>
-
-                              <span className="mode-menu-copy">
-                                <strong>{item.label}</strong>
-                                <span>
-                                  {item.description}
+                            return (
+                              <button
+                                key={
+                                  item.id
+                                }
+                                className={`mode-menu-item ${
+                                  mode ===
+                                  item.id
+                                    ? "active"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  setMode(
+                                    item.id
+                                  );
+                                  setModeOpen(
+                                    false
+                                  );
+                                }}
+                              >
+                                <span className="mode-menu-icon">
+                                  <Icon
+                                    size={
+                                      16
+                                    }
+                                  />
                                 </span>
-                              </span>
 
-                              {mode === item.id && (
-                                <Check size={15} />
-                              )}
-                            </button>
-                          );
-                        })}
+                                <span className="mode-menu-copy">
+                                  <strong>
+                                    {
+                                      item.label
+                                    }
+                                  </strong>
+
+                                  <span>
+                                    {
+                                      item.description
+                                    }
+                                  </span>
+                                </span>
+
+                                {mode ===
+                                  item.id && (
+                                  <Check
+                                    size={
+                                      15
+                                    }
+                                  />
+                                )}
+                              </button>
+                            );
+                          }
+                        )}
                       </div>
                     )}
                   </div>
 
                   <button
                     className={`research-toggle ${
-                      settings.research ? "active" : ""
+                      settings.research
+                        ? "active"
+                        : ""
                     }`}
                     onClick={() =>
                       updateSettings({
-                        research: !settings.research,
+                        research:
+                          !settings.research,
                       })
                     }
-                    aria-pressed={settings.research}
+                    aria-pressed={
+                      settings.research
+                    }
                   >
-                    <Search size={15} />
-                    <span>Research</span>
+                    <Search
+                      size={15}
+                    />
+                    <span>
+                      Research
+                    </span>
                   </button>
                 </div>
 
@@ -1464,7 +1913,9 @@ export default function OzlindApp() {
                   {isStreaming ? (
                     <button
                       className="send-button stop"
-                      onClick={stopGeneration}
+                      onClick={
+                        stopGeneration
+                      }
                       aria-label="Stop generation"
                     >
                       <span className="stop-square" />
@@ -1472,13 +1923,18 @@ export default function OzlindApp() {
                   ) : (
                     <button
                       className="send-button"
-                      onClick={() => sendMessage()}
+                      onClick={() =>
+                        sendMessage()
+                      }
                       disabled={
-                        !input.trim() && !selectedFile
+                        !input.trim() &&
+                        !selectedFile
                       }
                       aria-label="Send message"
                     >
-                      <ArrowUp size={19} />
+                      <ArrowUp
+                        size={19}
+                      />
                     </button>
                   )}
                 </div>
@@ -1488,8 +1944,12 @@ export default function OzlindApp() {
                 ref={textareaRef}
                 className="composer-input"
                 value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleTextareaKeyDown}
+                onChange={
+                  handleInputChange
+                }
+                onKeyDown={
+                  handleTextareaKeyDown
+                }
                 placeholder="Message OZLIND AI..."
                 rows={1}
                 disabled={isStreaming}
@@ -1498,14 +1958,18 @@ export default function OzlindApp() {
 
               <div className="composer-footer">
                 <span>
-                  OZLIND can make mistakes. Verify important
+                  OZLIND can make
+                  mistakes. Verify
+                  important
                   information.
                 </span>
 
                 <span className="keyboard-hint">
-                  <kbd>Enter</kbd> send
+                  <kbd>Enter</kbd>{" "}
+                  send
                   <kbd>Shift</kbd>+
-                  <kbd>Enter</kbd> new line
+                  <kbd>Enter</kbd>{" "}
+                  new line
                 </span>
               </div>
             </div>
@@ -1517,8 +1981,13 @@ export default function OzlindApp() {
         <div
           className="dialog-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setSettingsOpen(false);
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setSettingsOpen(
+                false
+              );
             }
           }}
         >
@@ -1533,12 +2002,17 @@ export default function OzlindApp() {
                 <span className="dialog-eyebrow">
                   Preferences
                 </span>
+
                 <h2>Settings</h2>
               </div>
 
               <button
                 className="icon-button"
-                onClick={() => setSettingsOpen(false)}
+                onClick={() =>
+                  setSettingsOpen(
+                    false
+                  )
+                }
                 aria-label="Close settings"
               >
                 <X size={18} />
@@ -1548,32 +2022,50 @@ export default function OzlindApp() {
             <div className="settings-content">
               <section className="settings-section">
                 <div className="settings-section-heading">
-                  <strong>AI behavior</strong>
+                  <strong>
+                    AI behavior
+                  </strong>
+
                   <span>
-                    Configure how OZLIND responds.
+                    Configure how OZLIND
+                    responds.
                   </span>
                 </div>
 
                 <div className="setting-row">
                   <div>
-                    <strong>Provider routing</strong>
+                    <strong>
+                      Provider routing
+                    </strong>
+
                     <span>
-                      Automatically select an available
-                      provider when possible.
+                      Automatically select
+                      an available provider
+                      when possible.
                     </span>
                   </div>
 
                   <select
-                    value={settings.provider}
+                    value={
+                      settings.provider
+                    }
                     onChange={(event) =>
                       updateSettings({
-                        provider: event.target.value,
+                        provider:
+                          event.target
+                            .value,
                       })
                     }
                   >
-                    <option value="auto">Auto</option>
-                    <option value="groq">Fast</option>
-                    <option value="gemini">Vision</option>
+                    <option value="auto">
+                      Auto
+                    </option>
+                    <option value="groq">
+                      Fast
+                    </option>
+                    <option value="gemini">
+                      Vision
+                    </option>
                     <option value="experiential">
                       Pro
                     </option>
@@ -1582,23 +2074,32 @@ export default function OzlindApp() {
 
                 <div className="setting-row">
                   <div>
-                    <strong>Research</strong>
+                    <strong>
+                      Research
+                    </strong>
+
                     <span>
-                      Allow web research when enabled.
+                      Allow web research
+                      when enabled.
                     </span>
                   </div>
 
                   <button
                     className={`switch ${
-                      settings.research ? "active" : ""
+                      settings.research
+                        ? "active"
+                        : ""
                     }`}
                     onClick={() =>
                       updateSettings({
-                        research: !settings.research,
+                        research:
+                          !settings.research,
                       })
                     }
                     role="switch"
-                    aria-checked={settings.research}
+                    aria-checked={
+                      settings.research
+                    }
                   >
                     <span />
                   </button>
@@ -1606,23 +2107,33 @@ export default function OzlindApp() {
 
                 <div className="setting-row">
                   <div>
-                    <strong>Memory</strong>
+                    <strong>
+                      Memory
+                    </strong>
+
                     <span>
-                      Keep useful local conversation context.
+                      Keep useful local
+                      conversation
+                      context.
                     </span>
                   </div>
 
                   <button
                     className={`switch ${
-                      settings.memory ? "active" : ""
+                      settings.memory
+                        ? "active"
+                        : ""
                     }`}
                     onClick={() =>
                       updateSettings({
-                        memory: !settings.memory,
+                        memory:
+                          !settings.memory,
                       })
                     }
                     role="switch"
-                    aria-checked={settings.memory}
+                    aria-checked={
+                      settings.memory
+                    }
                   >
                     <span />
                   </button>
@@ -1631,77 +2142,114 @@ export default function OzlindApp() {
 
               <section className="settings-section">
                 <div className="settings-section-heading">
-                  <strong>Response style</strong>
+                  <strong>
+                    Response style
+                  </strong>
+
                   <span>
-                    Adjust answer length and writing style.
+                    Adjust answer length and
+                    writing style.
                   </span>
                 </div>
 
                 <div className="segmented-control">
                   {[
-                    ["concise", "Concise"],
-                    ["balanced", "Balanced"],
-                    ["detailed", "Detailed"],
-                  ].map(([value, label]) => (
-                    <button
-                      key={value}
-                      className={
-                        settings.length === value
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() =>
-                        updateSettings({
-                          length: value,
-                        })
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
+                    [
+                      "concise",
+                      "Concise",
+                    ],
+                    [
+                      "balanced",
+                      "Balanced",
+                    ],
+                    [
+                      "detailed",
+                      "Detailed",
+                    ],
+                  ].map(
+                    ([value, label]) => (
+                      <button
+                        key={value}
+                        className={
+                          settings.length ===
+                          value
+                            ? "active"
+                            : ""
+                        }
+                        onClick={() =>
+                          updateSettings({
+                            length:
+                              value,
+                          })
+                        }
+                      >
+                        {label}
+                      </button>
+                    )
+                  )}
                 </div>
 
                 <div className="segmented-control">
                   {[
-                    ["balanced", "Balanced"],
-                    ["professional", "Professional"],
-                    ["friendly", "Friendly"],
-                  ].map(([value, label]) => (
-                    <button
-                      key={value}
-                      className={
-                        settings.style === value
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() =>
-                        updateSettings({
-                          style: value,
-                        })
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
+                    [
+                      "balanced",
+                      "Balanced",
+                    ],
+                    [
+                      "professional",
+                      "Professional",
+                    ],
+                    [
+                      "friendly",
+                      "Friendly",
+                    ],
+                  ].map(
+                    ([value, label]) => (
+                      <button
+                        key={value}
+                        className={
+                          settings.style ===
+                          value
+                            ? "active"
+                            : ""
+                        }
+                        onClick={() =>
+                          updateSettings({
+                            style:
+                              value,
+                          })
+                        }
+                      >
+                        {label}
+                      </button>
+                    )
+                  )}
                 </div>
               </section>
 
               <section className="settings-section">
                 <div className="settings-section-heading">
-                  <strong>Custom instructions</strong>
+                  <strong>
+                    Custom instructions
+                  </strong>
+
                   <span>
-                    Optional instructions applied to your
+                    Optional instructions
+                    applied to your
                     conversations.
                   </span>
                 </div>
 
                 <textarea
                   className="settings-textarea"
-                  value={settings.customInstructions}
+                  value={
+                    settings.customInstructions
+                  }
                   onChange={(event) =>
                     updateSettings({
                       customInstructions:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   }
                   placeholder="Tell OZLIND how you want responses to be written..."
@@ -1711,9 +2259,13 @@ export default function OzlindApp() {
 
               <section className="settings-section account-section">
                 <div className="settings-section-heading">
-                  <strong>Account</strong>
+                  <strong>
+                    Account
+                  </strong>
+
                   <span>
-                    Your current OZLIND profile.
+                    Your current OZLIND
+                    profile.
                   </span>
                 </div>
 
@@ -1723,8 +2275,13 @@ export default function OzlindApp() {
                   </div>
 
                   <div>
-                    <strong>Athul</strong>
-                    <span>OZLIND User</span>
+                    <strong>
+                      Athul
+                    </strong>
+
+                    <span>
+                      OZLIND User
+                    </span>
                   </div>
                 </div>
               </section>
@@ -1734,8 +2291,13 @@ export default function OzlindApp() {
               <button
                 className="secondary-button"
                 onClick={() => {
-                  setSettings(DEFAULT_SETTINGS);
-                  showNotice("Settings reset");
+                  setSettings(
+                    DEFAULT_SETTINGS
+                  );
+
+                  showNotice(
+                    "Settings reset"
+                  );
                 }}
               >
                 Reset
@@ -1744,8 +2306,13 @@ export default function OzlindApp() {
               <button
                 className="primary-button"
                 onClick={() => {
-                  setSettingsOpen(false);
-                  showNotice("Settings saved");
+                  setSettingsOpen(
+                    false
+                  );
+
+                  showNotice(
+                    "Settings saved"
+                  );
                 }}
               >
                 Done
@@ -1756,10 +2323,15 @@ export default function OzlindApp() {
       )}
 
       {notice && (
-        <div className="toast" role="status" aria-live="polite">
+        <div
+          className="toast"
+          role="status"
+          aria-live="polite"
+        >
           <span className="toast-icon">
             <Check size={15} />
           </span>
+
           <span>{notice}</span>
         </div>
       )}
@@ -1768,7 +2340,10 @@ export default function OzlindApp() {
 }
 
 function formatFileSize(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) {
+  if (
+    !Number.isFinite(bytes) ||
+    bytes <= 0
+  ) {
     return "0 KB";
   }
 
@@ -1777,26 +2352,36 @@ function formatFileSize(bytes) {
   }
 
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(
+      bytes / 1024
+    ).toFixed(1)} KB`;
   }
 
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(
+    bytes /
+    (1024 * 1024)
+  ).toFixed(1)} MB`;
 }
 
 async function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+  return new Promise(
+    (resolve, reject) => {
+      const reader =
+        new FileReader();
 
-    reader.onload = () =>
-      resolve(String(reader.result));
+      reader.onload = () =>
+        resolve(
+          String(reader.result)
+        );
 
-    reader.onerror = () =>
-      reject(
-        new Error(
-          "Could not read the image."
-        )
-      );
+      reader.onerror = () =>
+        reject(
+          new Error(
+            "Could not read the image."
+          )
+        );
 
-    reader.readAsDataURL(file);
-  });
+      reader.readAsDataURL(file);
+    }
+  );
 }
