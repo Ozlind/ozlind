@@ -20,29 +20,32 @@ function OzlindMark({ className = "" }) {
 
 function BootScreen() {
   return (
-    <main className="ozlind-boot" aria-label="Loading OZLIND AI" aria-busy="true">
+    <main
+      className="ozlind-boot"
+      aria-label="Loading OZLIND AI"
+      aria-busy="true"
+    >
       <div className="ozlind-boot-orb ozlind-boot-orb-one" />
       <div className="ozlind-boot-orb ozlind-boot-orb-two" />
 
       <div className="ozlind-boot-content">
         <div className="ozlind-boot-logo-wrap">
-          <OzllindMarkSafe />
+          <OzlindMark className="ozlind-boot-logo" />
         </div>
+
         <div className="ozlind-boot-wordmark">
           <strong>OZLIND</strong>
           <span>AI</span>
         </div>
+
         <div className="ozlind-boot-loader" aria-hidden="true">
           <span />
         </div>
+
         <p>Initializing your workspace</p>
       </div>
     </main>
   );
-}
-
-function OzllindMarkSafe() {
-  return <OzllindMark className="ozlind-boot-logo" />;
 }
 
 export default function Page() {
@@ -56,6 +59,7 @@ export default function Page() {
     async function initialize() {
       try {
         const supabase = await createClient();
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -75,7 +79,9 @@ export default function Page() {
         console.error("OZLIND session initialization failed:", error);
 
         timer = window.setTimeout(() => {
-          if (mounted) router.replace("/login");
+          if (mounted) {
+            router.replace("/login");
+          }
         }, 800);
       }
     }
@@ -84,7 +90,10 @@ export default function Page() {
 
     return () => {
       mounted = false;
-      if (timer) window.clearTimeout(timer);
+
+      if (timer) {
+        window.clearTimeout(timer);
+      }
     };
   }, [router]);
 
