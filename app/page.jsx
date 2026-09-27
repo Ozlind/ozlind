@@ -48,21 +48,62 @@ function BootScreen() {
   );
 }
 
+function ErrorScreen({ message, onRetry }) {
+  return (
+    <main
+      className="ozlind-boot"
+      aria-label="OZLIND AI could not start"
+    >
+      <div className="ozlind-boot-content">
+        <div className="ozlind-boot-logo-wrap">
+          <OzlindMark className="ozlind-boot-logo" />
+        </div>
+
+        <div className="ozlind-boot-wordmark">
+          <strong>OZLIND</strong>
+          <span>AI</span>
+        </div>
+
+        <p style={{ color: "var(--danger, #d6493a)" }}>{message}</p>
+
+        <button
+          type="button"
+          className="primary-button"
+          onClick={onRetry}
+          style={{ marginTop: "12px" }}
+        >
+          Retry
+        </button>
+      </div>
+    </main>
+  );
+}
+
 export default function Page() {
   const router = useRouter();
   const [status, setStatus] = useState("booting");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let mounted = true;
     let timer;
 
     async function initialize() {
+      setStatus("booting");
+      setErrorMessage("");
+
       try {
         const supabase = await createClient();
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const { data, error: sessionError } =
+          await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        const session = data?.session;
 
         if (!mounted) return;
 
@@ -76,13 +117,20 @@ export default function Page() {
           }
         }, 1100);
       } catch (error) {
+        // Do NOT treat "couldn't check the session" the same as
+        // "definitely not signed in" — that silently bounces a
+        // signed-in user back to /login whenever config, network,
+        // or the Supabase env vars are broken, which looks like a
+        // login bug but is really a setup/connectivity problem.
         console.error("OZLIND session initialization failed:", error);
 
-        timer = window.setTimeout(() => {
-          if (mounted) {
-            router.replace("/login");
-          }
-        }, 800);
+        if (!mounted) return;
+
+        setStatus("error");
+        setErrorMessage(
+          error?.message ||
+            "Could not verify your session. Check your connection and Supabase configuration."
+        );
       }
     }
 
@@ -95,7 +143,16 @@ export default function Page() {
         window.clearTimeout(timer);
       }
     };
-  }, [router]);
+  }, [router, attempt]);
+
+  if (status === "error") {
+    return (
+      <ErrorScreen
+        message={errorMessage}
+        onRetry={() => setAttempt((current) => current + 1)}
+      />
+    );
+  }
 
   if (status !== "ready") {
     return <BootScreen />;
