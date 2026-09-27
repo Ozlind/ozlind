@@ -1629,3 +1629,460 @@ a {
     display: none;
   }
 }
+
+/* ============ AUTH / BOOT EXPERIENCE ============ */
+
+.ozlind-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(201, 138, 82, 0.13), transparent 30%),
+    #0b0c0e;
+  color: #f2f3f4;
+}
+
+.ozlind-boot-content {
+  position: relative;
+  z-index: 2;
+  width: min(86vw, 360px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: ozlind-boot-enter 0.7s ease both;
+}
+
+.ozlind-boot-logo-wrap {
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 0 0 8px rgba(201, 138, 82, 0.035),
+    0 22px 70px rgba(0, 0, 0, 0.5);
+}
+
+.ozlind-boot-logo {
+  width: 58px;
+  height: 58px;
+  color: #c98a52;
+  fill: currentColor;
+}
+
+.ozlind-boot-wordmark {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 20px;
+  letter-spacing: 0.18em;
+}
+
+.ozlind-boot-wordmark strong {
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.ozlind-boot-wordmark span {
+  color: #c98a52;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.ozlind-boot-content p {
+  margin: 12px 0 0;
+  color: rgba(242, 243, 244, 0.48);
+  font-size: 12px;
+}
+
+.ozlind-boot-loader {
+  width: 110px;
+  height: 2px;
+  margin-top: 24px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ozlind-boot-loader span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: #c98a52;
+  animation: ozlind-boot-progress 1.05s ease-in-out infinite;
+}
+
+.ozlind-boot-orb {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+}
+
+.ozlind-boot-orb-one {
+  top: 18%;
+  left: -120px;
+  background: rgba(201, 138, 82, 0.08);
+}
+
+.ozlind-boot-orb-two {
+  right: -140px;
+  bottom: 12%;
+  background: rgba(125, 98, 62, 0.07);
+}
+
+.login-page {
+  position: relative;
+  min-height: 100dvh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 24px 16px;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(201, 138, 82, 0.11), transparent 34%),
+    radial-gradient(circle at 10% 90%, rgba(119, 91, 52, 0.07), transparent 30%),
+    #0b0c0e;
+  color: #f2f3f4;
+}
+
+.login-background-glow {
+  position: fixed;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+
+.login-background-glow-one {
+  top: -150px;
+  right: -110px;
+  background: rgba(201, 138, 82, 0.08);
+}
+
+.login-background-glow-two {
+  bottom: -170px;
+  left: -120px;
+  background: rgba(151, 116, 69, 0.07);
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  padding: 34px 26px 26px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 28px;
+  background: rgba(21, 23, 25, 0.88);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  animation: ozlind-login-enter 0.55s ease both;
+}
+
+.login-loading-card {
+  min-height: 230px;
+  display: grid;
+  place-items: center;
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.login-brand-mark {
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border-radius: 21px;
+  background: rgba(201, 138, 82, 0.08);
+  border: 1px solid rgba(201, 138, 82, 0.2);
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.3);
+}
+
+.login-brand-svg {
+  width: 46px;
+  height: 46px;
+  color: #c98a52;
+  fill: currentColor;
+}
+
+.login-brand-name {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 14px;
+  letter-spacing: 0.13em;
+}
+
+.login-brand-name span {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.login-brand-name strong {
+  color: #c98a52;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.login-brand > p {
+  margin: 5px 0 0;
+  color: #85898d;
+  font-size: 12px;
+}
+
+.login-heading {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.login-heading h1 {
+  margin: 0;
+  font-size: clamp(24px, 6vw, 29px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.login-heading p {
+  margin: 8px auto 0;
+  max-width: 300px;
+  color: #8d9195;
+  font-size: 13px;
+}
+
+.google-login-button {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 15px;
+  background: #f5f5f4;
+  color: #171819;
+  font-weight: 700;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.google-login-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+.google-login-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.google-login-button:focus-visible {
+  outline: 2px solid #c98a52;
+  outline-offset: 3px;
+}
+
+.google-login-button:disabled {
+  opacity: 0.72;
+}
+
+.google-login-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.google-login-label {
+  flex: 1;
+  text-align: center;
+  font-size: 13.5px;
+}
+
+.google-login-arrow {
+  width: 28px;
+  text-align: center;
+  font-size: 19px;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 20px;
+}
+
+.login-divider span {
+  height: 1px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.login-divider em {
+  color: #666b70;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.login-security {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.login-security-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  border-radius: 10px;
+  color: #c98a52;
+  background: rgba(201, 138, 82, 0.08);
+}
+
+.login-security > div:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.login-security strong {
+  font-size: 11.5px;
+}
+
+.login-security span {
+  color: #777c80;
+  font-size: 10.5px;
+}
+
+.login-footer {
+  margin: 19px 0 0;
+  color: #656a6f;
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.login-legal {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #555a5e;
+  font-size: 10px;
+}
+
+.login-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 18px;
+  padding: 11px 12px;
+  border: 1px solid rgba(214, 73, 58, 0.3);
+  border-radius: 12px;
+  background: rgba(214, 73, 58, 0.08);
+  color: #f0aaa1;
+  font-size: 11.5px;
+}
+
+.login-error-icon {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 18px;
+  border-radius: 50%;
+  background: rgba(214, 73, 58, 0.16);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.login-loading-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8b9094;
+  font-size: 12px;
+}
+
+.login-loading-spinner,
+.login-button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(201, 138, 82, 0.2);
+  border-top-color: #c98a52;
+  border-radius: 50%;
+  animation: ozlind-spin 0.7s linear infinite;
+}
+
+.login-button-spinner {
+  flex: 0 0 16px;
+  border-color: rgba(23, 24, 25, 0.16);
+  border-top-color: #171819;
+}
+
+@keyframes ozlind-boot-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ozlind-boot-progress {
+  0% { transform: translateX(-130%); }
+  55%, 100% { transform: translateX(270%); }
+}
+
+@keyframes ozlind-login-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ozlind-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px 12px;
+  }
+
+  .login-card {
+    padding: 30px 20px 22px;
+    border-radius: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ozlind-boot-content,
+  .login-card,
+  .login-button-spinner,
+  .login-loading-spinner,
+  .ozlind-boot-loader span {
+    animation: none;
+  }
+}
