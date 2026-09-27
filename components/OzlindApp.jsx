@@ -49,11 +49,10 @@ const SETTINGS_KEY = "ozlind_settings_v2";
 const THEME_KEY = "ozlind_theme_v1";
 
 const DEFAULT_SETTINGS = {
-  provider: "auto",
   research: false,
   memory: true,
-  style: "balanced",
-  length: "medium",
+  responseStyle: "balanced",
+  responseLength: "medium",
   customInstructions: "",
 };
 
@@ -611,10 +610,41 @@ export default function OzlindApp() {
   }
 
   function buildApiMessages(currentMessages) {
-    return currentMessages.map((message) => ({
-      role: message.role,
-      content: getMessageText(message),
-    }));
+    return currentMessages.map((message) => {
+      const text = getMessageText(message);
+      const attachment = message.attachment;
+
+      const isImageAttachment =
+        attachment?.dataUrl &&
+        attachment.type?.startsWith("image/");
+
+      if (isImageAttachment) {
+        const content = [];
+
+        if (text) {
+          content.push({ type: "text", text });
+        }
+
+        content.push({
+          type: "image_url",
+          image_url: { url: attachment.dataUrl },
+        });
+
+        return { role: message.role, content };
+      }
+
+      // Non-image attachments (PDF, docx, etc.) can't be parsed
+      // client-side, so at least tell the model a file was attached
+      // rather than silently dropping it.
+      if (attachment?.name) {
+        return {
+          role: message.role,
+          content: `${text}\n\n[Attached file: ${attachment.name} — file content could not be read; only image attachments are analyzed.]`,
+        };
+      }
+
+      return { role: message.role, content: text };
+    });
   }
 
   async function sendMessage(customPrompt) {
@@ -686,22 +716,12 @@ export default function OzlindApp() {
       const body = {
         messages: buildApiMessages(nextMessages),
         mode,
-        provider: settings.provider,
         research: settings.research,
         memory: settings.memory,
-        style: settings.style,
-        length: settings.length,
+        responseStyle: settings.responseStyle,
+        responseLength: settings.responseLength,
         customInstructions: settings.customInstructions,
       };
-
-      if (selectedFile) {
-        body.file = {
-          name: selectedFile.name,
-          type: selectedFile.type,
-          size: selectedFile.size,
-          dataUrl: selectedFile.dataUrl,
-        };
-      }
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -1100,10 +1120,16 @@ export default function OzlindApp() {
             </button>
 
             <button
-              className="sidebar-nav-item"
+              className={`sidebar-nav-item ${
+                settings.research ? "active" : ""
+              }`}
               onClick={() => {
-                updateSettings({ research: true });
-                showNotice("Research enabled");
+                updateSettings({ research: !settings.research });
+                showNotice(
+                  settings.research
+                    ? "Research disabled"
+                    : "Research enabled"
+                );
               }}
             >
               <Search size={17} />
@@ -1823,19 +1849,15 @@ export default function OzlindApp() {
                   </div>
 
                   <select
-                    value={settings.provider}
+                    value={mode}
                     onChange={(event) =>
-                      updateSettings({
-                        provider: event.target.value,
-                      })
+                      setMode(event.target.value)
                     }
                   >
                     <option value="auto">Auto</option>
-                    <option value="groq">Fast</option>
-                    <option value="gemini">Vision</option>
-                    <option value="experiential">
-                      Pro
-                    </option>
+                    <option value="fast">Fast</option>
+                    <option value="vision">Vision</option>
+                    <option value="pro">Pro</option>
                   </select>
                 </div>
 
@@ -1898,20 +1920,20 @@ export default function OzlindApp() {
 
                 <div className="segmented-control">
                   {[
-                    ["concise", "Concise"],
-                    ["balanced", "Balanced"],
-                    ["detailed", "Detailed"],
+                    ["short", "Concise"],
+                    ["medium", "Balanced"],
+                    ["long", "Detailed"],
                   ].map(([value, label]) => (
                     <button
                       key={value}
                       className={
-                        settings.length === value
+                        settings.responseLength === value
                           ? "active"
                           : ""
                       }
                       onClick={() =>
                         updateSettings({
-                          length: value,
+                          responseLength: value,
                         })
                       }
                     >
@@ -1925,17 +1947,18 @@ export default function OzlindApp() {
                     ["balanced", "Balanced"],
                     ["professional", "Professional"],
                     ["friendly", "Friendly"],
+                    ["direct", "Direct"],
                   ].map(([value, label]) => (
                     <button
                       key={value}
                       className={
-                        settings.style === value
+                        settings.responseStyle === value
                           ? "active"
                           : ""
                       }
                       onClick={() =>
                         updateSettings({
-                          style: value,
+                          responseStyle: value,
                         })
                       }
                     >
@@ -1978,12 +2001,16 @@ export default function OzlindApp() {
 
                 <div className="account-card">
                   <div className="profile-avatar large">
-                    <span>A</span>
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="" />
+                    ) : (
+                      <span>{userInitials}</span>
+                    )}
                   </div>
 
                   <div>
-                    <strong>Athul</strong>
-                    <span>OZLIND User</span>
+                    <strong>{userName}</strong>
+                    <span>{userEmail}</span>
                   </div>
                 </div>
               </section>
