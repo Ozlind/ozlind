@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
+  ChevronRight,
   BrainCircuit,
   Check,
   ChevronDown,
@@ -21,6 +22,16 @@ import {
   Rocket,
   Search,
   Settings2,
+  SlidersHorizontal,
+  UserRound,
+  LogOut,
+  LockKeyhole,
+  Database,
+  Shield,
+  Palette,
+  CircleHelp,
+  Info,
+  Plug,
   Share2,
   ShieldCheck,
   Sparkles,
@@ -31,6 +42,7 @@ import {
   Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { createClient } from "@/lib/supabase/client";
 
 const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
@@ -104,6 +116,9 @@ export default function OzlindApp() {
   const [activeChatId, setActiveChatId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountUser, setAccountUser] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
   const [notice, setNotice] = useState("");
@@ -136,6 +151,29 @@ export default function OzlindApp() {
       String(item.title || "").toLowerCase().includes(query)
     );
   }, [history, historySearch]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAccount() {
+      try {
+        const supabase = await createClient();
+        const { data, error } = await supabase.auth.getUser();
+
+        if (!error && mounted) {
+          setAccountUser(data?.user || null);
+        }
+      } catch (accountError) {
+        console.error("OZLIND account initialization failed:", accountError);
+      }
+    }
+
+    loadAccount();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -411,6 +449,52 @@ export default function OzlindApp() {
       ...patch,
     }));
   }
+
+  function openAccount() {
+    setSidebarOpen(false);
+    setAccountOpen(true);
+  }
+
+  function closeAccount() {
+    setAccountOpen(false);
+  }
+
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
+    try {
+      const supabase = await createClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        throw signOutError;
+      }
+
+      window.location.assign("/login");
+    } catch (logoutError) {
+      console.error("OZLIND logout failed:", logoutError);
+      setLoggingOut(false);
+      showNotice("Could not sign out. Please try again.");
+    }
+  }
+
+  const userName =
+    accountUser?.user_metadata?.full_name ||
+    accountUser?.user_metadata?.name ||
+    accountUser?.email?.split("@")[0] ||
+    "OZLIND User";
+
+  const userEmail = accountUser?.email || "Signed-in Google account";
+  const avatarUrl = accountUser?.user_metadata?.avatar_url || accountUser?.user_metadata?.picture || "";
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "O";
 
   function autoResizeTextarea() {
     const element = textareaRef.current;
@@ -1128,18 +1212,27 @@ export default function OzlindApp() {
             <span>Settings</span>
           </button>
 
-          <div className="profile-card">
+          <button
+            type="button"
+            className="profile-card"
+            onClick={openAccount}
+            aria-label="Open account settings"
+          >
             <div className="profile-avatar">
-              <span>A</span>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" />
+              ) : (
+                <span>{userInitials}</span>
+              )}
             </div>
 
             <div className="profile-info">
-              <strong>Athul</strong>
-              <span>OZLIND User</span>
+              <strong>{userName}</strong>
+              <span>{userEmail}</span>
             </div>
 
-            <ShieldCheck size={16} />
-          </div>
+            <ChevronRight size={16} />
+          </button>
         </div>
       </aside>
 
@@ -1549,6 +1642,136 @@ export default function OzlindApp() {
         </section>
       </main>
 
+      {accountOpen && (
+        <div className="account-overlay">
+          <section className="account-page" aria-label="OZLIND account settings">
+            <header className="account-page-header">
+              <button
+                type="button"
+                className="account-back-button"
+                onClick={closeAccount}
+                aria-label="Back to OZLIND AI"
+              >
+                <span className="account-back-arrow">‹</span>
+              </button>
+              <div className="account-header-title">
+                <strong>Account</strong>
+                <span>OZLIND</span>
+              </div>
+              <div className="account-header-spacer" aria-hidden="true" />
+            </header>
+
+            <div className="account-scroll">
+              <section className="account-profile-hero">
+                <div className="account-hero-avatar">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" />
+                  ) : (
+                    <span>{userInitials}</span>
+                  )}
+                </div>
+                <strong>{userName}</strong>
+                <span>{userEmail}</span>
+                <div className="account-provider-badge">
+                  <span className="account-provider-dot" />
+                  Google account
+                </div>
+              </section>
+
+              <AccountGroup title="OZLIND">
+                <AccountRow
+                  icon={SlidersHorizontal}
+                  title="Personalization"
+                  subtitle="Response style and AI preferences"
+                  onClick={() => {
+                    setAccountOpen(false);
+                    setSettingsOpen(true);
+                  }}
+                />
+                <AccountRow
+                  icon={BrainCircuit}
+                  title="Memory"
+                  subtitle={settings.memory ? "On" : "Off"}
+                  trailing={<AccountSwitch checked={settings.memory} />}
+                  onClick={() => updateSettings({ memory: !settings.memory })}
+                />
+                <AccountRow
+                  icon={Plug}
+                  title="Integrations"
+                  subtitle="Connected services and tools"
+                  trailing={<span className="account-coming">Available</span>}
+                  onClick={() => showNotice("Integration controls are managed by OZLIND") }
+                />
+              </AccountGroup>
+
+              <AccountGroup title="Account">
+                <AccountRow
+                  icon={UserRound}
+                  title="Profile"
+                  subtitle="Your Google account details"
+                  onClick={() => showNotice("Your Google profile is connected") }
+                />
+                <AccountRow
+                  icon={LockKeyhole}
+                  title="Security & login"
+                  subtitle="Authentication is handled by Supabase and Google"
+                  onClick={() => showNotice("Google authentication is active") }
+                />
+                <AccountRow
+                  icon={Palette}
+                  title="Appearance"
+                  subtitle={isDark ? "Dark mode" : "Light mode"}
+                  trailing={<AccountSwitch checked={isDark} />}
+                  onClick={() => setIsDark((current) => !current)}
+                />
+              </AccountGroup>
+
+              <AccountGroup title="Privacy & data">
+                <AccountRow
+                  icon={Shield}
+                  title="Privacy center"
+                  subtitle="Review how OZLIND handles your workspace"
+                  onClick={() => showNotice("Privacy controls are coming to the workspace") }
+                />
+                <AccountRow
+                  icon={Database}
+                  title="Data controls"
+                  subtitle="Local chats and workspace data"
+                  onClick={() => showNotice("Your local chat history can be cleared from History") }
+                />
+              </AccountGroup>
+
+              <AccountGroup title="Support">
+                <AccountRow
+                  icon={CircleHelp}
+                  title="Help & support"
+                  subtitle="Get help with OZLIND"
+                  onClick={() => showNotice("Support center will be available here") }
+                />
+                <AccountRow
+                  icon={Info}
+                  title="About OZLIND"
+                  subtitle="OZLIND AI workspace"
+                  onClick={() => showNotice("OZLIND AI") }
+                />
+              </AccountGroup>
+
+              <button
+                type="button"
+                className="account-logout-button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+              >
+                <LogOut size={20} />
+                <span>{loggingOut ? "Signing out…" : "Log out"}</span>
+              </button>
+
+              <p className="account-version">OZLIND AI · Your intelligent workspace</p>
+            </div>
+          </section>
+        </div>
+      )}
+
       {settingsOpen && (
         <div
           className="dialog-backdrop"
@@ -1800,6 +2023,36 @@ export default function OzlindApp() {
         </div>
       )}
     </div>
+  );
+}
+
+function AccountGroup({ title, children }) {
+  return (
+    <section className="account-group">
+      <h2>{title}</h2>
+      <div className="account-group-card">{children}</div>
+    </section>
+  );
+}
+
+function AccountRow({ icon: Icon, title, subtitle, trailing, onClick }) {
+  return (
+    <button type="button" className="account-row" onClick={onClick}>
+      <span className="account-row-icon"><Icon size={20} strokeWidth={1.8} /></span>
+      <span className="account-row-copy">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </span>
+      {trailing || <ChevronRight size={18} className="account-row-chevron" />}
+    </button>
+  );
+}
+
+function AccountSwitch({ checked }) {
+  return (
+    <span className={`account-switch ${checked ? "active" : ""}`} aria-hidden="true">
+      <span />
+    </span>
   );
 }
 
