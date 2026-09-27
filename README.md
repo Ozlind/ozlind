@@ -27,8 +27,17 @@ npm run build
 npm run start
 Image generation is intentionally not included in this rebuild.
 Supabase Authentication
-Ozlind uses Supabase Authentication for Google and email authentication.
-Required browser-safe environment variables:
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+Ozlind uses Supabase Authentication for Google sign-in.
+Required environment variables (set in Vercel Environment Variables or .env.local):
+SUPABASE_URL
+SUPABASE_PUBLISHABLE_KEY
+These are read server-side (middleware, lib/supabase/server.js) and exposed to the
+browser at runtime through /api/supabase/config — do NOT rename them to
+NEXT_PUBLIC_*, the code does not read that prefix.
 Never expose SUPABASE_SERVICE_ROLE_KEY or provider API keys to the browser.
+
+Also required for Google sign-in to actually complete (not code — dashboard config):
+- Google Cloud Console → OAuth Client → Authorized redirect URIs must include:
+  https://<your-domain>/auth/callback
+- Supabase Dashboard → Authentication → URL Configuration → Site URL and
+  Redirect URLs must include your deployed domain and the /auth/callback path.
