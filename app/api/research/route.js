@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { json, clean, limits } from "@/lib/server";
 
 export const runtime = "nodejs";
@@ -5,6 +6,14 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request) {
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } =
+      await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return json({ error: "Authentication required." }, 401);
+    }
+
     const body = await request.json();
     const query = clean(body?.query, limits().researchQuery);
 
