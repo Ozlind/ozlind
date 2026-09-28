@@ -41,6 +41,21 @@ function OzlindMark() {
   );
 }
 
+function getCallbackErrorMessage(code) {
+  switch (code) {
+    case "missing_code":
+      return "Google did not return a valid sign-in code. Please try again.";
+    case "oauth_callback":
+      return "Google sign-in could not be completed. Please try again.";
+    case "callback_failed":
+      return "Authentication could not be completed. Please try again.";
+    case "auth_init":
+      return "Authentication could not be initialized. Please try again.";
+    default:
+      return "";
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -53,15 +68,22 @@ export default function LoginPage() {
 
     async function checkSession() {
       try {
-        const supabase = await createClient();
+        const queryError = getCallbackErrorMessage(
+          new URLSearchParams(window.location.search).get("error")
+        );
 
+        if (queryError && mounted) {
+          setError(queryError);
+        }
+
+        const supabase = await createClient();
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
+          data: { user },
+        } = await supabase.auth.getUser();
 
         if (!mounted) return;
 
-        if (session) {
+        if (user) {
           router.replace("/");
           return;
         }
@@ -72,7 +94,7 @@ export default function LoginPage() {
 
         if (mounted) {
           setChecking(false);
-          setError("Unable to initialize authentication.");
+          setError("Unable to initialize authentication. Please try again.");
         }
       }
     }
@@ -92,37 +114,23 @@ export default function LoginPage() {
 
     try {
       const supabase = await createClient();
-
       const redirectTo = `${window.location.origin}/auth/callback`;
 
-      const { error: authError } =
-        await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo,
-          },
-        });
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
 
       if (authError) {
-        console.error(
-          "Google sign-in error:",
-          authError.message
-        );
-
-        setError(
-          authError.message ||
-            "Google sign-in could not be started."
-        );
-
+        console.error("Google sign-in error:", authError.message);
+        setError(authError.message || "Google sign-in could not be started.");
         setLoading(false);
       }
     } catch (err) {
       console.error("Google sign-in failed:", err);
-
-      setError(
-        "Unable to start Google sign-in. Please try again."
-      );
-
+      setError("Unable to start Google sign-in. Please try again.");
       setLoading(false);
     }
   }
@@ -147,10 +155,7 @@ export default function LoginPage() {
       <div className="login-background-glow login-background-glow-one" />
       <div className="login-background-glow login-background-glow-two" />
 
-      <section
-        className="login-card"
-        aria-labelledby="login-title"
-      >
+      <section className="login-card" aria-labelledby="login-title">
         <div className="login-brand">
           <OzlindMark />
 
@@ -163,16 +168,12 @@ export default function LoginPage() {
         </div>
 
         <div className="login-heading">
-          <h1 id="login-title">Welcome back</h1>
-          <p>Sign in to continue to your AI workspace.</p>
+          <h1 id="login-title">Welcome to OZLIND</h1>
+          <p>Sign in or create your account with Google.</p>
         </div>
 
         {error ? (
-          <div
-            className="login-error"
-            role="alert"
-            aria-live="polite"
-          >
+          <div className="login-error" role="alert" aria-live="polite">
             <span className="login-error-icon">!</span>
             <span>{error}</span>
           </div>
@@ -190,23 +191,15 @@ export default function LoginPage() {
           </span>
 
           <span className="google-login-label">
-            {loading
-              ? "Connecting to Google…"
-              : "Continue with Google"}
+            {loading ? "Connecting to Google…" : "Continue with Google"}
           </span>
 
           {!loading ? (
-            <span
-              className="google-login-arrow"
-              aria-hidden="true"
-            >
+            <span className="google-login-arrow" aria-hidden="true">
               →
             </span>
           ) : (
-            <span
-              className="login-button-spinner"
-              aria-hidden="true"
-            />
+            <span className="login-button-spinner" aria-hidden="true" />
           )}
         </button>
 
@@ -218,12 +211,7 @@ export default function LoginPage() {
 
         <div className="login-security">
           <div className="login-security-icon" aria-hidden="true">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path
                 d="M12 3L19 6V11.5C19 16.15 16.08 19.95 12 21C7.92 19.95 5 16.15 5 11.5V6L12 3Z"
                 stroke="currentColor"
@@ -235,7 +223,6 @@ export default function LoginPage() {
                 stroke="currentColor"
                 strokeWidth="1.7"
                 strokeLinecap="round"
-                strokeLinejoin="round"
               />
             </svg>
           </div>
@@ -247,7 +234,7 @@ export default function LoginPage() {
         </div>
 
         <p className="login-footer">
-          By continuing, you agree to use OZLIND responsibly.
+          New Google accounts are created automatically. Existing accounts are signed in.
         </p>
 
         <div className="login-legal">
