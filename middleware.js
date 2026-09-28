@@ -2,9 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 export async function middleware(request) {
-  let response = NextResponse.next({
-    request,
-  });
+  let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -13,47 +11,49 @@ export async function middleware(request) {
     return response;
   }
 
-  const supabase = createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabaseKey,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
+
+          response = NextResponse.next({ request });
+
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
       },
-
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-
-        response = NextResponse.next({
-          request,
-        });
-
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
+    }
+  );
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const isLoginPage = pathname === "/login";
+  const isAuthCallback = pathname === "/auth/callback";
+  const isSupabaseConfig = pathname === "/api/supabase/config";
+  const isPublicAsset = pathname.startsWith("/_next/") || /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname);
 
-  // Keep the login and OAuth callback publicly accessible.
-  if (pathname === "/login" || pathname.startsWith("/auth/callback")) {
+  if (isAuthCallback || isSupabaseConfig || isPublicAsset) {
     return response;
   }
 
-  // The main workspace is protected at the edge. API routes perform their
-  // own JSON-friendly authentication checks instead of receiving redirects.
-  if (pathname === "/" && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.search = "";
+  if (isLoginPage && user) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
 
-    return NextResponse.redirect(loginUrl);
+  if (!isLoginPage && pathname === "/" && !user) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return response;
