@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/server";
+
 import {
   clean,
   hasVision,
@@ -85,6 +87,14 @@ async function tavilySearch(query) {
 
 export async function POST(request) {
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } =
+      await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return json({ error: "Authentication required." }, 401);
+    }
+
     const body =
       await request.json();
 
