@@ -13,24 +13,17 @@ export async function GET(request) {
 
   try {
     const supabase = await createClient();
-
-    const { error } =
-      await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-      console.error(
-        "Supabase OAuth callback error:",
-        error.message
-      );
+      console.error("Supabase OAuth callback error:", error.message);
 
       return NextResponse.redirect(
         new URL("/login?error=oauth_callback", request.url)
       );
     }
 
-    return NextResponse.redirect(
-      new URL("/", request.url)
-    );
+    return NextResponse.redirect(new URL("/", request.url));
   } catch (error) {
     console.error("OAuth callback failed:", error);
 
