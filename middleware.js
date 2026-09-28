@@ -2,7 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 export async function middleware(request) {
-  let response = NextResponse.next({ request });
+  let response = NextResponse.next({
+    request,
+  });
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -19,42 +21,27 @@ export async function middleware(request) {
         getAll() {
           return request.cookies.getAll();
         },
+
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
 
-          response = NextResponse.next({ request });
-
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+          response = NextResponse.next({
+            request,
           });
+
+          cookiesToSet.forEach(
+            ({ name, value, options }) => {
+              response.cookies.set(name, value, options);
+            }
+          );
         },
       },
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  const isLoginPage = pathname === "/login";
-  const isAuthCallback = pathname === "/auth/callback";
-  const isSupabaseConfig = pathname === "/api/supabase/config";
-  const isPublicAsset = pathname.startsWith("/_next/") || /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname);
-
-  if (isAuthCallback || isSupabaseConfig || isPublicAsset) {
-    return response;
-  }
-
-  if (isLoginPage && user) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  if (!isLoginPage && pathname === "/" && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  await supabase.auth.getUser();
 
   return response;
 }
