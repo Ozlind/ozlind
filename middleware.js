@@ -13,35 +13,48 @@ export async function middleware(request) {
     return response;
   }
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-
-          response = NextResponse.next({
-            request,
-          });
-
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    }
-  );
 
-  // Refresh the Supabase session/cookies.
-  // No route redirect here.
-  await supabase.auth.getUser();
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+
+        response = NextResponse.next({
+          request,
+        });
+
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  // Keep the login and OAuth callback publicly accessible.
+  if (pathname === "/login" || pathname.startsWith("/auth/callback")) {
+    return response;
+  }
+
+  // The main workspace is protected at the edge. API routes perform their
+  // own JSON-friendly authentication checks instead of receiving redirects.
+  if (pathname === "/" && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+
+    return NextResponse.redirect(loginUrl);
+  }
 
   return response;
 }
