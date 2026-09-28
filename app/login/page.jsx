@@ -77,6 +77,7 @@ export default function LoginPage() {
         }
 
         const supabase = await createClient();
+
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -94,7 +95,9 @@ export default function LoginPage() {
 
         if (mounted) {
           setChecking(false);
-          setError("Unable to initialize authentication. Please try again.");
+          setError(
+            "Unable to initialize authentication. Please try again."
+          );
         }
       }
     }
@@ -114,23 +117,37 @@ export default function LoginPage() {
 
     try {
       const supabase = await createClient();
+
       const redirectTo = `${window.location.origin}/auth/callback`;
 
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-        },
-      });
+      const { error: authError } =
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo,
+          },
+        });
 
       if (authError) {
-        console.error("Google sign-in error:", authError.message);
-        setError(authError.message || "Google sign-in could not be started.");
+        console.error(
+          "Google sign-in error:",
+          authError.message
+        );
+
+        setError(
+          authError.message ||
+            "Google sign-in could not be started."
+        );
+
         setLoading(false);
       }
     } catch (err) {
       console.error("Google sign-in failed:", err);
-      setError("Unable to start Google sign-in. Please try again.");
+
+      setError(
+        "Unable to start Google sign-in. Please try again."
+      );
+
       setLoading(false);
     }
   }
@@ -155,7 +172,10 @@ export default function LoginPage() {
       <div className="login-background-glow login-background-glow-one" />
       <div className="login-background-glow login-background-glow-two" />
 
-      <section className="login-card" aria-labelledby="login-title">
+      <section
+        className="login-card"
+        aria-labelledby="login-title"
+      >
         <div className="login-brand">
           <OzlindMark />
 
@@ -168,13 +188,25 @@ export default function LoginPage() {
         </div>
 
         <div className="login-heading">
-          <h1 id="login-title">Welcome to OZLIND</h1>
-          <p>Sign in or create your account with Google.</p>
+          <h1 id="login-title">
+            Welcome to OZLIND
+          </h1>
+
+          <p>
+            Sign in or create your account with Google.
+          </p>
         </div>
 
         {error ? (
-          <div className="login-error" role="alert" aria-live="polite">
-            <span className="login-error-icon">!</span>
+          <div
+            className="login-error"
+            role="alert"
+            aria-live="polite"
+          >
+            <span className="login-error-icon">
+              !
+            </span>
+
             <span>{error}</span>
           </div>
         ) : null}
@@ -191,33 +223,53 @@ export default function LoginPage() {
           </span>
 
           <span className="google-login-label">
-            {loading ? "Connecting to Google…" : "Continue with Google"}
+            {loading
+              ? "Connecting to Google…"
+              : "Sign in / Sign up with Google"}
           </span>
 
           {!loading ? (
-            <span className="google-login-arrow" aria-hidden="true">
+            <span
+              className="google-login-arrow"
+              aria-hidden="true"
+            >
               →
             </span>
           ) : (
-            <span className="login-button-spinner" aria-hidden="true" />
+            <span
+              className="login-button-spinner"
+              aria-hidden="true"
+            />
           )}
         </button>
 
-        <div className="login-divider" aria-hidden="true">
+        <div
+          className="login-divider"
+          aria-hidden="true"
+        >
           <span />
           <em>SECURE SIGN IN</em>
           <span />
         </div>
 
         <div className="login-security">
-          <div className="login-security-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <div
+            className="login-security-icon"
+            aria-hidden="true"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
               <path
                 d="M12 3L19 6V11.5C19 16.15 16.08 19.95 12 21C7.92 19.95 5 16.15 5 11.5V6L12 3Z"
                 stroke="currentColor"
                 strokeWidth="1.7"
                 strokeLinejoin="round"
               />
+
               <path
                 d="M9 12L11 14L15 10"
                 stroke="currentColor"
@@ -228,13 +280,20 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <strong>Secure authentication</strong>
-            <span>Your Google account stays protected.</span>
+            <strong>
+              Secure authentication
+            </strong>
+
+            <span>
+              Your Google account stays protected.
+            </span>
           </div>
         </div>
 
         <p className="login-footer">
-          New Google accounts are created automatically. Existing accounts are signed in.
+          New Google accounts are created automatically.
+          Existing accounts can sign in with the same
+          Google account.
         </p>
 
         <div className="login-legal">
