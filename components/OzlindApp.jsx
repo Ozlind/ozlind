@@ -106,7 +106,7 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function OzlindApp() {
+export default function OzlindApp({ initialUser = null }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
@@ -116,7 +116,7 @@ export default function OzlindApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [accountUser, setAccountUser] = useState(null);
+  const [accountUser, setAccountUser] = useState(initialUser);
   const [loggingOut, setLoggingOut] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
@@ -151,28 +151,6 @@ export default function OzlindApp() {
     );
   }, [history, historySearch]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadAccount() {
-      try {
-        const supabase = await createClient();
-        const { data, error } = await supabase.auth.getUser();
-
-        if (!error && mounted) {
-          setAccountUser(data?.user || null);
-        }
-      } catch (accountError) {
-        console.error("OZLIND account initialization failed:", accountError);
-      }
-    }
-
-    loadAccount();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     try {
