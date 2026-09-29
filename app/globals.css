@@ -2356,3 +2356,139 @@ a {
   font-size: 12px;
   color: var(--text-faint);
 }
+
+/* ============ ACCOUNT CENTER DETAIL VIEWS ============ */
+
+.account-detail-scroll {
+  gap: 16px;
+}
+
+.account-detail-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 24px 18px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.account-detail-hero.compact {
+  padding: 26px 18px;
+}
+
+.account-detail-hero strong {
+  font-size: 18px;
+}
+
+.account-detail-hero > span {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.account-detail-hero small {
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.account-about-mark {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 25px;
+  font-weight: 800;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 5px;
+}
+
+.account-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 14px;
+}
+
+.account-info-row + .account-info-row {
+  border-top: 1px solid var(--border);
+}
+
+.account-info-row span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.account-info-row strong {
+  max-width: 62%;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.account-detail-note {
+  margin: 0 4px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.account-primary-action,
+.account-secondary-action,
+.account-danger-action {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-primary-action {
+  background: var(--primary);
+  color: #fff;
+}
+
+.account-primary-action:hover {
+  background: var(--primary-dark);
+}
+
+.account-secondary-action {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.account-secondary-action:hover {
+  background: var(--surface-hover);
+}
+
+.account-danger-action {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.account-danger-action:hover {
+  filter: brightness(0.96);
+}
+
+@media (max-width: 480px) {
+  .account-scroll {
+    padding: 14px 12px 28px;
+  }
+
+  .account-info-row strong {
+    max-width: 58%;
+  }
+}
