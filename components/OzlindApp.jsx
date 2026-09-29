@@ -106,7 +106,7 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function OzlindApp({ initialUser = null }) {
+export default function OzlindApp() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
@@ -116,7 +116,7 @@ export default function OzlindApp({ initialUser = null }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [accountUser, setAccountUser] = useState(initialUser);
+  const [accountUser, setAccountUser] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
@@ -151,6 +151,28 @@ export default function OzlindApp({ initialUser = null }) {
     );
   }, [history, historySearch]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAccount() {
+      try {
+        const supabase = await createClient();
+        const { data, error } = await supabase.auth.getUser();
+
+        if (!error && mounted) {
+          setAccountUser(data?.user || null);
+        }
+      } catch (accountError) {
+        console.error("OZLIND account initialization failed:", accountError);
+      }
+    }
+
+    loadAccount();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -429,26 +451,92 @@ export default function OzlindApp({ initialUser = null }) {
 
   function openAccount() {
     setSidebarOpen(false);
+    setAccountSection(null);
     setAccountOpen(true);
   }
 
   function closeAccount() {
+    setAccountSection(null);
     setAccountOpen(false);
+  }
+
+  function openAccountSection(section) {
+    setAccountSection(section);
+  }
+
+  function exportOzlindData() {
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        product: "OZLIND AI",
+        organization: "OZLIND Enterprises",
+        owner: "Athul",
+        history,
+        settings,
+        theme: isDark ? "dark" : "light",
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "ozlind-data-export.json";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      showNotice("OZLIND data exported");
+    } catch (exportError) {
+      console.error("OZLIND data export failed:", exportError);
+      showNotice("Could not export your data");
+    }
+  }
+
+  function clearAllLocalData() {
+    const confirmed = window.confirm(
+      "Clear all local OZLIND conversations and preferences? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    abortControllerRef.current?.abort();
+    setMessages([]);
+    setHistory([]);
+    setActiveChatId(null);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setIsStreaming(false);
+    setSettings(DEFAULT_SETTINGS);
+    setAccountSection(null);
+    setIsDark(false);
+
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
+      localStorage.removeItem(THEME_KEY);
+    } catch {
+      // Ignore localStorage failures.
+    }
+
+    showNotice("Local OZLIND data cleared");
   }
 
   async function handleLogout() {
     if (loggingOut) return;
-
     setLoggingOut(true);
 
     try {
-      const supabase = await createClient();
-      const { error: signOutError } = await supabase.auth.signOut();
-
-      if (signOutError) {
-        throw signOutError;
+      if (!accountUser) {
+        window.location.assign("/login");
+        return;
       }
 
+      const supabase = await createClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
       window.location.assign("/login");
     } catch (logoutError) {
       console.error("OZLIND logout failed:", logoutError);
@@ -457,13 +545,17 @@ export default function OzlindApp({ initialUser = null }) {
     }
   }
 
+  useEffect(() => {
+    setAccountUser(initialUser || null);
+  }, [initialUser]);
+
   const userName =
     accountUser?.user_metadata?.full_name ||
     accountUser?.user_metadata?.name ||
     accountUser?.email?.split("@")[0] ||
     "OZLIND User";
 
-  const userEmail = accountUser?.email || "Signed-in Google account";
+  const userEmail = accountUser?.email || "Local OZLIND account";
   const avatarUrl = accountUser?.user_metadata?.avatar_url || accountUser?.user_metadata?.picture || "";
   const userInitials = userName
     .split(/\s+/)
@@ -1648,133 +1740,173 @@ export default function OzlindApp({ initialUser = null }) {
 
       {accountOpen && (
         <div className="account-overlay">
-          <section className="account-page" aria-label="OZLIND account settings">
+          <section className="account-page" aria-label="OZLIND account center">
             <header className="account-page-header">
-              <button
-                type="button"
-                className="account-back-button"
-                onClick={closeAccount}
-                aria-label="Back to OZLIND AI"
-              >
+              <button type="button" className="account-back-button" onClick={() => accountSection ? setAccountSection(null) : closeAccount()} aria-label={accountSection ? "Back to account" : "Back to OZLIND AI"}>
                 <span className="account-back-arrow">‹</span>
               </button>
               <div className="account-header-title">
-                <strong>Account</strong>
+                <strong>{accountSection === "profile" ? "Profile" : accountSection === "security" ? "Security & login" : accountSection === "personalization" ? "Personalization" : accountSection === "memory" ? "Memory" : accountSection === "research" ? "Web Research" : accountSection === "appearance" ? "Appearance" : accountSection === "integrations" ? "Integrations" : accountSection === "usage" ? "Usage" : accountSection === "privacy" ? "Privacy Center" : accountSection === "data" ? "Data Controls" : accountSection === "support" ? "Help & Support" : accountSection === "about" ? "About OZLIND" : "Account"}</strong>
                 <span>OZLIND</span>
               </div>
               <div className="account-header-spacer" aria-hidden="true" />
             </header>
 
-            <div className="account-scroll">
-              <section className="account-profile-hero">
-                <div className="account-hero-avatar">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" />
-                  ) : (
-                    <span>{userInitials}</span>
-                  )}
-                </div>
-                <strong>{userName}</strong>
-                <span>{userEmail}</span>
-                <div className="account-provider-badge">
-                  <span className="account-provider-dot" />
-                  Google account
-                </div>
-              </section>
+            {!accountSection && (
+              <div className="account-scroll">
+                <section className="account-profile-hero">
+                  <div className="account-hero-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{userInitials}</span>}</div>
+                  <strong>{userName}</strong>
+                  <span>{userEmail}</span>
+                  <div className="account-provider-badge"><span className="account-provider-dot" />OZLIND account</div>
+                </section>
 
-              <AccountGroup title="OZLIND">
-                <AccountRow
-                  icon={SlidersHorizontal}
-                  title="Personalization"
-                  subtitle="Response style and AI preferences"
-                  onClick={() => {
-                    setAccountOpen(false);
-                    setSettingsOpen(true);
-                  }}
-                />
-                <AccountRow
-                  icon={BrainCircuit}
-                  title="Memory"
-                  subtitle={settings.memory ? "On" : "Off"}
-                  trailing={<AccountSwitch checked={settings.memory} />}
-                  onClick={() => updateSettings({ memory: !settings.memory })}
-                />
-                <AccountRow
-                  icon={Plug}
-                  title="Integrations"
-                  subtitle="Connected services and tools"
-                  trailing={<span className="account-coming">Available</span>}
-                  onClick={() => showNotice("Integration controls are managed by OZLIND") }
-                />
-              </AccountGroup>
+                <AccountGroup title="OZLIND">
+                  <AccountRow icon={UserRound} title="Profile" subtitle="Account information" onClick={() => openAccountSection("profile")} />
+                  <AccountRow icon={SlidersHorizontal} title="Personalization" subtitle="Response style and AI preferences" onClick={() => openAccountSection("personalization")} />
+                  <AccountRow icon={BrainCircuit} title="Memory" subtitle={settings.memory ? "On" : "Off"} trailing={<AccountSwitch checked={settings.memory} />} onClick={() => openAccountSection("memory")} />
+                  <AccountRow icon={Search} title="Web Research" subtitle={settings.research ? "Enabled" : "Disabled"} trailing={<AccountSwitch checked={settings.research} />} onClick={() => openAccountSection("research")} />
+                  <AccountRow icon={Palette} title="Appearance" subtitle={isDark ? "Dark mode" : "Light mode"} trailing={<AccountSwitch checked={isDark} />} onClick={() => openAccountSection("appearance")} />
+                  <AccountRow icon={Plug} title="Integrations" subtitle="Connected services and tools" onClick={() => openAccountSection("integrations")} />
+                  <AccountRow icon={Zap} title="Usage" subtitle="Workspace activity" onClick={() => openAccountSection("usage")} />
+                </AccountGroup>
 
-              <AccountGroup title="Account">
-                <AccountRow
-                  icon={UserRound}
-                  title="Profile"
-                  subtitle="Your Google account details"
-                  onClick={() => showNotice("Your Google profile is connected") }
-                />
-                <AccountRow
-                  icon={LockKeyhole}
-                  title="Security & login"
-                  subtitle="Authentication is handled by Supabase and Google"
-                  onClick={() => showNotice("Google authentication is active") }
-                />
-                <AccountRow
-                  icon={Palette}
-                  title="Appearance"
-                  subtitle={isDark ? "Dark mode" : "Light mode"}
-                  trailing={<AccountSwitch checked={isDark} />}
-                  onClick={() => setIsDark((current) => !current)}
-                />
-              </AccountGroup>
+                <AccountGroup title="Account">
+                  <AccountRow icon={LockKeyhole} title="Security & login" subtitle="Authentication and account access" onClick={() => openAccountSection("security")} />
+                </AccountGroup>
 
-              <AccountGroup title="Privacy & data">
-                <AccountRow
-                  icon={Shield}
-                  title="Privacy center"
-                  subtitle="Review how OZLIND handles your workspace"
-                  onClick={() => showNotice("Privacy controls are coming to the workspace") }
-                />
-                <AccountRow
-                  icon={Database}
-                  title="Data controls"
-                  subtitle="Local chats and workspace data"
-                  onClick={() => showNotice("Your local chat history can be cleared from History") }
-                />
-              </AccountGroup>
+                <AccountGroup title="Privacy & data">
+                  <AccountRow icon={Shield} title="Privacy Center" subtitle="Privacy and workspace information" onClick={() => openAccountSection("privacy")} />
+                  <AccountRow icon={Database} title="Data Controls" subtitle="Manage your local OZLIND data" onClick={() => openAccountSection("data")} />
+                </AccountGroup>
 
-              <AccountGroup title="Support">
-                <AccountRow
-                  icon={CircleHelp}
-                  title="Help & support"
-                  subtitle="Get help with OZLIND"
-                  onClick={() => showNotice("Support center will be available here") }
-                />
-                <AccountRow
-                  icon={Info}
-                  title="About OZLIND"
-                  subtitle="OZLIND AI workspace"
-                  onClick={() => showNotice("OZLIND AI") }
-                />
-              </AccountGroup>
+                <AccountGroup title="Support">
+                  <AccountRow icon={CircleHelp} title="Help & Support" subtitle="Get help with OZLIND" onClick={() => openAccountSection("support")} />
+                  <AccountRow icon={Info} title="About OZLIND" subtitle="OZLIND AI and OZLIND Enterprises" onClick={() => openAccountSection("about")} />
+                </AccountGroup>
 
-              <button
-                type="button"
-                className="account-logout-button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-              >
-                <LogOut size={20} />
-                <span>{loggingOut ? "Signing out…" : "Log out"}</span>
-              </button>
+                <button type="button" className="account-logout-button" onClick={handleLogout} disabled={loggingOut}>
+                  <LogOut size={20} />
+                  <span>{loggingOut ? "Signing out…" : "Log out"}</span>
+                </button>
+                <p className="account-version">OZLIND AI · Your intelligent workspace</p>
+              </div>
+            )}
 
-              <p className="account-version">OZLIND AI · Your intelligent workspace</p>
-            </div>
+            {accountSection === "profile" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero"><div className="account-hero-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{userInitials}</span>}</div><strong>{userName}</strong><span>{userEmail}</span><small>OZLIND account</small></section>
+                <div className="account-group-card"><AccountInfoRow label="Name" value={userName} /><AccountInfoRow label="Email" value={userEmail} /><AccountInfoRow label="Organization" value="OZLIND Enterprises" /><AccountInfoRow label="Product" value="OZLIND AI" /></div>
+                <p className="account-detail-note">Your profile information is used to identify your OZLIND workspace.</p>
+              </div>
+            )}
+
+            {accountSection === "security" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><LockKeyhole size={30} /><strong>Security & login</strong><span>Manage how your OZLIND account is accessed.</span></section>
+                <div className="account-group-card"><AccountInfoRow label="Account" value={userEmail} /><AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Local session"} /><AccountInfoRow label="Session" value="Active" /></div>
+                <p className="account-detail-note">When authentication is enabled, OZLIND uses the configured authentication system for account access.</p>
+              </div>
+            )}
+
+            {accountSection === "personalization" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><SlidersHorizontal size={30} /><strong>Personalization</strong><span>Control how OZLIND responds to you.</span></section>
+                <AccountGroup title="Response length">
+                  <AccountRow title="Concise" subtitle="Short and focused answers" trailing={settings.responseLength === "short" ? <Check size={18} /> : null} onClick={() => updateSettings({ responseLength: "short" })} />
+                  <AccountRow title="Balanced" subtitle="Normal detail and clarity" trailing={settings.responseLength === "medium" ? <Check size={18} /> : null} onClick={() => updateSettings({ responseLength: "medium" })} />
+                  <AccountRow title="Detailed" subtitle="More explanation and context" trailing={settings.responseLength === "long" ? <Check size={18} /> : null} onClick={() => updateSettings({ responseLength: "long" })} />
+                </AccountGroup>
+                <AccountGroup title="Response style">
+                  {[['balanced','Balanced'],['professional','Professional'],['friendly','Friendly'],['direct','Direct']].map(([value,label]) => <AccountRow key={value} title={label} subtitle={`Use ${label.toLowerCase()} response style`} trailing={settings.responseStyle === value ? <Check size={18} /> : null} onClick={() => updateSettings({ responseStyle: value })} />)}
+                </AccountGroup>
+                <button type="button" className="account-primary-action" onClick={() => { setAccountSection(null); setSettingsOpen(true); }}>Open advanced settings</button>
+              </div>
+            )}
+
+            {accountSection === "memory" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><BrainCircuit size={30} /><strong>Memory</strong><span>Control whether relevant local conversation context is used.</span></section>
+                <div className="account-group-card"><AccountRow icon={BrainCircuit} title="Memory" subtitle={settings.memory ? "OZLIND can use relevant conversation context" : "Conversation memory is disabled"} trailing={<AccountSwitch checked={settings.memory} />} onClick={() => updateSettings({ memory: !settings.memory })} /></div>
+                <p className="account-detail-note">This setting controls the memory behavior available to the current OZLIND workspace.</p>
+              </div>
+            )}
+
+            {accountSection === "research" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><Search size={30} /><strong>Web Research</strong><span>Allow OZLIND to use web research when enabled.</span></section>
+                <div className="account-group-card"><AccountRow icon={Search} title="Research mode" subtitle={settings.research ? "Web research is enabled" : "Web research is disabled"} trailing={<AccountSwitch checked={settings.research} />} onClick={() => updateSettings({ research: !settings.research })} /></div>
+                <p className="account-detail-note">Research can provide current web information when the research feature is available.</p>
+              </div>
+            )}
+
+            {accountSection === "appearance" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact">{isDark ? <Moon size={30} /> : <Sun size={30} />}<strong>Appearance</strong><span>Choose how the OZLIND workspace looks.</span></section>
+                <AccountGroup title="Theme">
+                  <AccountRow icon={Sun} title="Light" subtitle="Use the light workspace" trailing={!isDark ? <Check size={18} /> : null} onClick={() => setIsDark(false)} />
+                  <AccountRow icon={Moon} title="Dark" subtitle="Use the dark workspace" trailing={isDark ? <Check size={18} /> : null} onClick={() => setIsDark(true)} />
+                </AccountGroup>
+              </div>
+            )}
+
+            {accountSection === "integrations" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><Plug size={30} /><strong>Integrations</strong><span>Connected services used by your workspace.</span></section>
+                <div className="account-group-card"><AccountInfoRow label="AI workspace" value="OZLIND AI" /><AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Temporarily disabled"} /><AccountInfoRow label="Workspace storage" value="Local" /><AccountInfoRow label="Web Research" value={settings.research ? "Enabled" : "Disabled"} /></div>
+                <p className="account-detail-note">Additional integrations can be connected as OZLIND features become available.</p>
+              </div>
+            )}
+
+            {accountSection === "usage" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><Zap size={30} /><strong>Usage</strong><span>Overview of your current OZLIND workspace.</span></section>
+                <div className="account-group-card"><AccountInfoRow label="Saved conversations" value={String(history.length)} /><AccountInfoRow label="Current messages" value={String(messages.length)} /><AccountInfoRow label="Memory" value={settings.memory ? "On" : "Off"} /><AccountInfoRow label="Research" value={settings.research ? "On" : "Off"} /></div>
+                <p className="account-detail-note">Usage information shown here is based on data currently available to this workspace.</p>
+              </div>
+            )}
+
+            {accountSection === "privacy" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><Shield size={30} /><strong>Privacy Center</strong><span>Understand your current workspace data behavior.</span></section>
+                <div className="account-group-card"><AccountInfoRow label="Conversation history" value="Stored locally" /><AccountInfoRow label="Preferences" value="Stored locally" /><AccountInfoRow label="Authentication" value={accountUser ? "Account session" : "Temporarily disabled"} /></div>
+                <p className="account-detail-note">OZLIND currently keeps chat history and preferences in your browser's local storage. Server-side AI requests are handled through the configured OZLIND API routes.</p>
+              </div>
+            )}
+
+            {accountSection === "data" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><Database size={30} /><strong>Data Controls</strong><span>Manage the data stored by this workspace.</span></section>
+                <AccountGroup title="Your data"><AccountInfoRow label="Conversations" value={`${history.length} saved`} /><AccountInfoRow label="Preferences" value="Local" /><AccountInfoRow label="Theme" value={isDark ? "Dark" : "Light"} /></AccountGroup>
+                <button type="button" className="account-primary-action" onClick={exportOzlindData}><Database size={17} />Export OZLIND data</button>
+                <button type="button" className="account-danger-action" onClick={clearAllLocalData}><Trash2 size={17} />Clear all local data</button>
+                <p className="account-detail-note">Clearing local data removes saved conversations, preferences and theme settings from this browser.</p>
+              </div>
+            )}
+
+            {accountSection === "support" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero compact"><CircleHelp size={30} /><strong>Help & Support</strong><span>Information for using OZLIND AI.</span></section>
+                <AccountGroup title="Common actions">
+                  <AccountRow icon={MessageSquare} title="Start a new chat" subtitle="Create a fresh conversation" onClick={() => { closeAccount(); startNewChat(); }} />
+                  <AccountRow icon={Settings2} title="Open settings" subtitle="Configure OZLIND behavior" onClick={() => { setAccountSection(null); setSettingsOpen(true); }} />
+                  <AccountRow icon={Trash2} title="Clear current chat" subtitle="Remove the active conversation" onClick={() => { closeAccount(); clearCurrentChat(); }} />
+                </AccountGroup>
+                <p className="account-detail-note">For issues with OZLIND, first check your connection, settings and available API configuration.</p>
+              </div>
+            )}
+
+            {accountSection === "about" && (
+              <div className="account-scroll account-detail-scroll">
+                <section className="account-detail-hero"><div className="account-about-mark">O</div><strong>OZLIND AI</strong><span>Independent AI workspace</span><small>Built as part of OZLIND Enterprises</small></section>
+                <div className="account-group-card"><AccountInfoRow label="Product" value="OZLIND AI" /><AccountInfoRow label="Organization" value="OZLIND Enterprises" /><AccountInfoRow label="Owner / Builder" value="Athul" /><AccountInfoRow label="Workspace" value="OZLIND AI Platform" /></div>
+                <p className="account-detail-note">OZLIND is owned by Athul and operates under OZLIND Enterprises.</p>
+              </div>
+            )}
           </section>
         </div>
       )}
+
 
       {settingsOpen && (
         <div
@@ -2027,6 +2159,15 @@ export default function OzlindApp({ initialUser = null }) {
           <span>{notice}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function AccountInfoRow({ label, value }) {
+  return (
+    <div className="account-info-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
