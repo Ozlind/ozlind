@@ -2184,7 +2184,7 @@ function AccountGroup({ title, children }) {
 function AccountRow({ icon: Icon, title, subtitle, trailing, onClick }) {
   return (
     <button type="button" className="account-row" onClick={onClick}>
-      <span className="account-row-icon"><Icon size={20} strokeWidth={1.8} /></span>
+      <span className="account-row-icon">{Icon ? <Icon size={20} strokeWidth={1.8} /> : null}</span>
       <span className="account-row-copy">
         <strong>{title}</strong>
         <span>{subtitle}</span>
