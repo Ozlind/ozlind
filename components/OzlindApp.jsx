@@ -42,7 +42,6 @@ import {
   Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { createClient } from "@/lib/supabase/client";
 
 const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
@@ -150,29 +149,6 @@ export default function OzlindApp() {
       String(item.title || "").toLowerCase().includes(query)
     );
   }, [history, historySearch]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadAccount() {
-      try {
-        const supabase = await createClient();
-        const { data, error } = await supabase.auth.getUser();
-
-        if (!error && mounted) {
-          setAccountUser(data?.user || null);
-        }
-      } catch (accountError) {
-        console.error("OZLIND account initialization failed:", accountError);
-      }
-    }
-
-    loadAccount();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     try {
@@ -524,25 +500,10 @@ export default function OzlindApp() {
     showNotice("Local OZLIND data cleared");
   }
 
-  async function handleLogout() {
+  function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
-
-    try {
-      if (!accountUser) {
-        window.location.assign("/login");
-        return;
-      }
-
-      const supabase = await createClient();
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
-      window.location.assign("/login");
-    } catch (logoutError) {
-      console.error("OZLIND logout failed:", logoutError);
-      setLoggingOut(false);
-      showNotice("Could not sign out. Please try again.");
-    }
+    window.location.assign("/login");
   }
 
   useEffect(() => {
