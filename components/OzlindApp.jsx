@@ -86,23 +86,23 @@ const MODES = [
 const SUGGESTIONS = [
   {
     icon: Lightbulb,
-    title: "Explain something",
-    prompt: "Explain a difficult topic in a simple way.",
+    title: "Explain a topic",
+    prompt: "Explain how large language models work, in simple terms.",
   },
   {
     icon: Code2,
-    title: "Write code",
-    prompt: "Help me build a clean production-ready solution.",
+    title: "Write or review code",
+    prompt: "Review this code and suggest improvements:\n\n",
   },
   {
     icon: FileText,
-    title: "Work with a document",
-    prompt: "Analyze this document and summarize the important points.",
+    title: "Summarize a text",
+    prompt: "Summarize the key points of the following text:\n\n",
   },
   {
     icon: Map,
-    title: "Plan something",
-    prompt: "Create a practical step-by-step plan for my goal.",
+    title: "Plan a project",
+    prompt: "Create a practical, step-by-step plan for this goal: ",
   },
 ];
 
@@ -332,7 +332,7 @@ export default function OzlindApp({ initialUser = null }) {
       const record = {
         id: chatId,
         title: existing?.title || title,
-        messages: nextMessages,
+        messages: nextMessages.map(stripAttachmentData),
         updatedAt,
       };
 
@@ -507,6 +507,12 @@ export default function OzlindApp({ initialUser = null }) {
     setLoggingOut(true);
 
     try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {
+      // Ignore localStorage failures.
+    }
+
+    try {
       const supabase = await createClient();
       await supabase.auth.signOut();
     } catch (err) {
@@ -556,7 +562,16 @@ export default function OzlindApp({ initialUser = null }) {
   }
 
   function handleTextareaKeyDown(event) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent?.isComposing
+    ) {
+      // On phones the Enter key inserts a new line; use the send button.
+      if (window.matchMedia?.("(pointer: coarse)").matches) {
+        return;
+      }
+
       event.preventDefault();
 
       if (!isStreaming) {
@@ -574,30 +589,52 @@ export default function OzlindApp({ initialUser = null }) {
       return;
     }
 
-    const maxSize = 12 * 1024 * 1024;
+    const isImage = file.type.startsWith("image/");
+    const isText = isTextFile(file);
+
+    if (!isImage && !isText) {
+      setError(
+        "This file type isn't supported. Attach an image or a text file (.txt, .md, .csv, .json)."
+      );
+      return;
+    }
+
+    const maxSize = isImage ? 12 * 1024 * 1024 : 2 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      setError("This file is too large. Please choose a file under 12 MB.");
+      setError(
+        isImage
+          ? "This image is too large. Please choose one under 12 MB."
+          : "This file is too large. Text files must be under 2 MB."
+      );
       return;
     }
 
     setError("");
 
-    const isImage = file.type.startsWith("image/");
-
     try {
       let dataUrl = null;
+      let text = null;
 
       if (isImage) {
-        dataUrl = await fileToDataUrl(file);
+        dataUrl = await imageToOptimizedDataUrl(file);
+
+        if (dataUrl.length > 4000000) {
+          setError(
+            "This image is too large to send. Please try a smaller one."
+          );
+          return;
+        }
+      } else {
+        text = await readTextFile(file);
       }
 
       setSelectedFile({
         name: file.name,
-        type: file.type || "application/octet-stream",
+        type: file.type || "text/plain",
         size: file.size,
         dataUrl,
-        file,
+        text,
       });
 
       showNotice(`${file.name} attached`);
@@ -655,11 +692,10 @@ export default function OzlindApp({ initialUser = null }) {
       const text = getMessageText(message);
       const attachment = message.attachment;
 
-      const isImageAttachment =
+      if (
         attachment?.dataUrl &&
-        attachment.type?.startsWith("image/");
-
-      if (isImageAttachment) {
+        attachment.type?.startsWith("image/")
+      ) {
         const content = [];
 
         if (text) {
@@ -674,13 +710,17 @@ export default function OzlindApp({ initialUser = null }) {
         return { role: message.role, content };
       }
 
-      // Non-image attachments (PDF, docx, etc.) can't be parsed
-      // client-side, so at least tell the model a file was attached
-      // rather than silently dropping it.
+      if (attachment?.text) {
+        return {
+          role: message.role,
+          content: `${text}\n\n[Attached file: ${attachment.name}]\n\`\`\`\n${attachment.text}\n\`\`\``,
+        };
+      }
+
       if (attachment?.name) {
         return {
           role: message.role,
-          content: `${text}\n\n[Attached file: ${attachment.name} — file content could not be read; only image attachments are analyzed.]`,
+          content: `${text}\n\n[Earlier attachment: ${attachment.name} — no longer available]`,
         };
       }
 
@@ -688,16 +728,18 @@ export default function OzlindApp({ initialUser = null }) {
     });
   }
 
-  async function sendMessage(customPrompt) {
+  async function sendMessage(customPrompt, options = {}) {
     if (isStreaming) {
       return;
     }
+
+    const resend = Array.isArray(options.resendMessages);
 
     const prompt = String(
       customPrompt !== undefined ? customPrompt : input
     ).trim();
 
-    if (!prompt && !selectedFile) {
+    if (!resend && !prompt && !selectedFile) {
       textareaRef.current?.focus();
       return;
     }
@@ -710,26 +752,34 @@ export default function OzlindApp({ initialUser = null }) {
       setActiveChatId(chatId);
     }
 
-    const userMessage = {
-      id: createId(),
-      role: "user",
-      content: prompt || "Please analyze the attached file.",
-      createdAt: Date.now(),
-      attachment: selectedFile
-        ? {
-            name: selectedFile.name,
-            type: selectedFile.type,
-            size: selectedFile.size,
-            dataUrl: selectedFile.dataUrl,
-          }
-        : null,
-    };
+    let nextMessages;
 
-    const nextMessages = [...messages, userMessage];
+    if (resend) {
+      nextMessages = options.resendMessages;
+    } else {
+      const userMessage = {
+        id: createId(),
+        role: "user",
+        content: prompt || "Please analyze the attached file.",
+        createdAt: Date.now(),
+        attachment: selectedFile
+          ? {
+              name: selectedFile.name,
+              type: selectedFile.type,
+              size: selectedFile.size,
+              dataUrl: selectedFile.dataUrl,
+              text: selectedFile.text || null,
+            }
+          : null,
+      };
+
+      nextMessages = [...messages, userMessage];
+
+      setInput("");
+      setSelectedFile(null);
+    }
 
     setMessages(nextMessages);
-    setInput("");
-    setSelectedFile(null);
 
     requestAnimationFrame(() => {
       if (textareaRef.current) {
@@ -743,6 +793,7 @@ export default function OzlindApp({ initialUser = null }) {
       id: assistantId,
       role: "assistant",
       content: "",
+      sources: [],
       createdAt: Date.now(),
       streaming: true,
     };
@@ -752,6 +803,19 @@ export default function OzlindApp({ initialUser = null }) {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    let fullText = "";
+    let sources = [];
+
+    const updateAssistant = (patch) => {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? { ...message, ...patch }
+            : message
+        )
+      );
+    };
 
     try {
       const body = {
@@ -774,7 +838,12 @@ export default function OzlindApp({ initialUser = null }) {
       });
 
       if (!response.ok) {
-        let message = "Something went wrong.";
+        let message =
+          response.status === 401
+            ? "Your session has expired. Please sign in again."
+            : response.status === 413
+              ? "The attachment is too large to send."
+              : "Something went wrong. Please try again.";
 
         try {
           const data = await response.json();
@@ -797,22 +866,57 @@ export default function OzlindApp({ initialUser = null }) {
       const decoder = new TextDecoder();
 
       let buffer = "";
-      let fullText = "";
 
-      const appendAssistantText = (chunk) => {
-        fullText += chunk;
+      const handleEvent = (event) => {
+        if (!event || typeof event !== "object") {
+          return;
+        }
 
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  content: fullText,
-                  streaming: true,
-                }
-              : message
-          )
-        );
+        if (event.type === "error" || event.error) {
+          throw new Error(
+            event.error || "The AI service returned an error."
+          );
+        }
+
+        if (event.type === "notice" && event.message) {
+          showNotice(event.message);
+          return;
+        }
+
+        if (event.type === "sources" && Array.isArray(event.sources)) {
+          sources = event.sources;
+          updateAssistant({ sources });
+          return;
+        }
+
+        if (typeof event.content === "string" && event.content) {
+          fullText += event.content;
+          updateAssistant({ content: fullText, streaming: true });
+        }
+      };
+
+      const processLine = (rawLine) => {
+        const line = rawLine.trim();
+
+        if (!line.startsWith("data:")) {
+          return;
+        }
+
+        const payload = line.slice(5).trim();
+
+        if (!payload || payload === "[DONE]") {
+          return;
+        }
+
+        let event;
+
+        try {
+          event = JSON.parse(payload);
+        } catch {
+          return;
+        }
+
+        handleEvent(event);
       };
 
       while (true) {
@@ -822,88 +926,18 @@ export default function OzlindApp({ initialUser = null }) {
           break;
         }
 
-        buffer += decoder.decode(value, {
-          stream: true,
-        });
+        buffer += decoder.decode(value, { stream: true });
 
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
-        for (const rawLine of lines) {
-          const line = rawLine.trim();
-
-          if (!line) {
-            continue;
-          }
-
-          if (line.startsWith("data:")) {
-            const payload = line.slice(5).trim();
-
-            if (!payload || payload === "[DONE]") {
-              continue;
-            }
-
-            try {
-              const parsed = JSON.parse(payload);
-
-              const delta =
-                parsed?.delta ??
-                parsed?.text ??
-                parsed?.content ??
-                parsed?.message?.content ??
-                "";
-
-              if (typeof delta === "string" && delta) {
-                appendAssistantText(delta);
-              }
-
-              if (parsed?.error) {
-                throw new Error(parsed.error);
-              }
-            } catch (parseError) {
-              if (
-                parseError instanceof Error &&
-                parseError.message &&
-                !parseError.message.includes("JSON")
-              ) {
-                throw parseError;
-              }
-            }
-          } else {
-            appendAssistantText(line);
-          }
-        }
+        lines.forEach(processLine);
       }
 
       buffer += decoder.decode();
 
       if (buffer.trim()) {
-        const remaining = buffer.trim();
-
-        if (remaining.startsWith("data:")) {
-          const payload = remaining.slice(5).trim();
-
-          if (payload && payload !== "[DONE]") {
-            try {
-              const parsed = JSON.parse(payload);
-
-              const delta =
-                parsed?.delta ??
-                parsed?.text ??
-                parsed?.content ??
-                parsed?.message?.content ??
-                "";
-
-              if (typeof delta === "string" && delta) {
-                appendAssistantText(delta);
-              }
-            } catch {
-              // Ignore incomplete trailing stream data.
-            }
-          }
-        } else {
-          appendAssistantText(remaining);
-        }
+        processLine(buffer);
       }
 
       const completedMessages = [
@@ -911,6 +945,7 @@ export default function OzlindApp({ initialUser = null }) {
         {
           ...assistantMessage,
           content: fullText || "No response was returned.",
+          sources,
           streaming: false,
         },
       ];
@@ -919,19 +954,25 @@ export default function OzlindApp({ initialUser = null }) {
       updateHistoryFromMessages(completedMessages, chatId);
     } catch (requestError) {
       if (requestError?.name === "AbortError") {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  streaming: false,
-                  content:
-                    message.content ||
-                    "Generation stopped.",
-                }
-              : message
-          )
-        );
+        // Only finalize when the person pressed Stop. Other aborts
+        // (new chat, opening history) reset the screen themselves.
+        if (controller.userStopped) {
+          const stoppedMessages = [
+            ...nextMessages,
+            {
+              ...assistantMessage,
+              content: fullText || "Generation stopped.",
+              sources,
+              streaming: false,
+            },
+          ];
+
+          setMessages(stoppedMessages);
+
+          if (fullText) {
+            updateHistoryFromMessages(stoppedMessages, chatId);
+          }
+        }
 
         return;
       }
@@ -940,28 +981,27 @@ export default function OzlindApp({ initialUser = null }) {
         requestError?.message ||
         "Unable to connect to the AI service.";
 
-      setMessages((current) =>
-        current.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                streaming: false,
-                content: `**Error:** ${message}`,
-              }
-            : item
-        )
-      );
-
-      setError(message);
+      updateAssistant({
+        streaming: false,
+        content:
+          fullText ||
+          `I couldn't complete that request.\n\n${message}`,
+      });
     } finally {
-      setIsStreaming(false);
-      abortControllerRef.current = null;
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setIsStreaming(false);
+      }
     }
   }
 
   function stopGeneration() {
-    abortControllerRef.current?.abort();
-    setIsStreaming(false);
+    const controller = abortControllerRef.current;
+
+    if (controller) {
+      controller.userStopped = true;
+      controller.abort();
+    }
   }
 
   async function regenerateLastResponse() {
@@ -969,36 +1009,36 @@ export default function OzlindApp({ initialUser = null }) {
       return;
     }
 
-    const lastAssistantIndex = [...messages]
-      .reverse()
-      .findIndex((item) => item.role === "assistant");
+    let lastUserIndex = -1;
 
-    if (lastAssistantIndex === -1) {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === "user") {
+        lastUserIndex = index;
+        break;
+      }
+    }
+
+    if (lastUserIndex < 0) {
       return;
     }
 
-    const assistantIndex =
-      messages.length - 1 - lastAssistantIndex;
+    const baseMessages = messages.slice(0, lastUserIndex + 1);
 
-    const previousMessages = messages.slice(0, assistantIndex);
-    const lastUserMessage = [...previousMessages]
-      .reverse()
-      .find((item) => item.role === "user");
-
-    if (!lastUserMessage) {
-      return;
-    }
-
-    setMessages(previousMessages);
-    setInput(getMessageText(lastUserMessage));
-
-    requestAnimationFrame(() => {
-      sendMessage(getMessageText(lastUserMessage));
-    });
+    setMessages(baseMessages);
+    sendMessage(undefined, { resendMessages: baseMessages });
   }
 
   function editMessage(message) {
+    if (isStreaming) {
+      return;
+    }
+
     const content = getMessageText(message);
+    const index = messages.findIndex((item) => item.id === message.id);
+
+    if (index >= 0) {
+      setMessages(messages.slice(0, index));
+    }
 
     setInput(content);
 
@@ -1054,42 +1094,21 @@ export default function OzlindApp({ initialUser = null }) {
       <ReactMarkdown
         components={{
           a: ({ children, ...props }) => (
-            <a
-              {...props}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a {...props} target="_blank" rel="noreferrer">
               {children}
             </a>
           ),
-          code: ({
-            inline,
-            className,
-            children,
-            ...props
-          }) => {
-            if (inline) {
-              return (
-                <code
-                  className={className}
-                  {...props}
-                >
-                  {children}
-                </code>
-              );
-            }
-
-            return (
-              <pre>
-                <code
-                  className={className}
-                  {...props}
-                >
-                  {children}
-                </code>
-              </pre>
-            );
-          },
+          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+          code: ({ className, children, ...props }) => (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          ),
+          table: ({ children }) => (
+            <div className="table-scroll">
+              <table>{children}</table>
+            </div>
+          ),
         }}
       >
         {content}
@@ -1128,7 +1147,7 @@ export default function OzlindApp({ initialUser = null }) {
 
             <span className="brand-copy">
               <strong>OZLIND</strong>
-              <span>AI PLATFORM</span>
+              <span>Intelligent workspace</span>
             </span>
           </button>
 
@@ -1178,30 +1197,6 @@ export default function OzlindApp({ initialUser = null }) {
               <span className="live-dot">LIVE</span>
             </button>
           </nav>
-
-          <div className="sidebar-section">
-            <div className="sidebar-section-heading">
-              <span>Workspace</span>
-            </div>
-
-            <button className="sidebar-nav-item disabled">
-              <Sparkles size={17} />
-              <span>Image Generator</span>
-              <span className="next-label">NEXT</span>
-            </button>
-
-            <button className="sidebar-nav-item disabled">
-              <FileText size={17} />
-              <span>Documents</span>
-              <span className="next-label">NEXT</span>
-            </button>
-
-            <button className="sidebar-nav-item disabled">
-              <Code2 size={17} />
-              <span>Code Assistant</span>
-              <span className="next-label">NEXT</span>
-            </button>
-          </div>
 
           <div className="sidebar-section history-section">
             <div className="sidebar-section-heading">
@@ -1364,15 +1359,11 @@ export default function OzlindApp({ initialUser = null }) {
                 <span>OZLIND AI</span>
               </div>
 
-              <h1>
-                What can I help
-                <br />
-                you with?
-              </h1>
+              <h1>How can I help you today?</h1>
 
               <p>
-                Ask questions, analyze files, research topics,
-                write code, or plan your next idea.
+                Write, research, analyze files and images, or work
+                through a problem with OZLIND AI.
               </p>
 
               <div className="suggestion-grid">
@@ -1471,6 +1462,39 @@ export default function OzlindApp({ initialUser = null }) {
                             </div>
                           ) : null}
                         </div>
+
+                        {!isUser &&
+                          !message.streaming &&
+                          Array.isArray(message.sources) &&
+                          message.sources.length > 0 && (
+                            <div className="message-sources">
+                              <span className="message-sources-title">
+                                Sources
+                              </span>
+
+                              <div className="message-sources-list">
+                                {message.sources.map((source, sourceIndex) => (
+                                  <a
+                                    key={source.url || sourceIndex}
+                                    className="source-chip"
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    <span className="source-index">
+                                      {sourceIndex + 1}
+                                    </span>
+                                    <span className="source-text">
+                                      <strong>
+                                        {source.title || source.domain}
+                                      </strong>
+                                      <em>{source.domain}</em>
+                                    </span>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                         <div className="message-actions">
                           <button
@@ -1582,7 +1606,7 @@ export default function OzlindApp({ initialUser = null }) {
                     type="file"
                     hidden
                     onChange={handleFileChange}
-                    accept="image/*,.pdf,.txt,.csv,.md,.json,.doc,.docx"
+                    accept="image/*,.txt,.md,.csv,.json,.log,.py,.js,.jsx,.ts,.tsx,.html,.css,.sql,.xml,.yml,.yaml"
                   />
 
                   <div
@@ -1686,9 +1710,8 @@ export default function OzlindApp({ initialUser = null }) {
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleTextareaKeyDown}
-                placeholder="Message OZLIND AI..."
+                placeholder="Message OZLIND AI…"
                 rows={1}
-                disabled={isStreaming}
                 aria-label="Message OZLIND AI"
               />
 
@@ -1824,7 +1847,7 @@ export default function OzlindApp({ initialUser = null }) {
             {accountSection === "integrations" && (
               <div className="account-scroll account-detail-scroll">
                 <section className="account-detail-hero compact"><Plug size={30} /><strong>Integrations</strong><span>Connected services used by your workspace.</span></section>
-                <div className="account-group-card"><AccountInfoRow label="AI workspace" value="OZLIND AI" /><AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Temporarily disabled"} /><AccountInfoRow label="Workspace storage" value="Local" /><AccountInfoRow label="Web Research" value={settings.research ? "Enabled" : "Disabled"} /></div>
+                <div className="account-group-card"><AccountInfoRow label="AI workspace" value="OZLIND AI" /><AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Not connected"} /><AccountInfoRow label="Workspace storage" value="Local" /><AccountInfoRow label="Web Research" value={settings.research ? "Enabled" : "Disabled"} /></div>
                 <p className="account-detail-note">Additional integrations can be connected as OZLIND features become available.</p>
               </div>
             )}
@@ -1840,7 +1863,7 @@ export default function OzlindApp({ initialUser = null }) {
             {accountSection === "privacy" && (
               <div className="account-scroll account-detail-scroll">
                 <section className="account-detail-hero compact"><Shield size={30} /><strong>Privacy Center</strong><span>Understand your current workspace data behavior.</span></section>
-                <div className="account-group-card"><AccountInfoRow label="Conversation history" value="Stored locally" /><AccountInfoRow label="Preferences" value="Stored locally" /><AccountInfoRow label="Authentication" value={accountUser ? "Account session" : "Temporarily disabled"} /></div>
+                <div className="account-group-card"><AccountInfoRow label="Conversation history" value="Stored locally" /><AccountInfoRow label="Preferences" value="Stored locally" /><AccountInfoRow label="Authentication" value={accountUser ? "Account session" : "Not connected"} /></div>
                 <p className="account-detail-note">OZLIND currently keeps chat history and preferences in your browser's local storage. Server-side AI requests are handled through the configured OZLIND API routes.</p>
               </div>
             )}
@@ -2205,4 +2228,118 @@ async function fileToDataUrl(file) {
 
     reader.readAsDataURL(file);
   });
+}
+
+const TEXT_FILE_PATTERN =
+  /\.(txt|md|csv|json|log|py|js|jsx|ts|tsx|html|css|sql|xml|yml|yaml)$/i;
+
+const MAX_TEXT_FILE_CHARS = 8000;
+
+function isTextFile(file) {
+  return (
+    file.type.startsWith("text/") ||
+    file.type === "application/json" ||
+    TEXT_FILE_PATTERN.test(file.name)
+  );
+}
+
+async function readTextFile(file) {
+  const text = await file.text();
+
+  return text.length > MAX_TEXT_FILE_CHARS
+    ? `${text.slice(0, MAX_TEXT_FILE_CHARS)}\n…[file truncated]`
+    : text;
+}
+
+// Shrinks large photos so they fit inside the server's request limit.
+async function imageToOptimizedDataUrl(file) {
+  const original = await fileToDataUrl(file);
+
+  if (file.type === "image/gif" || file.type === "image/svg+xml") {
+    return original;
+  }
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = reject;
+      element.src = original;
+    });
+
+    const maxSide = 1600;
+    const scale = Math.min(
+      1,
+      maxSide / Math.max(image.width, image.height)
+    );
+
+    if (scale === 1 && file.size < 1.5 * 1024 * 1024) {
+      return original;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.width * scale);
+    canvas.height = Math.round(image.height * scale);
+
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch {
+    return original;
+  }
+}
+
+// Attachment payloads are kept out of saved history so the
+// browser's storage quota is not exhausted by images.
+function stripAttachmentData(message) {
+  if (!message?.attachment) {
+    return message;
+  }
+
+  const { dataUrl, text, ...rest } = message.attachment;
+
+  return { ...message, attachment: rest };
+}
+
+function CodeBlock({ children }) {
+  const [copied, setCopied] = useState(false);
+
+  const codeElement = Array.isArray(children) ? children[0] : children;
+  const className = codeElement?.props?.className || "";
+  const language = (/language-([\w-]+)/.exec(className) || [])[1] || "";
+  const raw = codeElement?.props?.children;
+
+  const code = String(
+    Array.isArray(raw) ? raw.join("") : raw ?? ""
+  ).replace(/\n$/, "");
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Clipboard access can be blocked by the browser.
+    }
+  }
+
+  return (
+    <div className="code-block">
+      <div className="code-block-header">
+        <span>{language || "code"}</span>
+
+        <button type="button" onClick={copyCode} aria-label="Copy code">
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          <span>{copied ? "Copied" : "Copy"}</span>
+        </button>
+      </div>
+
+      <pre>
+        <code className={className}>{code}</code>
+      </pre>
+    </div>
+  );
 }
