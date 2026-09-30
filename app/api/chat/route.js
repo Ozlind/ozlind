@@ -111,9 +111,22 @@ export async function POST(request) {
       );
     }
 
-    const research = shouldResearch(body || {}, query)
-      ? await tavilySearch(query)
-      : null;
+    let research = null;
+    let researchNotice = "";
+
+    if (shouldResearch(body || {}, query)) {
+      try {
+        research = await tavilySearch(query);
+      } catch (researchError) {
+        console.error("Web research failed:", researchError?.message);
+
+        // Answer without live sources instead of failing the whole chat.
+        if (body?.research === true || body?.mode === "research") {
+          researchNotice =
+            "Web research is unavailable right now. Answering without live sources.";
+        }
+      }
+    }
 
     const system = systemPrompt(
       body || {},
@@ -141,6 +154,13 @@ export async function POST(request) {
           send({
             type: "ready",
           });
+
+          if (researchNotice) {
+            send({
+              type: "notice",
+              message: researchNotice,
+            });
+          }
 
           const result = await streamFromProviders({
             order,
