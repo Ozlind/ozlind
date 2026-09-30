@@ -48,6 +48,22 @@ export async function middleware(request) {
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
 
+  // Already signed in: never show the login page, go straight to the app.
+  if (user && pathname === "/login") {
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = "/";
+    homeUrl.search = "";
+
+    const redirect = NextResponse.redirect(homeUrl);
+
+    // Keep any refreshed session cookies on the redirect response.
+    response.cookies.getAll().forEach((cookie) => {
+      redirect.cookies.set(cookie);
+    });
+
+    return redirect;
+  }
+
   if (!user && !isPublic) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
