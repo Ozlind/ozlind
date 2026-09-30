@@ -1,7 +1,68 @@
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export function middleware(request) {
-  return NextResponse.next();
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/supabase/config"];
+
+export async function middleware(request) {
+  let response = NextResponse.next({ request });
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+
+  // If env vars are missing, don't crash every request.
+  if (!url || !key) {
+    return response;
+  }
+
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
+
+        response = NextResponse.next({ request });
+
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
+
+  // Refreshes the session cookie when needed.
+  let user = null;
+
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+  } catch {
+    user = null;
+  }
+
+  const { pathname } = request.nextUrl;
+  const isPublic = PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
+
+  if (!user && !isPublic) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
+    }
+
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return response;
 }
 
 export const config = {
