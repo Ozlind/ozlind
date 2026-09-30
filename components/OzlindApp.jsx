@@ -42,6 +42,7 @@ import {
   Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { createClient } from "@/lib/supabase/client";
 
 const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
@@ -105,7 +106,7 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function OzlindApp() {
+export default function OzlindApp({ initialUser = null }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
@@ -116,6 +117,7 @@ export default function OzlindApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountUser, setAccountUser] = useState(null);
+  const [accountSection, setAccountSection] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
@@ -500,9 +502,17 @@ export default function OzlindApp() {
     showNotice("Local OZLIND data cleared");
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
+
+    try {
+      const supabase = await createClient();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Sign out failed:", err);
+    }
+
     window.location.assign("/login");
   }
 
