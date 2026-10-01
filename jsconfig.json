@@ -1,8 +1,1 @@
-{
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"]
-    }
-  }
-}
+git rm jsconfig.json
