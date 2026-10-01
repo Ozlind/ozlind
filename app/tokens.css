@@ -1,0 +1,66 @@
+/*
+ * OZLIND AI
+ * Design-token compatibility layer.
+ *
+ * The existing application theme lives in globals.css.
+ * These aliases allow newer UI primitives to use the
+ * same visual system without rewriting the legacy shell.
+ */
+
+:root {
+  --surface-1: var(--surface);
+  --surface-2: var(--surface-soft);
+  --surface-3: var(--surface-hover);
+
+  --text-dim: var(--text-soft);
+
+  --accent: var(--primary);
+  --accent-hover: var(--primary-dark);
+
+  --focus-ring: var(--shadow-focus);
+}
+
+body.dark {
+  --surface-1: var(--surface);
+  --surface-2: var(--surface-soft);
+  --surface-3: var(--surface-hover);
+
+  --text-dim: var(--text-soft);
+
+  --accent: var(--primary);
+  --accent-hover: var(--primary-dark);
+
+  --focus-ring: var(--shadow-focus);
+}
+
+/*
+ * Consistent keyboard focus treatment.
+ * Visible only when the user is navigating with a keyboard.
+ */
+
+:where(
+  button,
+  input,
+  textarea,
+  select,
+  a,
+  [role="button"]
+):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/*
+ * Respect users who prefer reduced motion.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
