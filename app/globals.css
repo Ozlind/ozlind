@@ -2773,3 +2773,177 @@ a {
     width: calc(100% - 24px);
   }
 }
+/* =========================================================
+   OZLIND — Loading & Error Recovery
+   ========================================================= */
+
+.ozlind-loading {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: var(--background);
+  color: var(--text);
+}
+
+.ozlind-loading-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.ozlind-loading-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--primary);
+  animation: ozlind-pulse 1.2s ease-in-out infinite;
+}
+
+.ozlind-loading-content {
+  width: min(240px, 70vw);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.ozlind-loading-line {
+  height: 9px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  animation: ozlind-shimmer 1.4s ease-in-out infinite;
+}
+
+.ozlind-loading-line-lg {
+  width: 100%;
+}
+
+.ozlind-loading-line-sm {
+  width: 64%;
+}
+
+.ozlind-error-page {
+  min-height: 100dvh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--background);
+  color: var(--text);
+}
+
+.ozlind-error-card {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.ozlind-error-mark {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.ozlind-error-card h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.ozlind-error-card p {
+  margin: 12px 0 22px;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.ozlind-error-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ozlind-error-actions button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ozlind-error-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.ozlind-error-secondary {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+@keyframes ozlind-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ozlind-shimmer {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ozlind-loading-dot,
+  .ozlind-loading-line {
+    animation: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .ozlind-error-card {
+    padding: 22px;
+    border-radius: 20px;
+  }
+
+  .ozlind-error-actions {
+    flex-direction: column;
+  }
+
+  .ozlind-error-actions button {
+    width: 100%;
+  }
+}
