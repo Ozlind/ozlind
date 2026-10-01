@@ -1,5 +1,4 @@
 import {
-  clean,
   hasVision,
   json,
   latestUserMessage,
@@ -8,363 +7,347 @@ import {
   systemPrompt,
   validateMessages,
 } from "@/lib/server";
-
 import {
   providerOrder,
   streamFromProviders,
 } from "@/lib/providers";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const RESEARCH_TIMEOUT = 15_000;
+function sse(event, data) {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
 
-async function tavilySearch(query) {
-  const apiKey =
-    process.env.TAVILY_API_KEY;
+function getClientKey(request) {
+  const forwarded =
+    request.headers.get("x-forwarded-for");
 
-  if (!apiKey) {
-    throw new Error(
-      "Web search is not configured."
-    );
+  if (forwarded) {
+    return forwarded
+      .split(",")[0]
+      .trim();
   }
 
-  const controller =
-    new AbortController();
-
-  const timer = setTimeout(
-    () => controller.abort(),
-    RESEARCH_TIMEOUT
+  return (
+    request.headers.get("x-real-ip") ||
+    "anonymous"
   );
-
-  try {
-    const response =
-      await fetch(
-        "https://api.tavily.com/search",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-            Authorization:
-              `Bearer ${apiKey}`,
-          },
-
-          body: JSON.stringify({
-            query: query.slice(0, 500),
-            topic: "general",
-            search_depth: "basic",
-            max_results: 5,
-            include_answer: true,
-          }),
-
-          signal: controller.signal,
-          cache: "no-store",
-        }
-      );
-
-    const data =
-      await response
-        .json()
-        .catch(() => ({}));
-
-    if (!response.ok) {
-      const detail =
-        typeof data?.detail ===
-        "string"
-          ? data.detail
-          : "Web search request failed.";
-
-      throw new Error(detail);
-    }
-
-    const results = Array.isArray(
-      data?.results
-    )
-      ? data.results
-          .slice(0, 5)
-          .map((item) => {
-            let domain = "";
-
-            try {
-              domain = new URL(
-                item?.url || ""
-              )
-                .hostname.replace(
-                  /^www\./,
-                  ""
-                );
-            } catch {
-              domain = "";
-            }
-
-            return {
-              title:
-                typeof item?.title ===
-                "string"
-                  ? item.title
-                  : "",
-              url:
-                typeof item?.url ===
-                "string"
-                  ? item.url
-                  : "",
-              domain,
-              content:
-                typeof item?.content ===
-                "string"
-                  ? item.content
-                  : "",
-            };
-          })
-          .filter((item) =>
-            /^https?:\/\//i.test(
-              item.url
-            )
-          )
-      : [];
-
-    return {
-      answer:
-        typeof data?.answer ===
-        "string"
-          ? data.answer
-          : "",
-      results,
-    };
-  } catch (error) {
-    if (
-      error?.name ===
-      "AbortError"
-    ) {
-      throw new Error(
-        "Web search timed out."
-      );
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 export async function POST(request) {
   try {
-    const body =
-      await request.json();
+    const rate = checkRateLimit(
+      getClientKey(request),
+    );
 
-    const messages =
-      validateMessages(
-        body?.messages
-      );
-
-    const query =
-      latestUserMessage(
-        messages
-      );
-
-    const vision =
-      hasVision(messages);
-
-    if (
-      !query.trim() &&
-      !vision
-    ) {
+    if (!rate.allowed) {
       return json(
         {
           error:
-            "Please enter a message.",
+            "Too many requests. Please wait a moment and try again.",
         },
-        400
+        429,
+        {
+          "Retry-After": String(
+            rate.retryAfterSeconds,
+          ),
+          "X-RateLimit-Remaining": "0",
+        },
       );
     }
 
-    let research = null;
-    let researchNotice = "";
+    let body;
 
-    if (
-      shouldResearch(
-        body || {},
-        query
-      )
-    ) {
-      try {
-        research =
-          await tavilySearch(
-            query
-          );
-      } catch (error) {
-        console.error(
-          "OZLIND research error:",
-          error?.message
-        );
-
-        /*
-         * Normal chat should NEVER fail merely because Tavily
-         * is unavailable.
-         */
-        researchNotice =
-          "Live web research is unavailable right now. Continuing without live sources.";
-      }
+    try {
+      body = await request.json();
+    } catch {
+      return json(
+        {
+          error: "Invalid JSON request.",
+        },
+        400,
+      );
     }
 
-    const system =
-      systemPrompt(
-        body || {},
-        research
-      );
+    const validation = validateMessages(
+      body?.messages,
+    );
 
+    if (!validation.ok) {
+      return json(
+        {
+          error: validation.error,
+        },
+        400,
+      );
+    }
+
+    const messages = validation.messages;
     const mode =
-      typeof body?.mode ===
-      "string"
+      typeof body?.mode === "string"
         ? body.mode
         : "auto";
 
-    const order =
-      providerOrder(
-        mode,
-        vision
-      );
+    const vision = hasVision(messages);
 
-    const encoder =
-      new TextEncoder();
-
-    const stream =
-      new ReadableStream({
-        async start(controller) {
-          let closed = false;
-
-          const send = (payload) => {
-            if (closed) {
-              return;
-            }
-
-            try {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify(
-                    payload
-                  )}\n\n`
-                )
-              );
-            } catch {
-              closed = true;
-            }
-          };
-
-          const close = () => {
-            if (closed) {
-              return;
-            }
-
-            closed = true;
-
-            try {
-              controller.close();
-            } catch {
-              // Stream may already be closed by the runtime.
-            }
-          };
-
-          try {
-            send({
-              type: "ready",
-            });
-
-            if (researchNotice) {
-              send({
-                type: "notice",
-                message:
-                  researchNotice,
-              });
-            }
-
-            const result =
-              await streamFromProviders({
-                order,
-                messages,
-                system,
-                mode,
-                hasVision: vision,
-
-                onDelta(delta) {
-                  send({
-                    type: "delta",
-                    content: delta,
-                  });
-                },
-              });
-
-            if (
-              research?.results
-                ?.length
-            ) {
-              send({
-                type: "sources",
-                sources:
-                  research.results,
-              });
-            }
-
-            send({
-              type: "done",
-            });
-
-            console.info(
-              "OZLIND provider:",
-              result.provider,
-              result.model
-            );
-
-            close();
-          } catch (error) {
-            console.error(
-              "OZLIND chat error:",
-              error
-            );
-
-            send({
-              type: "error",
-              error:
-                safeError(error),
-            });
-
-            close();
-          }
-        },
-      });
-
-    return new Response(
-      stream,
-      {
-        status: 200,
-
-        headers: {
-          "Content-Type":
-            "text/event-stream; charset=utf-8",
-
-          "Cache-Control":
-            "no-cache, no-transform",
-
-          Connection:
-            "keep-alive",
-
-          "X-Accel-Buffering":
-            "no",
-        },
-      }
+    const researchEnabled = shouldResearch(
+      body,
+      latestUserMessage(messages),
     );
+
+    let researchSources = [];
+    let researchNotice = null;
+
+    if (researchEnabled) {
+      const tavilyKey =
+        process.env.TAVILY_API_KEY;
+
+      if (tavilyKey) {
+        try {
+          const query = latestUserMessage(
+            messages,
+          ).slice(0, 500);
+
+          if (query.trim()) {
+            const controller =
+              new AbortController();
+
+            const timeout = setTimeout(
+              () => controller.abort(),
+              12_000,
+            );
+
+            try {
+              const response = await fetch(
+                "https://api.tavily.com/search",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+                  body: JSON.stringify({
+                    api_key: tavilyKey,
+                    query,
+                    search_depth: "basic",
+                    include_answer: false,
+                    max_results: 5,
+                  }),
+                  signal: controller.signal,
+                  cache: "no-store",
+                },
+              );
+
+              if (response.ok) {
+                const data =
+                  await response.json();
+
+                if (
+                  Array.isArray(data?.results)
+                ) {
+                  researchSources =
+                    data.results
+                      .filter(
+                        (item) =>
+                          item &&
+                          typeof item.url ===
+                            "string",
+                      )
+                      .slice(0, 5)
+                      .map((item) => ({
+                        title:
+                          typeof item.title ===
+                          "string"
+                            ? item.title
+                            : item.url,
+                        url: item.url,
+                        domain:
+                          (() => {
+                            try {
+                              return new URL(
+                                item.url,
+                              ).hostname;
+                            } catch {
+                              return "";
+                            }
+                          })(),
+                        content:
+                          typeof item.content ===
+                          "string"
+                            ? item.content
+                            : "",
+                      }));
+                }
+              } else {
+                researchNotice =
+                  "Web research was unavailable, so I continued without live sources.";
+              }
+            } finally {
+              clearTimeout(timeout);
+            }
+          }
+        } catch {
+          researchNotice =
+            "Web research timed out, so I continued without live sources.";
+        }
+      } else {
+        researchNotice =
+          "Web research is not configured, so I continued without live sources.";
+      }
+    }
+
+    const prompt = systemPrompt({
+      responseStyle:
+        body?.responseStyle,
+      responseLength:
+        body?.responseLength,
+      customInstructions:
+        body?.customInstructions,
+      researchSources,
+    });
+
+    const providers = providerOrder(
+      mode,
+      vision,
+    );
+
+    if (providers.length === 0) {
+      return json(
+        {
+          error:
+            "No compatible AI provider is configured.",
+        },
+        503,
+      );
+    }
+
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let closed = false;
+
+        const send = (event, data) => {
+          if (closed) {
+            return;
+          }
+
+          controller.enqueue(
+            encoder.encode(
+              sse(event, data),
+            ),
+          );
+        };
+
+        const close = () => {
+          if (!closed) {
+            closed = true;
+            controller.close();
+          }
+        };
+
+        try {
+          send("ready", {
+            type: "ready",
+          });
+
+          if (researchNotice) {
+            send("notice", {
+              type: "notice",
+              message: researchNotice,
+            });
+          }
+
+          if (researchSources.length > 0) {
+            send("sources", {
+              type: "sources",
+              sources: researchSources,
+            });
+          }
+
+          let selectedProvider = null;
+          let selectedModel = null;
+
+          await streamFromProviders({
+            messages,
+            mode,
+            vision,
+            systemPrompt: prompt,
+            providers,
+            onProvider: (
+              provider,
+              model,
+            ) => {
+              selectedProvider = provider;
+              selectedModel = model;
+
+              send("meta", {
+                type: "meta",
+                provider,
+                model,
+              });
+            },
+            onDelta: (content) => {
+              send("delta", {
+                type: "delta",
+                content,
+              });
+            },
+          });
+
+          if (
+            selectedProvider &&
+            selectedModel
+          ) {
+            send("notice", {
+              type: "notice",
+              message: "",
+            });
+          }
+
+          send("done", {
+            type: "done",
+          });
+
+          close();
+        } catch (error) {
+          if (closed) {
+            return;
+          }
+
+          send("error", {
+            type: "error",
+            error: safeError(error),
+          });
+
+          close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        "Content-Type":
+          "text/event-stream; charset=utf-8",
+        "Cache-Control":
+          "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+        "X-RateLimit-Remaining": String(
+          rate.remaining,
+        ),
+      },
+    });
   } catch (error) {
     return json(
       {
-        error: clean(
-          safeError(error),
-          220
-        ),
+        error: safeError(error),
       },
-      400
+      500,
     );
   }
 }
