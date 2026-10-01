@@ -1,10 +1,22 @@
 export type Role = "user" | "assistant";
 
-export type ChatMode = "auto" | "fast" | "pro" | "vision";
+export type ChatMode =
+  | "auto"
+  | "fast"
+  | "pro"
+  | "vision"
+  | "research";
 
-export type ResponseStyle = "balanced" | "professional" | "friendly" | "direct";
+export type ResponseStyle =
+  | "balanced"
+  | "professional"
+  | "friendly"
+  | "direct";
 
-export type ResponseLength = "short" | "medium" | "long";
+export type ResponseLength =
+  | "short"
+  | "medium"
+  | "long";
 
 export interface Source {
   title: string;
@@ -17,8 +29,10 @@ export interface Attachment {
   name: string;
   type: string;
   size: number;
+
   /** Base64 data URL. Set only for images. */
   dataUrl: string | null;
+
   /** Extracted file contents. Set only for text files. */
   text: string | null;
 }
@@ -42,8 +56,11 @@ export interface Conversation {
   messages: Message[];
 }
 
-/** Lightweight shape for the sidebar list; avoids loading every message. */
-export type ConversationSummary = Pick<Conversation, "id" | "title" | "updatedAt">;
+/** Lightweight shape used by the sidebar. */
+export type ConversationSummary = Pick<
+  Conversation,
+  "id" | "title" | "updatedAt"
+>;
 
 export interface AppSettings {
   research: boolean;
@@ -53,7 +70,7 @@ export interface AppSettings {
   customInstructions: string;
 }
 
-/* ---------- Wire format: what /api/chat sends and receives ---------- */
+/* ---------- API wire format ---------- */
 
 export interface ApiTextPart {
   type: "text";
@@ -62,10 +79,14 @@ export interface ApiTextPart {
 
 export interface ApiImagePart {
   type: "image_url";
-  image_url: { url: string };
+  image_url: {
+    url: string;
+  };
 }
 
-export type ApiContentPart = ApiTextPart | ApiImagePart;
+export type ApiContentPart =
+  | ApiTextPart
+  | ApiImagePart;
 
 export interface ApiMessage {
   role: Role;
@@ -82,12 +103,47 @@ export interface ChatRequestBody {
   customInstructions: string;
 }
 
-/** Server-sent events emitted by /api/chat. A discriminated union lets
- *  `switch (event.type)` narrow the payload without casts. */
+/* ---------- SSE events ---------- */
+
+export interface StreamReadyEvent {
+  type: "ready";
+}
+
+export interface StreamNoticeEvent {
+  type: "notice";
+  message: string;
+}
+
+export interface StreamDeltaEvent {
+  type: "delta";
+  content: string;
+}
+
+export interface StreamSourcesEvent {
+  type: "sources";
+  sources: Source[];
+}
+
+export interface StreamMetaEvent {
+  type: "meta";
+  provider: string;
+  model: string;
+}
+
+export interface StreamDoneEvent {
+  type: "done";
+}
+
+export interface StreamErrorEvent {
+  type: "error";
+  error: string;
+}
+
 export type StreamEvent =
-  | { type: "ready" }
-  | { type: "notice"; message: string }
-  | { type: "delta"; content: string }
-  | { type: "sources"; sources: Source[] }
-  | { type: "done" }
-  | { type: "error"; error: string };
+  | StreamReadyEvent
+  | StreamNoticeEvent
+  | StreamDeltaEvent
+  | StreamSourcesEvent
+  | StreamMetaEvent
+  | StreamDoneEvent
+  | StreamErrorEvent;
