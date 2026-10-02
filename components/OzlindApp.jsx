@@ -15,8 +15,6 @@ const HISTORY_KEY = "ozlind_history_v2";
 const SETTINGS_KEY = "ozlind_settings_v2";
 const THEME_KEY = "ozlind_theme_v1";
 
-const MAX_HISTORY_ITEMS = 100;
-
 const DEFAULT_SETTINGS = {
   research: false,
   memory: true,
@@ -132,8 +130,8 @@ function stripAttachmentData(message) {
   return { ...message, attachment: rest };
 }
 
-// Only the most recent image keeps its base64 payload; older images become
-// text placeholders so long threads don't blow the request size.
+// Removes base64 image payloads from older user messages so the request
+// stays small. Only the most recent image is kept for vision.
 function buildApiMessages(currentMessages) {
   const lastImageIndex = (() => {
     for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
@@ -414,18 +412,6 @@ export default function OzlindApp({ initialUser = null }) {
     setSettings((current) => ({ ...current, ...patch }));
   }
 
-  // Abort any in-flight stream and reset the sending guards so the next
-  // send is never blocked by a stale flag.
-  function cancelActiveStream() {
-    const controller = abortControllerRef.current;
-    if (controller) {
-      controller.abort();
-      abortControllerRef.current = null;
-    }
-    sendingRef.current = false;
-    setIsStreaming(false);
-  }
-
   function autoResizeTextarea() {
     const element = textareaRef.current;
     if (!element) return;
@@ -452,32 +438,33 @@ export default function OzlindApp({ initialUser = null }) {
         messages: nextMessages.map(stripAttachmentData),
         updatedAt,
       };
-      const withoutCurrent = current.filter((item) => item.id !== chatId);
-      // Cap so localStorage never overflows on long-lived installs.
-      return [record, ...withoutCurrent].slice(0, MAX_HISTORY_ITEMS);
+      if (!existing) return [record, ...current];
+      return [record, ...current.filter((item) => item.id !== chatId)];
     });
   }
 
   // ---------- navigation ----------
 
   function startNewChat() {
-    cancelActiveStream();
+    abortControllerRef.current?.abort();
     setMessages([]);
     setInput("");
     setSelectedFile(null);
     setError("");
     setActiveChatId(null);
+    setIsStreaming(false);
     setSidebarOpen(false);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   function openHistoryItem(item) {
-    cancelActiveStream();
+    abortControllerRef.current?.abort();
     setMessages(Array.isArray(item.messages) ? item.messages : []);
     setActiveChatId(item.id);
     setInput("");
     setSelectedFile(null);
     setError("");
+    setIsStreaming(false);
     setSidebarOpen(false);
   }
 
@@ -495,11 +482,12 @@ export default function OzlindApp({ initialUser = null }) {
   }
 
   function clearCurrentChat() {
-    cancelActiveStream();
+    abortControllerRef.current?.abort();
     setMessages([]);
     setInput("");
     setSelectedFile(null);
     setError("");
+    setIsStreaming(false);
     if (activeChatId) {
       setHistory((current) => current.filter((item) => item.id !== activeChatId));
     }
@@ -549,13 +537,14 @@ export default function OzlindApp({ initialUser = null }) {
 
   function clearAllLocalData() {
     if (!window.confirm("Clear all local OZLIND conversations and preferences? This cannot be undone.")) return;
-    cancelActiveStream();
+    abortControllerRef.current?.abort();
     setMessages([]);
     setHistory([]);
     setActiveChatId(null);
     setInput("");
     setSelectedFile(null);
     setError("");
+    setIsStreaming(false);
     setSettings(DEFAULT_SETTINGS);
     setAccountSection(null);
     setIsDark(false);
@@ -659,11 +648,8 @@ export default function OzlindApp({ initialUser = null }) {
     if (index >= 0) setMessages(messages.slice(0, index));
     setInput(content);
     requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      el.focus();
-      el.style.height = "auto";
-      el.style.height = `${Math.min(Math.max(el.scrollHeight, 48), 180)}px`;
+      textareaRef.current?.focus();
+      autoResizeTextarea();
     });
   }
 
@@ -883,23 +869,21 @@ export default function OzlindApp({ initialUser = null }) {
       buffer += decoder.decode();
       if (buffer.trim()) processLine(buffer);
 
-      const finalContent = fullText || "No response was returned.";
-      updateAssistant({ content: finalContent, sources, streaming: false });
+      updateAssistant({ content: fullText || "No response was returned.", sources, streaming: false });
 
       const finalMessages = [
         ...nextMessages,
-        { ...assistantMessage, content: finalContent, sources, streaming: false },
+        { ...assistantMessage, content: fullText || "No response was returned.", sources, streaming: false },
       ];
       updateHistoryFromMessages(finalMessages, chatId);
     } catch (requestError) {
       if (requestError?.name === "AbortError") {
         if (controller.userStopped) {
-          const stoppedContent = fullText || "Generation stopped.";
-          updateAssistant({ content: stoppedContent, sources, streaming: false });
+          updateAssistant({ content: fullText || "Generation stopped.", sources, streaming: false });
           if (fullText) {
             const stopped = [
               ...nextMessages,
-              { ...assistantMessage, content: stoppedContent, sources, streaming: false },
+              { ...assistantMessage, content: fullText, sources, streaming: false },
             ];
             updateHistoryFromMessages(stopped, chatId);
           }
@@ -915,9 +899,6 @@ export default function OzlindApp({ initialUser = null }) {
       sendingRef.current = false;
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
-      }
-      // Only clear the streaming flag if no newer send has replaced us.
-      if (abortControllerRef.current === null) {
         setIsStreaming(false);
       }
     }
@@ -1832,4 +1813,4 @@ export default function OzlindApp({ initialUser = null }) {
       )}
     </div>
   );
-      }
+  }
