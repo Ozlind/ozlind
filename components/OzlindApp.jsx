@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 
 import { MODES as MODE_DEFS } from "@/constants/modes";
 import { DEFAULT_SETTINGS } from "@/constants/settings";
-import { LIMITS, TEXT_FILE_PATTERN } from "@/constants/limits";
+import { ATTACHMENT_ACCEPT, LIMITS, TEXT_FILE_PATTERN } from "@/constants/limits";
 import { HISTORY_KEY, SETTINGS_KEY, THEME_KEY } from "@/constants/storage";
 
 const MODE_ICONS = {
@@ -35,10 +35,10 @@ const SUGGESTIONS = [
   { icon: Map, title: "Plan a project", prompt: "Create a practical, step-by-step plan for this goal: " },
 ];
 
-const TEXT_FILE_PATTERN = /\.(txt|md|csv|json|log|py|js|jsx|ts|tsx|html|css|sql|xml|yml|yaml)$/i;
 const MAX_TEXT_FILE_CHARS = LIMITS.maxTextFileChars;
 const MAX_IMAGE_BYTES = LIMITS.maxImageBytes;
 const MAX_TEXT_BYTES = LIMITS.maxTextFileBytes;
+
 // ---------- utilities ----------
 
 function createId() {
@@ -1246,7 +1246,7 @@ export default function OzlindApp({ initialUser = null }) {
                     type="file"
                     hidden
                     onChange={handleFileChange}
-                    accept="image/*,.txt,.md,.csv,.json,.log,.py,.js,.jsx,.ts,.tsx,.html,.css,.sql,.xml,.yml,.yaml"
+                    accept={ATTACHMENT_ACCEPT}
                   />
 
                   <div className="mode-selector" ref={modeRef}>
