@@ -6,7 +6,7 @@ const required = [
   "app/layout.jsx",
   "app/globals.css",
   "app/api/chat/route.js",
-  "app/api/research/route.js",
+  
   "components/OzlindApp.jsx",
   "lib/providers.js",
   "lib/server.js",
