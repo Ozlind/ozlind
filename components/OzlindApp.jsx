@@ -11,24 +11,22 @@ import {
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
 
-const HISTORY_KEY = "ozlind_history_v2";
-const SETTINGS_KEY = "ozlind_settings_v2";
-const THEME_KEY = "ozlind_theme_v1";
+import { MODES as MODE_DEFS } from "@/constants/modes";
+import { DEFAULT_SETTINGS } from "@/constants/settings";
+import { LIMITS, TEXT_FILE_PATTERN } from "@/constants/limits";
+import { HISTORY_KEY, SETTINGS_KEY, THEME_KEY } from "@/constants/storage";
 
-const DEFAULT_SETTINGS = {
-  research: false,
-  memory: true,
-  responseStyle: "balanced",
-  responseLength: "medium",
-  customInstructions: "",
+const MODE_ICONS = {
+  sparkles: Sparkles,
+  zap: Zap,
+  "brain-circuit": BrainCircuit,
+  telescope: Telescope,
 };
 
-const MODES = [
-  { id: "auto", label: "Auto", description: "Balanced reasoning and speed", icon: Sparkles },
-  { id: "fast", label: "Fast", description: "Quick answers for everyday tasks", icon: Zap },
-  { id: "pro", label: "Pro", description: "Deeper reasoning and complex tasks", icon: BrainCircuit },
-  { id: "vision", label: "Vision", description: "Understand images and visual files", icon: Telescope },
-];
+const MODES = MODE_DEFS.map((mode) => ({
+  ...mode,
+  icon: MODE_ICONS[mode.iconName],
+}));
 
 const SUGGESTIONS = [
   { icon: Lightbulb, title: "Explain a topic", prompt: "Explain how large language models work, in simple terms." },
@@ -38,10 +36,9 @@ const SUGGESTIONS = [
 ];
 
 const TEXT_FILE_PATTERN = /\.(txt|md|csv|json|log|py|js|jsx|ts|tsx|html|css|sql|xml|yml|yaml)$/i;
-const MAX_TEXT_FILE_CHARS = 8000;
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
-const MAX_TEXT_BYTES = 2 * 1024 * 1024;
-
+const MAX_TEXT_FILE_CHARS = LIMITS.maxTextFileChars;
+const MAX_IMAGE_BYTES = LIMITS.maxImageBytes;
+const MAX_TEXT_BYTES = LIMITS.maxTextFileBytes;
 // ---------- utilities ----------
 
 function createId() {
