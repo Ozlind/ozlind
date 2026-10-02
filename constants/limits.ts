@@ -19,3 +19,7 @@ export const LIMITS = {
 
 export const TEXT_FILE_PATTERN =
   /\.(txt|md|csv|json|log|py|js|jsx|ts|tsx|html|css|sql|xml|yml|yaml)$/i;
+
+/** Must stay in sync with TEXT_FILE_PATTERN. Images and plain-text files only. */
+export const ATTACHMENT_ACCEPT =
+  "image/*,.txt,.md,.csv,.json,.log,.py,.js,.jsx,.ts,.tsx,.html,.css,.sql,.xml,.yml,.yaml";
