@@ -39,6 +39,10 @@ function getClientKey(request) {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Tavily research                                                            */
+/* -------------------------------------------------------------------------- */
+
 async function performResearch(query, signal) {
   const tavilyKey =
     process.env.TAVILY_API_KEY;
@@ -62,115 +66,106 @@ async function performResearch(query, signal) {
     };
   }
 
+  const controller =
+    new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    12_000,
+  );
+
+  const abortParent = () => {
+    controller.abort();
+  };
+
+  signal?.addEventListener(
+    "abort",
+    abortParent,
+    { once: true },
+  );
+
   try {
-    const controller =
-      new AbortController();
-
-    const timeout = setTimeout(
-      () => controller.abort(),
-      12_000,
-    );
-
-    /*
-     * If the parent request is aborted, abort the
-     * Tavily request as well.
-     */
-    const abortParent = () => {
-      controller.abort();
-    };
-
-    signal?.addEventListener(
-      "abort",
-      abortParent,
-      { once: true },
-    );
-
-    try {
-      const response = await fetch(
-        "https://api.tavily.com/search",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            api_key: tavilyKey,
-            query: normalizedQuery,
-            search_depth: "basic",
-            include_answer: false,
-            max_results: 5,
-          }),
-          signal: controller.signal,
-          cache: "no-store",
+    const response = await fetch(
+      "https://api.tavily.com/search",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
         },
-      );
+        body: JSON.stringify({
+          api_key: tavilyKey,
+          query: normalizedQuery,
+          search_depth: "basic",
+          include_answer: false,
+          max_results: 5,
+        }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
 
-      if (!response.ok) {
-        return {
-          sources: [],
-          notice:
-            "Web research was unavailable, so I continued without live sources.",
-        };
-      }
-
-      const data =
-        await response.json();
-
-      if (!Array.isArray(data?.results)) {
-        return {
-          sources: [],
-          notice:
-            "Web research returned no usable sources, so I continued without live sources.",
-        };
-      }
-
-      const sources = data.results
-        .filter(
-          (item) =>
-            item &&
-            typeof item.url === "string" &&
-            item.url.trim(),
-        )
-        .slice(0, 5)
-        .map((item) => ({
-          title:
-            typeof item.title === "string" &&
-            item.title.trim()
-              ? item.title.trim()
-              : item.url,
-          url: item.url,
-          domain:
-            (() => {
-              try {
-                return new URL(
-                  item.url,
-                ).hostname;
-              } catch {
-                return "";
-              }
-            })(),
-          content:
-            typeof item.content === "string"
-              ? item.content
-              : "",
-        }));
-
+    if (!response.ok) {
       return {
-        sources,
+        sources: [],
         notice:
-          sources.length === 0
-            ? "Web research returned no usable sources, so I continued without live sources."
-            : null,
+          "Web research was unavailable, so I continued without live sources.",
       };
-    } finally {
-      clearTimeout(timeout);
-
-      signal?.removeEventListener(
-        "abort",
-        abortParent,
-      );
     }
+
+    const data =
+      await response.json();
+
+    if (!Array.isArray(data?.results)) {
+      return {
+        sources: [],
+        notice:
+          "Web research returned no usable sources, so I continued without live sources.",
+      };
+    }
+
+    const sources = data.results
+      .filter(
+        (item) =>
+          item &&
+          typeof item.url === "string" &&
+          item.url.trim(),
+      )
+      .slice(0, 5)
+      .map((item) => ({
+        title:
+          typeof item.title === "string" &&
+          item.title.trim()
+            ? item.title.trim()
+            : item.url,
+
+        url: item.url,
+
+        domain:
+          (() => {
+            try {
+              return new URL(
+                item.url,
+              ).hostname;
+            } catch {
+              return "";
+            }
+          })(),
+
+        content:
+          typeof item.content === "string"
+            ? item.content
+            : "",
+      }));
+
+    return {
+      sources,
+
+      notice:
+        sources.length === 0
+          ? "Web research returned no usable sources, so I continued without live sources."
+          : null,
+    };
   } catch (error) {
     if (signal?.aborted) {
       throw error;
@@ -181,16 +176,26 @@ async function performResearch(query, signal) {
       notice:
         "Web research timed out, so I continued without live sources.",
     };
+  } finally {
+    clearTimeout(timeout);
+
+    signal?.removeEventListener(
+      "abort",
+      abortParent,
+    );
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* POST /api/chat                                                             */
+/* -------------------------------------------------------------------------- */
+
 export async function POST(request) {
   try {
-    /*
-     * ---------------------------------------------------------
-     * 1. RATE LIMIT
-     * ---------------------------------------------------------
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 1. RATE LIMIT                                                          */
+    /* ---------------------------------------------------------------------- */
+
     const rate = checkRateLimit(
       getClientKey(request),
     );
@@ -211,11 +216,10 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * ---------------------------------------------------------
-     * 2. PARSE REQUEST
-     * ---------------------------------------------------------
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 2. PARSE REQUEST                                                       */
+    /* ---------------------------------------------------------------------- */
+
     let body;
 
     try {
@@ -243,18 +247,10 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * ---------------------------------------------------------
-     * 3. VALIDATE MESSAGE CONTRACT
-     * ---------------------------------------------------------
-     *
-     * This is the critical fix.
-     *
-     * validateMessages() now returns:
-     * { ok, messages }
-     *
-     * instead of the previous bare array.
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 3. VALIDATE MESSAGES                                                   */
+    /* ---------------------------------------------------------------------- */
+
     const validation =
       validateMessages(body.messages);
 
@@ -272,11 +268,10 @@ export async function POST(request) {
     const messages =
       validation.messages;
 
-    /*
-     * ---------------------------------------------------------
-     * 4. NORMALIZE MODE
-     * ---------------------------------------------------------
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 4. NORMALIZE MODE                                                      */
+    /* ---------------------------------------------------------------------- */
+
     const allowedModes = new Set([
       "auto",
       "fast",
@@ -291,19 +286,17 @@ export async function POST(request) {
         ? body.mode
         : "auto";
 
-    /*
-     * ---------------------------------------------------------
-     * 5. DETECT VISION
-     * ---------------------------------------------------------
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 5. DETECT VISION                                                       */
+    /* ---------------------------------------------------------------------- */
+
     const vision =
       hasVision(messages);
 
-    /*
-     * ---------------------------------------------------------
-     * 6. DETERMINE RESEARCH
-     * ---------------------------------------------------------
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 6. DETERMINE WEB RESEARCH                                              */
+    /* ---------------------------------------------------------------------- */
+
     const userQuery =
       latestUserMessage(messages);
 
@@ -318,13 +311,8 @@ export async function POST(request) {
     let researchAnswer = null;
 
     /*
-     * ---------------------------------------------------------
-     * 7. OPTIONAL WEB RESEARCH
-     * ---------------------------------------------------------
-     *
-     * Research failure is deliberately non-fatal.
-     * The AI request should continue without research
-     * when Tavily is unavailable.
+     * Tavily runs before the AI provider when
+     * current/live information is required.
      */
     if (researchEnabled) {
       const research =
@@ -343,45 +331,65 @@ export async function POST(request) {
         research.answer || null;
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* 7. BUILD ONE OZLIND SYSTEM PROMPT                                      */
+    /* ---------------------------------------------------------------------- */
+
     /*
-     * ---------------------------------------------------------
-     * 8. BUILD SYSTEM PROMPT
-     * ---------------------------------------------------------
+     * The same prompt is sent to Groq and Gemini.
      *
-     * Critical second fix:
-     *
-     * systemPrompt() expects:
-     * {
-     *   results: [...]
-     * }
-     *
-     * not the raw array.
+     * This keeps the assistant personality consistent
+     * even when Auto switches providers.
      */
     const prompt = systemPrompt(
       {
         responseStyle:
           body.responseStyle,
+
         responseLength:
           body.responseLength,
+
         customInstructions:
           body.customInstructions,
-        memory: body.memory,
+
+        memory:
+          body.memory,
       },
       {
-        answer: researchAnswer,
-        results: researchSources,
+        answer:
+          researchAnswer,
+
+        results:
+          researchSources,
       },
     );
 
+    /* ---------------------------------------------------------------------- */
+    /* 8. SELECT AI PROVIDER(S)                                               */
+    /* ---------------------------------------------------------------------- */
+
     /*
-     * ---------------------------------------------------------
-     * 9. SELECT PROVIDERS
-     * ---------------------------------------------------------
+     * IMPORTANT:
+     *
+     * Auto routing receives the actual messages and
+     * research state.
+     *
+     * Example:
+     *
+     * simple  -> Groq
+     * complex -> Gemini
+     * image   -> Gemini
+     * current -> Tavily + Gemini
      */
     const providers =
       providerOrder(
         mode,
         vision,
+        {
+          messages,
+          research:
+            researchEnabled,
+        },
       );
 
     if (!providers.length) {
@@ -396,11 +404,10 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * ---------------------------------------------------------
-     * 10. SSE STREAM
-     * ---------------------------------------------------------
-     */
+    /* ---------------------------------------------------------------------- */
+    /* 9. CREATE SSE STREAM                                                   */
+    /* ---------------------------------------------------------------------- */
+
     const encoder =
       new TextEncoder();
 
@@ -443,9 +450,17 @@ export async function POST(request) {
           };
 
           try {
+            /* ---------------------------------------------------------------- */
+            /* READY                                                             */
+            /* ---------------------------------------------------------------- */
+
             send("ready", {
               type: "ready",
             });
+
+            /* ---------------------------------------------------------------- */
+            /* RESEARCH NOTICE                                                  */
+            /* ---------------------------------------------------------------- */
 
             if (researchNotice) {
               send("notice", {
@@ -454,6 +469,10 @@ export async function POST(request) {
                   researchNotice,
               });
             }
+
+            /* ---------------------------------------------------------------- */
+            /* RESEARCH SOURCES                                                 */
+            /* ---------------------------------------------------------------- */
 
             if (
               researchSources.length
@@ -471,13 +490,22 @@ export async function POST(request) {
             let selectedModel =
               null;
 
+            /* ---------------------------------------------------------------- */
+            /* AI STREAM                                                         */
+            /* ---------------------------------------------------------------- */
+
             await streamFromProviders({
               messages,
+
               mode,
+
               vision,
+
               systemPrompt:
                 prompt,
+
               providers,
+
               signal:
                 request.signal,
 
@@ -516,11 +544,10 @@ export async function POST(request) {
               },
             });
 
-            /*
-             * Keep the existing client protocol:
-             * an empty notice clears any temporary
-             * provider/research notice UI.
-             */
+            /* ---------------------------------------------------------------- */
+            /* CLEAR TEMPORARY NOTICE                                           */
+            /* ---------------------------------------------------------------- */
+
             if (
               selectedProvider &&
               selectedModel
@@ -530,6 +557,10 @@ export async function POST(request) {
                 message: "",
               });
             }
+
+            /* ---------------------------------------------------------------- */
+            /* DONE                                                              */
+            /* ---------------------------------------------------------------- */
 
             send("done", {
               type: "done",
@@ -542,9 +573,8 @@ export async function POST(request) {
             }
 
             /*
-             * Abort is expected when the user presses
-             * Stop. Do not turn that into a visible
-             * server error event.
+             * User pressed Stop / request was aborted.
+             * This is not an AI error.
              */
             if (
               request.signal?.aborted
@@ -555,7 +585,8 @@ export async function POST(request) {
 
             send("error", {
               type: "error",
-              error: safeError(error),
+              error:
+                safeError(error),
             });
 
             close();
@@ -563,19 +594,28 @@ export async function POST(request) {
         },
       });
 
+    /* ---------------------------------------------------------------------- */
+    /* 10. RETURN SSE RESPONSE                                                */
+    /* ---------------------------------------------------------------------- */
+
     return new Response(
       stream,
       {
         status: 200,
+
         headers: {
           "Content-Type":
             "text/event-stream; charset=utf-8",
+
           "Cache-Control":
             "no-cache, no-transform",
+
           Connection:
             "keep-alive",
+
           "X-Accel-Buffering":
             "no",
+
           "X-RateLimit-Remaining":
             String(
               rate.remaining,
@@ -586,7 +626,8 @@ export async function POST(request) {
   } catch (error) {
     return json(
       {
-        error: safeError(error),
+        error:
+          safeError(error),
       },
       500,
     );
