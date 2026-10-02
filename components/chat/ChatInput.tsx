@@ -16,6 +16,10 @@ import {
 import {
   Button,
 } from "@/components/ui/Button";
+import {
+  ATTACHMENT_ACCEPT,
+  LIMITS,
+} from "@/constants/limits";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
@@ -148,7 +152,7 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             disabled={disabled}
             rows={1}
-            maxLength={12000}
+            maxLength={LIMITS.maxTextChars}
             placeholder={placeholder}
             aria-label="Message OZLIND"
             className={cn(
@@ -170,9 +174,9 @@ export function ChatInput({
                 onChange={
                   handleFileChange
                 }
-                accept="image/*,.txt,.md,.csv,.json,.pdf"
+                accept={ATTACHMENT_ACCEPT}
                 disabled={disabled}
-                aria-label="Attach a file"
+                aria-label="Attach an image or text file"
               />
 
               <Button
