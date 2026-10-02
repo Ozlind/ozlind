@@ -7,10 +7,12 @@ import {
   systemPrompt,
   validateMessages,
 } from "@/lib/server";
+
 import {
   providerOrder,
   streamFromProviders,
 } from "@/lib/providers";
+
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -37,8 +39,158 @@ function getClientKey(request) {
   );
 }
 
+async function performResearch(query, signal) {
+  const tavilyKey =
+    process.env.TAVILY_API_KEY;
+
+  if (!tavilyKey) {
+    return {
+      sources: [],
+      notice:
+        "Web research is not configured, so I continued without live sources.",
+    };
+  }
+
+  const normalizedQuery = String(query || "")
+    .trim()
+    .slice(0, 500);
+
+  if (!normalizedQuery) {
+    return {
+      sources: [],
+      notice: null,
+    };
+  }
+
+  try {
+    const controller =
+      new AbortController();
+
+    const timeout = setTimeout(
+      () => controller.abort(),
+      12_000,
+    );
+
+    /*
+     * If the parent request is aborted, abort the
+     * Tavily request as well.
+     */
+    const abortParent = () => {
+      controller.abort();
+    };
+
+    signal?.addEventListener(
+      "abort",
+      abortParent,
+      { once: true },
+    );
+
+    try {
+      const response = await fetch(
+        "https://api.tavily.com/search",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            api_key: tavilyKey,
+            query: normalizedQuery,
+            search_depth: "basic",
+            include_answer: false,
+            max_results: 5,
+          }),
+          signal: controller.signal,
+          cache: "no-store",
+        },
+      );
+
+      if (!response.ok) {
+        return {
+          sources: [],
+          notice:
+            "Web research was unavailable, so I continued without live sources.",
+        };
+      }
+
+      const data =
+        await response.json();
+
+      if (!Array.isArray(data?.results)) {
+        return {
+          sources: [],
+          notice:
+            "Web research returned no usable sources, so I continued without live sources.",
+        };
+      }
+
+      const sources = data.results
+        .filter(
+          (item) =>
+            item &&
+            typeof item.url === "string" &&
+            item.url.trim(),
+        )
+        .slice(0, 5)
+        .map((item) => ({
+          title:
+            typeof item.title === "string" &&
+            item.title.trim()
+              ? item.title.trim()
+              : item.url,
+          url: item.url,
+          domain:
+            (() => {
+              try {
+                return new URL(
+                  item.url,
+                ).hostname;
+              } catch {
+                return "";
+              }
+            })(),
+          content:
+            typeof item.content === "string"
+              ? item.content
+              : "",
+        }));
+
+      return {
+        sources,
+        notice:
+          sources.length === 0
+            ? "Web research returned no usable sources, so I continued without live sources."
+            : null,
+      };
+    } finally {
+      clearTimeout(timeout);
+
+      signal?.removeEventListener(
+        "abort",
+        abortParent,
+      );
+    }
+  } catch (error) {
+    if (signal?.aborted) {
+      throw error;
+    }
+
+    return {
+      sources: [],
+      notice:
+        "Web research timed out, so I continued without live sources.",
+    };
+  }
+}
+
 export async function POST(request) {
   try {
+    /*
+     * ---------------------------------------------------------
+     * 1. RATE LIMIT
+     * ---------------------------------------------------------
+     */
     const rate = checkRateLimit(
       getClientKey(request),
     );
@@ -59,6 +211,11 @@ export async function POST(request) {
       );
     }
 
+    /*
+     * ---------------------------------------------------------
+     * 2. PARSE REQUEST
+     * ---------------------------------------------------------
+     */
     let body;
 
     try {
@@ -72,276 +229,360 @@ export async function POST(request) {
       );
     }
 
-    const validation = validateMessages(
-      body?.messages,
-    );
-
-    if (!validation.ok) {
+    if (
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
       return json(
         {
-          error: validation.error,
+          error:
+            "Invalid request body.",
         },
         400,
       );
     }
 
-    const messages = validation.messages;
-    const mode =
-      typeof body?.mode === "string"
-        ? body.mode
-        : "auto";
+    /*
+     * ---------------------------------------------------------
+     * 3. VALIDATE MESSAGE CONTRACT
+     * ---------------------------------------------------------
+     *
+     * This is the critical fix.
+     *
+     * validateMessages() now returns:
+     * { ok, messages }
+     *
+     * instead of the previous bare array.
+     */
+    const validation =
+      validateMessages(body.messages);
 
-    const vision = hasVision(messages);
-
-    const researchEnabled = shouldResearch(
-      body,
-      latestUserMessage(messages),
-    );
-
-    let researchSources = [];
-    let researchNotice = null;
-
-    if (researchEnabled) {
-      const tavilyKey =
-        process.env.TAVILY_API_KEY;
-
-      if (tavilyKey) {
-        try {
-          const query = latestUserMessage(
-            messages,
-          ).slice(0, 500);
-
-          if (query.trim()) {
-            const controller =
-              new AbortController();
-
-            const timeout = setTimeout(
-              () => controller.abort(),
-              12_000,
-            );
-
-            try {
-              const response = await fetch(
-                "https://api.tavily.com/search",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type":
-                      "application/json",
-                  },
-                  body: JSON.stringify({
-                    api_key: tavilyKey,
-                    query,
-                    search_depth: "basic",
-                    include_answer: false,
-                    max_results: 5,
-                  }),
-                  signal: controller.signal,
-                  cache: "no-store",
-                },
-              );
-
-              if (response.ok) {
-                const data =
-                  await response.json();
-
-                if (
-                  Array.isArray(data?.results)
-                ) {
-                  researchSources =
-                    data.results
-                      .filter(
-                        (item) =>
-                          item &&
-                          typeof item.url ===
-                            "string",
-                      )
-                      .slice(0, 5)
-                      .map((item) => ({
-                        title:
-                          typeof item.title ===
-                          "string"
-                            ? item.title
-                            : item.url,
-                        url: item.url,
-                        domain:
-                          (() => {
-                            try {
-                              return new URL(
-                                item.url,
-                              ).hostname;
-                            } catch {
-                              return "";
-                            }
-                          })(),
-                        content:
-                          typeof item.content ===
-                          "string"
-                            ? item.content
-                            : "",
-                      }));
-                }
-              } else {
-                researchNotice =
-                  "Web research was unavailable, so I continued without live sources.";
-              }
-            } finally {
-              clearTimeout(timeout);
-            }
-          }
-        } catch {
-          researchNotice =
-            "Web research timed out, so I continued without live sources.";
-        }
-      } else {
-        researchNotice =
-          "Web research is not configured, so I continued without live sources.";
-      }
-    }
-
-    const prompt = systemPrompt({
-      responseStyle:
-        body?.responseStyle,
-      responseLength:
-        body?.responseLength,
-      customInstructions:
-        body?.customInstructions,
-      researchSources,
-    });
-
-    const providers = providerOrder(
-      mode,
-      vision,
-    );
-
-    if (providers.length === 0) {
+    if (!validation.ok) {
       return json(
         {
           error:
-            "No compatible AI provider is configured.",
+            validation.error ||
+            "Invalid chat messages.",
+        },
+        400,
+      );
+    }
+
+    const messages =
+      validation.messages;
+
+    /*
+     * ---------------------------------------------------------
+     * 4. NORMALIZE MODE
+     * ---------------------------------------------------------
+     */
+    const allowedModes = new Set([
+      "auto",
+      "fast",
+      "pro",
+      "vision",
+      "research",
+    ]);
+
+    const mode =
+      typeof body.mode === "string" &&
+      allowedModes.has(body.mode)
+        ? body.mode
+        : "auto";
+
+    /*
+     * ---------------------------------------------------------
+     * 5. DETECT VISION
+     * ---------------------------------------------------------
+     */
+    const vision =
+      hasVision(messages);
+
+    /*
+     * ---------------------------------------------------------
+     * 6. DETERMINE RESEARCH
+     * ---------------------------------------------------------
+     */
+    const userQuery =
+      latestUserMessage(messages);
+
+    const researchEnabled =
+      shouldResearch(
+        body,
+        userQuery,
+      );
+
+    let researchSources = [];
+    let researchNotice = null;
+    let researchAnswer = null;
+
+    /*
+     * ---------------------------------------------------------
+     * 7. OPTIONAL WEB RESEARCH
+     * ---------------------------------------------------------
+     *
+     * Research failure is deliberately non-fatal.
+     * The AI request should continue without research
+     * when Tavily is unavailable.
+     */
+    if (researchEnabled) {
+      const research =
+        await performResearch(
+          userQuery,
+          request.signal,
+        );
+
+      researchSources =
+        research.sources;
+
+      researchNotice =
+        research.notice;
+
+      researchAnswer =
+        research.answer || null;
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * 8. BUILD SYSTEM PROMPT
+     * ---------------------------------------------------------
+     *
+     * Critical second fix:
+     *
+     * systemPrompt() expects:
+     * {
+     *   results: [...]
+     * }
+     *
+     * not the raw array.
+     */
+    const prompt = systemPrompt(
+      {
+        responseStyle:
+          body.responseStyle,
+        responseLength:
+          body.responseLength,
+        customInstructions:
+          body.customInstructions,
+        memory: body.memory,
+      },
+      {
+        answer: researchAnswer,
+        results: researchSources,
+      },
+    );
+
+    /*
+     * ---------------------------------------------------------
+     * 9. SELECT PROVIDERS
+     * ---------------------------------------------------------
+     */
+    const providers =
+      providerOrder(
+        mode,
+        vision,
+      );
+
+    if (!providers.length) {
+      return json(
+        {
+          error:
+            vision
+              ? "No compatible vision provider is configured."
+              : "No compatible AI provider is configured.",
         },
         503,
       );
     }
 
-    const encoder = new TextEncoder();
+    /*
+     * ---------------------------------------------------------
+     * 10. SSE STREAM
+     * ---------------------------------------------------------
+     */
+    const encoder =
+      new TextEncoder();
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        let closed = false;
+    const stream =
+      new ReadableStream({
+        async start(controller) {
+          let closed = false;
 
-        const send = (event, data) => {
-          if (closed) {
-            return;
-          }
+          const send = (
+            event,
+            data,
+          ) => {
+            if (closed) {
+              return;
+            }
 
-          controller.enqueue(
-            encoder.encode(
-              sse(event, data),
-            ),
-          );
-        };
+            try {
+              controller.enqueue(
+                encoder.encode(
+                  sse(event, data),
+                ),
+              );
+            } catch {
+              closed = true;
+            }
+          };
 
-        const close = () => {
-          if (!closed) {
+          const close = () => {
+            if (closed) {
+              return;
+            }
+
             closed = true;
-            controller.close();
-          }
-        };
 
-        try {
-          send("ready", {
-            type: "ready",
-          });
+            try {
+              controller.close();
+            } catch {
+              // Stream already closed.
+            }
+          };
 
-          if (researchNotice) {
-            send("notice", {
-              type: "notice",
-              message: researchNotice,
+          try {
+            send("ready", {
+              type: "ready",
             });
-          }
 
-          if (researchSources.length > 0) {
-            send("sources", {
-              type: "sources",
-              sources: researchSources,
-            });
-          }
+            if (researchNotice) {
+              send("notice", {
+                type: "notice",
+                message:
+                  researchNotice,
+              });
+            }
 
-          let selectedProvider = null;
-          let selectedModel = null;
+            if (
+              researchSources.length
+            ) {
+              send("sources", {
+                type: "sources",
+                sources:
+                  researchSources,
+              });
+            }
 
-          await streamFromProviders({
-            messages,
-            mode,
-            vision,
-            systemPrompt: prompt,
-            providers,
-            onProvider: (
-              provider,
-              model,
-            ) => {
-              selectedProvider = provider;
-              selectedModel = model;
+            let selectedProvider =
+              null;
 
-              send("meta", {
-                type: "meta",
+            let selectedModel =
+              null;
+
+            await streamFromProviders({
+              messages,
+              mode,
+              vision,
+              systemPrompt:
+                prompt,
+              providers,
+              signal:
+                request.signal,
+
+              onProvider: (
                 provider,
                 model,
-              });
-            },
-            onDelta: (content) => {
-              send("delta", {
-                type: "delta",
+              ) => {
+                selectedProvider =
+                  provider;
+
+                selectedModel =
+                  model;
+
+                send("meta", {
+                  type: "meta",
+                  provider,
+                  model,
+                });
+              },
+
+              onDelta: (
                 content,
-              });
-            },
-          });
+              ) => {
+                if (
+                  typeof content !==
+                    "string" ||
+                  !content
+                ) {
+                  return;
+                }
 
-          if (
-            selectedProvider &&
-            selectedModel
-          ) {
-            send("notice", {
-              type: "notice",
-              message: "",
+                send("delta", {
+                  type: "delta",
+                  content,
+                });
+              },
             });
+
+            /*
+             * Keep the existing client protocol:
+             * an empty notice clears any temporary
+             * provider/research notice UI.
+             */
+            if (
+              selectedProvider &&
+              selectedModel
+            ) {
+              send("notice", {
+                type: "notice",
+                message: "",
+              });
+            }
+
+            send("done", {
+              type: "done",
+            });
+
+            close();
+          } catch (error) {
+            if (closed) {
+              return;
+            }
+
+            /*
+             * Abort is expected when the user presses
+             * Stop. Do not turn that into a visible
+             * server error event.
+             */
+            if (
+              request.signal?.aborted
+            ) {
+              close();
+              return;
+            }
+
+            send("error", {
+              type: "error",
+              error: safeError(error),
+            });
+
+            close();
           }
+        },
+      });
 
-          send("done", {
-            type: "done",
-          });
-
-          close();
-        } catch (error) {
-          if (closed) {
-            return;
-          }
-
-          send("error", {
-            type: "error",
-            error: safeError(error),
-          });
-
-          close();
-        }
+    return new Response(
+      stream,
+      {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "text/event-stream; charset=utf-8",
+          "Cache-Control":
+            "no-cache, no-transform",
+          Connection:
+            "keep-alive",
+          "X-Accel-Buffering":
+            "no",
+          "X-RateLimit-Remaining":
+            String(
+              rate.remaining,
+            ),
+        },
       },
-    });
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "text/event-stream; charset=utf-8",
-        "Cache-Control":
-          "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-        "X-RateLimit-Remaining": String(
-          rate.remaining,
-        ),
-      },
-    });
+    );
   } catch (error) {
     return json(
       {
