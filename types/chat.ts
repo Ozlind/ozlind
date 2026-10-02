@@ -4,8 +4,7 @@ export type ChatMode =
   | "auto"
   | "fast"
   | "pro"
-  | "vision"
-  | "research";
+  | "vision";
 
 export type ResponseStyle =
   | "balanced"
