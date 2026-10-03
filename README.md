@@ -15,7 +15,9 @@ streaming chat, image understanding and optional live web research.
 | `components/OzlindApp.jsx` | Main client interface |
 | `lib/providers.js` | Model routing and streaming |
 | `lib/server.js` | Validation, system prompt, safe errors |
-| `lib/rate-limit.ts` | Per-instance request limiter |
+| `lib/rate-limit.ts` | Per-user request limiter (Supabase, with in-memory fallback) |
+| `lib/cloud.js` | Saves and loads conversations and settings in Supabase |
+| `app/api/account/delete/route.js` | Permanent account deletion |
 | `lib/supabase/*` | Supabase browser and server clients |
 | `middleware.js` | Auth gate for pages and APIs |
 | `constants/`, `types/` | Shared modes, limits, settings and types |
@@ -34,7 +36,7 @@ provider keys to the browser.
 
 ## Supabase setup
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor.
+1. Run `supabase/schema.sql` in the Supabase SQL editor (safe to run again after updates).
 2. Authentication → Providers → enable Google.
 3. Authentication → URL Configuration: set Site URL to your production
    domain and add `https://<your-domain>/auth/callback` to Redirect URLs.
@@ -55,4 +57,5 @@ Checks: `npm run verify` (imports and structure) and `npm run typecheck`.
 ## Notes
 
 - Image generation and PDF reading are intentionally not included.
-- The rate limiter is in memory, so it limits per server instance only.
+- Chat history and settings are stored in your Supabase account. If the tables are missing, the app falls back to on-device storage.
+- Account deletion needs `SUPABASE_SECRET_KEY` on the server.
