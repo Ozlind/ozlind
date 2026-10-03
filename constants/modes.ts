@@ -2,7 +2,7 @@ import type { ChatMode } from "@/types/chat";
 
 export type ModeIconName = "sparkles" | "zap" | "brain-circuit" | "telescope";
 
-export interface ModeDefinition {
+interface ModeDefinition {
   id: ChatMode;
   label: string;
   description: string;
@@ -35,9 +35,3 @@ export const MODES: readonly ModeDefinition[] = [
     iconName: "telescope",
   },
 ];
-
-export const DEFAULT_MODE: ChatMode = "auto";
-
-export function isChatMode(value: unknown): value is ChatMode {
-  return MODES.some((mode) => mode.id === value);
-}
