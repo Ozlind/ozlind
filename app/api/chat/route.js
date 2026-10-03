@@ -13,7 +13,7 @@ import {
   streamFromProviders,
 } from "@/lib/providers";
 
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkUserRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,22 +21,6 @@ export const maxDuration = 60;
 
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-}
-
-function getClientKey(request) {
-  const forwarded =
-    request.headers.get("x-forwarded-for");
-
-  if (forwarded) {
-    return forwarded
-      .split(",")[0]
-      .trim();
-  }
-
-  return (
-    request.headers.get("x-real-ip") ||
-    "anonymous"
-  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -196,9 +180,18 @@ export async function POST(request) {
     /* 1. RATE LIMIT                                                          */
     /* ---------------------------------------------------------------------- */
 
-    const rate = checkRateLimit(
-      getClientKey(request),
-    );
+    const rate =
+      await checkUserRateLimit();
+
+    if (rate.unauthorized) {
+      return json(
+        {
+          error:
+            "Your session has expired. Please sign in again.",
+        },
+        401,
+      );
+    }
 
     if (!rate.allowed) {
       return json(
