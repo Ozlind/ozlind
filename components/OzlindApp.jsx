@@ -309,7 +309,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
   const historyRef = useRef(history);
   historyRef.current = history;
-  const syncedRef = useRef(new Map());
+  const syncedRef = useRef(new globalThis.Map());
   const openTokenRef = useRef(0);
   const chatLoadingRef = useRef(false);
   const hydratedRef = useRef(false);
@@ -365,7 +365,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
     lastSettingsRef.current = remoteSettings ? JSON.stringify(remoteSettings) : null;
 
     if (cloudEnabled) {
-      const cacheMap = new Map(cacheList.map((item) => [item.id, item]));
+      const cacheMap = new globalThis.Map(cacheList.map((item) => [item.id, item]));
       const cloudIds = new Set(initialHistory.map((item) => item.id));
 
       const merged = initialHistory.map((item) => {
