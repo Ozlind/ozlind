@@ -15,6 +15,12 @@ import {
 
 import { checkUserRateLimit } from "@/lib/rate-limit";
 
+import {
+  createAgentTask,
+  setAgentStep,
+  verifyAgentOutput,
+} from "@/lib/agent";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,7 +30,7 @@ function sse(event, data) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Research helpers                                                           */
+/* MESSAGE HELPERS                                                            */
 /* -------------------------------------------------------------------------- */
 
 function userText(message) {
@@ -34,8 +40,12 @@ function userText(message) {
 
   if (Array.isArray(message?.content)) {
     return message.content
-      .filter((part) => part?.type === "text")
-      .map((part) => part.text || "")
+      .filter(
+        (part) => part?.type === "text",
+      )
+      .map(
+        (part) => part.text || "",
+      )
       .join(" ");
   }
 
@@ -43,21 +53,45 @@ function userText(message) {
 }
 
 /*
- * Short follow-ups such as "and tomorrow?" carry no topic on their own,
- * so they are searched together with the previous user question.
+ * Short follow-ups such as:
+ *
+ * "and tomorrow?"
+ *
+ * need the previous user message
+ * to make the research query meaningful.
  */
 function buildSearchQuery(messages) {
   const userMessages = messages
-    .filter((message) => message.role === "user")
+    .filter(
+      (message) =>
+        message.role === "user",
+    )
     .map(userText)
-    .map((text) => text.replace(/\s+/g, " ").trim())
+    .map((text) =>
+      text
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
     .filter(Boolean);
 
-  const latest = userMessages[userMessages.length - 1] || "";
-  const previous = userMessages[userMessages.length - 2] || "";
+  const latest =
+    userMessages[
+      userMessages.length - 1
+    ] || "";
 
-  if (latest.length < 35 && previous) {
-    return `${previous.slice(0, 200)} ${latest}`.trim();
+  const previous =
+    userMessages[
+      userMessages.length - 2
+    ] || "";
+
+  if (
+    latest.length < 35 &&
+    previous
+  ) {
+    return `${previous.slice(
+      0,
+      200,
+    )} ${latest}`.trim();
   }
 
   return latest;
@@ -70,18 +104,27 @@ function looksLikeNews(query) {
 }
 
 function publicSources(sources) {
-  return sources.map((source) => ({
-    title: source.title,
-    url: source.url,
-    domain: source.domain,
-  }));
+  return sources.map(
+    ({
+      title,
+      url,
+      domain,
+    }) => ({
+      title,
+      url,
+      domain,
+    }),
+  );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Tavily research                                                            */
+/* TAVILY RESEARCH                                                            */
 /* -------------------------------------------------------------------------- */
 
-async function performResearch(query, signal) {
+async function performResearch(
+  query,
+  signal,
+) {
   const tavilyKey =
     process.env.TAVILY_API_KEY;
 
@@ -93,9 +136,10 @@ async function performResearch(query, signal) {
     };
   }
 
-  const normalizedQuery = String(query || "")
-    .trim()
-    .slice(0, 500);
+  const normalizedQuery =
+    String(query || "")
+      .trim()
+      .slice(0, 500);
 
   if (!normalizedQuery) {
     return {
@@ -108,44 +152,69 @@ async function performResearch(query, signal) {
     new AbortController();
 
   const timeout = setTimeout(
-    () => controller.abort(),
+    () =>
+      controller.abort(),
     12_000,
   );
 
-  const abortParent = () => {
-    controller.abort();
-  };
+  const abortParent =
+    () =>
+      controller.abort();
 
   signal?.addEventListener(
     "abort",
     abortParent,
-    { once: true },
+    {
+      once: true,
+    },
   );
 
   try {
-    const response = await fetch(
-      "https://api.tavily.com/search",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-          Authorization: `Bearer ${tavilyKey}`,
+    const response =
+      await fetch(
+        "https://api.tavily.com/search",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization: `Bearer ${tavilyKey}`,
+          },
+
+          body: JSON.stringify({
+            api_key:
+              tavilyKey,
+
+            query:
+              normalizedQuery,
+
+            search_depth:
+              "basic",
+
+            include_answer:
+              false,
+
+            max_results: 5,
+
+            ...(looksLikeNews(
+              normalizedQuery,
+            )
+              ? {
+                  topic: "news",
+                  days: 7,
+                }
+              : {}),
+          }),
+
+          signal:
+            controller.signal,
+
+          cache:
+            "no-store",
         },
-        body: JSON.stringify({
-          api_key: tavilyKey,
-          query: normalizedQuery,
-          search_depth: "basic",
-          include_answer: false,
-          max_results: 5,
-          ...(looksLikeNews(normalizedQuery)
-            ? { topic: "news", days: 7 }
-            : {}),
-        }),
-        signal: controller.signal,
-        cache: "no-store",
-      },
-    );
+      );
 
     if (!response.ok) {
       return {
@@ -158,7 +227,11 @@ async function performResearch(query, signal) {
     const data =
       await response.json();
 
-    if (!Array.isArray(data?.results)) {
+    if (
+      !Array.isArray(
+        data?.results,
+      )
+    ) {
       return {
         sources: [],
         notice:
@@ -166,50 +239,64 @@ async function performResearch(query, signal) {
       };
     }
 
-    const sources = data.results
-      .filter(
-        (item) =>
-          item &&
-          typeof item.url === "string" &&
-          item.url.trim(),
-      )
-      .slice(0, 5)
-      .map((item) => ({
-        title:
-          typeof item.title === "string" &&
-          item.title.trim()
-            ? item.title.trim()
-            : item.url,
+    const sources =
+      data.results
+        .filter(
+          (item) =>
+            item &&
+            typeof item.url ===
+              "string" &&
+            item.url.trim(),
+        )
+        .slice(0, 5)
+        .map((item) => {
+          let domain = "";
 
-        url: item.url,
-
-        domain:
-          (() => {
-            try {
-              return new URL(
+          try {
+            domain =
+              new URL(
                 item.url,
               ).hostname;
-            } catch {
-              return "";
-            }
-          })(),
+          } catch {
+            // Invalid URL.
+          }
 
-        content:
-          typeof item.content === "string"
-            ? item.content.slice(0, 1200)
-            : "",
-      }));
+          return {
+            title:
+              typeof item.title ===
+                "string" &&
+              item.title.trim()
+                ? item.title.trim()
+                : item.url,
+
+            url:
+              item.url,
+
+            domain,
+
+            content:
+              typeof item.content ===
+                "string"
+                ? item.content.slice(
+                    0,
+                    1200,
+                  )
+                : "",
+          };
+        });
 
     return {
       sources,
 
       notice:
-        sources.length === 0
-          ? "Web research returned no usable sources, so I continued without live sources."
-          : null,
+        sources.length
+          ? null
+          : "Web research returned no usable sources, so I continued without live sources.",
     };
   } catch (error) {
-    if (signal?.aborted) {
+    if (
+      signal?.aborted
+    ) {
       throw error;
     }
 
@@ -232,7 +319,9 @@ async function performResearch(query, signal) {
 /* POST /api/chat                                                             */
 /* -------------------------------------------------------------------------- */
 
-export async function POST(request) {
+export async function POST(
+  request,
+) {
   try {
     /* ---------------------------------------------------------------------- */
     /* 1. RATE LIMIT                                                          */
@@ -241,7 +330,9 @@ export async function POST(request) {
     const rate =
       await checkUserRateLimit();
 
-    if (rate.unauthorized) {
+    if (
+      rate.unauthorized
+    ) {
       return json(
         {
           error:
@@ -259,10 +350,13 @@ export async function POST(request) {
         },
         429,
         {
-          "Retry-After": String(
-            rate.retryAfterSeconds,
-          ),
-          "X-RateLimit-Remaining": "0",
+          "Retry-After":
+            String(
+              rate.retryAfterSeconds,
+            ),
+
+          "X-RateLimit-Remaining":
+            "0",
         },
       );
     }
@@ -274,11 +368,13 @@ export async function POST(request) {
     let body;
 
     try {
-      body = await request.json();
+      body =
+        await request.json();
     } catch {
       return json(
         {
-          error: "Invalid JSON request.",
+          error:
+            "Invalid JSON request.",
         },
         400,
       );
@@ -286,7 +382,8 @@ export async function POST(request) {
 
     if (
       !body ||
-      typeof body !== "object" ||
+      typeof body !==
+        "object" ||
       Array.isArray(body)
     ) {
       return json(
@@ -303,7 +400,9 @@ export async function POST(request) {
     /* ---------------------------------------------------------------------- */
 
     const validation =
-      validateMessages(body.messages);
+      validateMessages(
+        body.messages,
+      );
 
     if (!validation.ok) {
       return json(
@@ -323,32 +422,38 @@ export async function POST(request) {
     /* 4. NORMALIZE MODE                                                      */
     /* ---------------------------------------------------------------------- */
 
-    const allowedModes = new Set([
-      "auto",
-      "fast",
-      "pro",
-      "vision",
-    ]);
+    const allowedModes =
+      new Set([
+        "auto",
+        "fast",
+        "pro",
+        "vision",
+      ]);
 
     const mode =
-      typeof body.mode === "string" &&
-      allowedModes.has(body.mode)
+      typeof body.mode ===
+        "string" &&
+      allowedModes.has(
+        body.mode,
+      )
         ? body.mode
         : "auto";
 
     /* ---------------------------------------------------------------------- */
-    /* 5. DETECT VISION                                                       */
+    /* 5. VISION                                                              */
     /* ---------------------------------------------------------------------- */
 
     const vision =
       hasVision(messages);
 
     /* ---------------------------------------------------------------------- */
-    /* 6. DETERMINE WEB RESEARCH                                              */
+    /* 6. RESEARCH                                                            */
     /* ---------------------------------------------------------------------- */
 
     const userQuery =
-      latestUserMessage(messages);
+      latestUserMessage(
+        messages,
+      );
 
     const researchEnabled =
       shouldResearch(
@@ -357,28 +462,33 @@ export async function POST(request) {
       );
 
     /* ---------------------------------------------------------------------- */
-    /* 8. SELECT AI PROVIDER(S)                                               */
+    /* 7. CREATE AGENT TASK                                                   */
     /* ---------------------------------------------------------------------- */
 
-    /*
-     * IMPORTANT:
-     *
-     * Auto routing receives the actual messages and
-     * research state.
-     *
-     * Example:
-     *
-     * simple  -> Groq
-     * complex -> Gemini
-     * image   -> Gemini
-     * current -> Tavily + Gemini
-     */
+    const task =
+      createAgentTask({
+        query:
+          userQuery,
+
+        vision,
+
+        research:
+          researchEnabled,
+
+        mode,
+      });
+
+    /* ---------------------------------------------------------------------- */
+    /* 8. SELECT PROVIDERS                                                    */
+    /* ---------------------------------------------------------------------- */
+
     const providers =
       providerOrder(
         mode,
         vision,
         {
           messages,
+
           research:
             researchEnabled,
         },
@@ -405,65 +515,156 @@ export async function POST(request) {
 
     const stream =
       new ReadableStream({
-        async start(controller) {
-          let closed = false;
+        async start(
+          controller,
+        ) {
+          let closed =
+            false;
+
+          let streamedText =
+            "";
 
           const send = (
             event,
             data,
           ) => {
-            if (closed) {
+            if (
+              closed ||
+              request.signal?.aborted
+            ) {
               return;
             }
 
             try {
               controller.enqueue(
                 encoder.encode(
-                  sse(event, data),
+                  sse(
+                    event,
+                    data,
+                  ),
                 ),
               );
             } catch {
-              closed = true;
+              closed =
+                true;
             }
           };
 
-          const close = () => {
-            if (closed) {
-              return;
-            }
+          const close =
+            () => {
+              if (closed) {
+                return;
+              }
 
-            closed = true;
+              closed =
+                true;
 
-            try {
-              controller.close();
-            } catch {
-              // Stream already closed.
-            }
-          };
+              try {
+                controller.close();
+              } catch {
+                // Already closed.
+              }
+            };
+
+          const status =
+            (
+              message,
+              stepId,
+            ) => {
+              if (stepId) {
+                setAgentStep(
+                  task,
+                  stepId,
+                  "running",
+                );
+              }
+
+              send(
+                "status",
+                {
+                  type:
+                    "status",
+
+                  message,
+                },
+              );
+            };
 
           try {
-            /* ---------------------------------------------------------------- */
-            /* READY                                                             */
-            /* ---------------------------------------------------------------- */
+            /* -------------------------------------------------------------- */
+            /* READY                                                          */
+            /* -------------------------------------------------------------- */
 
-            send("ready", {
-              type: "ready",
-            });
+            send(
+              "ready",
+              {
+                type:
+                  "ready",
+              },
+            );
 
-            /* ---------------------------------------------------------------- */
-            /* WEB RESEARCH (runs inside the stream so the person sees status)  */
-            /* ---------------------------------------------------------------- */
+            /* -------------------------------------------------------------- */
+            /* AGENT TASK                                                     */
+            /* -------------------------------------------------------------- */
 
-            let researchSources = [];
-            let researchNotice = null;
-            let researchAnswer = null;
+            send(
+              "agent",
+              {
+                type:
+                  "agent",
 
-            if (researchEnabled) {
-              send("status", {
-                type: "status",
-                message:
-                  "Searching the web…",
-              });
+                taskId:
+                  task.taskId,
+
+                status:
+                  "planning",
+
+                goal:
+                  task.goal,
+
+                kind:
+                  task.kind,
+
+                steps:
+                  task.steps,
+              },
+            );
+
+            /* -------------------------------------------------------------- */
+            /* UNDERSTAND                                                     */
+            /* -------------------------------------------------------------- */
+
+            status(
+              "Planning task…",
+              "understand",
+            );
+
+            setAgentStep(
+              task,
+              "understand",
+              "completed",
+            );
+
+            /* -------------------------------------------------------------- */
+            /* RESEARCH                                                       */
+            /* -------------------------------------------------------------- */
+
+            let researchSources =
+              [];
+
+            let researchNotice =
+              null;
+
+            let researchAnswer =
+              null;
+
+            if (
+              researchEnabled
+            ) {
+              status(
+                "Searching the web…",
+                "research",
+              );
 
               const research =
                 await performResearch(
@@ -475,157 +676,25 @@ export async function POST(request) {
 
               researchSources =
                 research.sources;
+
               researchNotice =
                 research.notice;
+
               researchAnswer =
-                research.answer || null;
+                research.answer ||
+                null;
 
-              send("status", {
-                type: "status",
-                message: "",
-              });
+              setAgentStep(
+                task,
+                "research",
+                "completed",
+              );
             }
 
-            /* The same OZLIND prompt is sent to every provider. */
-            const prompt = systemPrompt(
-              {
-                responseStyle:
-                  body.responseStyle,
-                responseLength:
-                  body.responseLength,
-                customInstructions:
-                  body.customInstructions,
-                memory:
-                  body.memory,
-              },
-              {
-                answer:
-                  researchAnswer,
-                results:
-                  researchSources,
-              },
-            );
+            /* -------------------------------------------------------------- */
+            /* ABORT CHECK                                                    */
+            /* -------------------------------------------------------------- */
 
-            /* ---------------------------------------------------------------- */
-            /* RESEARCH NOTICE                                                  */
-            /* ---------------------------------------------------------------- */
-
-            if (researchNotice) {
-              send("notice", {
-                type: "notice",
-                message:
-                  researchNotice,
-              });
-            }
-
-            /* ---------------------------------------------------------------- */
-            /* RESEARCH SOURCES                                                 */
-            /* ---------------------------------------------------------------- */
-
-            if (
-              researchSources.length
-            ) {
-              send("sources", {
-                type: "sources",
-                sources:
-                  publicSources(
-                    researchSources,
-                  ),
-              });
-            }
-
-            let selectedProvider =
-              null;
-
-            let selectedModel =
-              null;
-
-            /* ---------------------------------------------------------------- */
-            /* AI STREAM                                                         */
-            /* ---------------------------------------------------------------- */
-
-            await streamFromProviders({
-              messages,
-
-              mode,
-
-              vision,
-
-              systemPrompt:
-                prompt,
-
-              providers,
-
-              signal:
-                request.signal,
-
-              onProvider: (
-                provider,
-                model,
-              ) => {
-                selectedProvider =
-                  provider;
-
-                selectedModel =
-                  model;
-
-                send("meta", {
-                  type: "meta",
-                  provider,
-                  model,
-                });
-              },
-
-              onDelta: (
-                content,
-              ) => {
-                if (
-                  typeof content !==
-                    "string" ||
-                  !content
-                ) {
-                  return;
-                }
-
-                send("delta", {
-                  type: "delta",
-                  content,
-                });
-              },
-            });
-
-            /* ---------------------------------------------------------------- */
-            /* CLEAR TEMPORARY NOTICE                                           */
-            /* ---------------------------------------------------------------- */
-
-            if (
-              selectedProvider &&
-              selectedModel
-            ) {
-              send("notice", {
-                type: "notice",
-                message: "",
-              });
-            }
-
-            /* ---------------------------------------------------------------- */
-            /* DONE                                                              */
-            /* ---------------------------------------------------------------- */
-
-            send("done", {
-              type: "done",
-            });
-
-            close();
-          } catch (error) {
-            if (closed) {
-              return;
-            }
-
-            /*
-             * User pressed Stop / request was aborted.
-             * This is not an AI error.
-             */
             if (
               request.signal?.aborted
             ) {
@@ -633,18 +702,340 @@ export async function POST(request) {
               return;
             }
 
+            /* -------------------------------------------------------------- */
+            /* SYSTEM PROMPT                                                  */
+            /* -------------------------------------------------------------- */
+
+            const prompt =
+              systemPrompt(
+                {
+                  responseStyle:
+                    body.responseStyle,
+
+                  responseLength:
+                    body.responseLength,
+
+                  customInstructions:
+                    body.customInstructions,
+
+                  memory:
+                    body.memory,
+                },
+
+                {
+                  answer:
+                    researchAnswer,
+
+                  results:
+                    researchSources,
+                },
+              );
+
+            /* -------------------------------------------------------------- */
+            /* RESEARCH NOTICE                                                */
+            /* -------------------------------------------------------------- */
+
+            if (
+              researchNotice
+            ) {
+              send(
+                "notice",
+                {
+                  type:
+                    "notice",
+
+                  message:
+                    researchNotice,
+                },
+              );
+            }
+
+            /* -------------------------------------------------------------- */
+            /* SOURCES                                                        */
+            /* -------------------------------------------------------------- */
+
+            if (
+              researchSources.length
+            ) {
+              send(
+                "sources",
+                {
+                  type:
+                    "sources",
+
+                  sources:
+                    publicSources(
+                      researchSources,
+                    ),
+                },
+              );
+            }
+
+            /* -------------------------------------------------------------- */
+            /* RESPONSE                                                       */
+            /* -------------------------------------------------------------- */
+
+            status(
+              "Preparing response…",
+              "respond",
+            );
+
+            let selectedProvider =
+              null;
+
+            let selectedModel =
+              null;
+
+            await streamFromProviders(
+              {
+                messages,
+
+                mode,
+
+                vision,
+
+                systemPrompt:
+                  prompt,
+
+                providers,
+
+                signal:
+                  request.signal,
+
+                onProvider:
+                  (
+                    provider,
+                    model,
+                  ) => {
+                    selectedProvider =
+                      provider;
+
+                    selectedModel =
+                      model;
+
+                    send(
+                      "meta",
+                      {
+                        type:
+                          "meta",
+
+                        provider,
+
+                        model,
+                      },
+                    );
+                  },
+
+                onDelta:
+                  (
+                    content,
+                  ) => {
+                    if (
+                      typeof content !==
+                        "string" ||
+                      !content
+                    ) {
+                      return;
+                    }
+
+                    streamedText +=
+                      content;
+
+                    send(
+                      "delta",
+                      {
+                        type:
+                          "delta",
+
+                        content,
+                      },
+                    );
+                  },
+              },
+            );
+
+            /* -------------------------------------------------------------- */
+            /* ABORT CHECK                                                    */
+            /* -------------------------------------------------------------- */
+
+            if (
+              request.signal?.aborted
+            ) {
+              close();
+              return;
+            }
+
+            setAgentStep(
+              task,
+              "respond",
+              "completed",
+            );
+
+            /* -------------------------------------------------------------- */
+            /* VERIFY                                                         */
+            /* -------------------------------------------------------------- */
+
+            status(
+              "Checking response…",
+              "verify",
+            );
+
+            const verification =
+              verifyAgentOutput(
+                streamedText,
+              );
+
+            if (
+              !verification.ok
+            ) {
+              throw new Error(
+                verification.reason,
+              );
+            }
+
+            setAgentStep(
+              task,
+              "verify",
+              "completed",
+            );
+
+            task.status =
+              "completed";
+
+            /* -------------------------------------------------------------- */
+            /* AGENT COMPLETE                                                */
+            /* -------------------------------------------------------------- */
+
+            send(
+              "agent",
+              {
+                type:
+                  "agent",
+
+                taskId:
+                  task.taskId,
+
+                status:
+                  "completed",
+
+                steps:
+                  task.steps,
+
+                verification:
+                  {
+                    ok: true,
+
+                    characterCount:
+                      verification.characterCount,
+                  },
+              },
+            );
+
+            /* -------------------------------------------------------------- */
+            /* CLEAR STATUS                                                   */
+            /* -------------------------------------------------------------- */
+
+            if (
+              selectedProvider &&
+              selectedModel
+            ) {
+              send(
+                "notice",
+                {
+                  type:
+                    "notice",
+
+                  message:
+                    "",
+                },
+              );
+            }
+
+            send(
+              "status",
+              {
+                type:
+                  "status",
+
+                message:
+                  "",
+              },
+            );
+
+            /* -------------------------------------------------------------- */
+            /* DONE                                                           */
+            /* -------------------------------------------------------------- */
+
+            send(
+              "done",
+              {
+                type:
+                  "done",
+
+                taskId:
+                  task.taskId,
+              },
+            );
+
+            close();
+          } catch (error) {
+            /* -------------------------------------------------------------- */
+            /* ABORT                                                         */
+            /* -------------------------------------------------------------- */
+
+            if (
+              closed ||
+              request.signal?.aborted
+            ) {
+              close();
+              return;
+            }
+
+            /* -------------------------------------------------------------- */
+            /* AGENT FAILURE                                                 */
+            /* -------------------------------------------------------------- */
+
+            task.status =
+              "failed";
+
+            send(
+              "agent",
+              {
+                type:
+                  "agent",
+
+                taskId:
+                  task.taskId,
+
+                status:
+                  "failed",
+
+                steps:
+                  task.steps,
+              },
+            );
+
+            /* -------------------------------------------------------------- */
+            /* USER-SAFE ERROR                                                */
+            /* -------------------------------------------------------------- */
+
             const friendly =
               safeError(error);
 
-            send("error", {
-              type: "error",
-              error:
-                vision &&
-                friendly ===
-                  "OZLIND could not complete that request. Please try again."
-                  ? "OZLIND could not analyse that image right now. Please try again shortly."
-                  : friendly,
-            });
+            send(
+              "error",
+              {
+                type:
+                  "error",
+
+                error:
+                  vision &&
+                  friendly ===
+                    "OZLIND could not complete that request. Please try again."
+                    ? "OZLIND could not analyse that image right now. Please try again shortly."
+                    : friendly,
+              },
+            );
 
             close();
           }
