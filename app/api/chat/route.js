@@ -277,7 +277,6 @@ export async function POST(request) {
       "fast",
       "pro",
       "vision",
-      
     ]);
 
     const mode =
