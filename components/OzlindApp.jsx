@@ -10,6 +10,17 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
+import {
+  deleteAllConversations,
+  deleteConversation,
+  deleteSettings,
+  fetchEverything,
+  fetchMessages,
+  newId as createId,
+  prepareForCloud,
+  saveConversation,
+  saveSettings,
+} from "@/lib/cloud";
 
 import { MODES as MODE_DEFS } from "@/constants/modes";
 import { DEFAULT_SETTINGS } from "@/constants/settings";
@@ -41,9 +52,18 @@ const MAX_TEXT_BYTES = LIMITS.maxTextFileBytes;
 
 // ---------- utilities ----------
 
-function createId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function normalizeSettings(raw) {
+  const result = { ...DEFAULT_SETTINGS };
+  if (raw && typeof raw === "object") {
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (typeof raw[key] === typeof DEFAULT_SETTINGS[key]) result[key] = raw[key];
+    }
+  }
+  return result;
+}
+
+function isHistoryRecord(item) {
+  return Boolean(item) && typeof item.id === "string" && typeof item.title === "string";
 }
 
 function createTitle(text) {
@@ -260,12 +280,12 @@ function CodeBlock({ children }) {
 
 // ---------- main ----------
 
-export default function OzlindApp({ initialUser = null }) {
+export default function OzlindApp({ initialUser = null, initialHistory = null, initialSettings = null }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [history, setHistory] = useState([]);
+  const [settings, setSettings] = useState(() => normalizeSettings(initialSettings));
+  const [history, setHistory] = useState(() => (Array.isArray(initialHistory) ? initialHistory : []));
   const [activeChatId, setActiveChatId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -282,6 +302,18 @@ export default function OzlindApp({ initialUser = null }) {
   const [isDark, setIsDark] = useState(false);
 
   const accountUser = initialUser || null;
+  const userId = accountUser?.id || "anon";
+  const cloudEnabled = Array.isArray(initialHistory);
+  const historyKey = `${HISTORY_KEY}:${userId}`;
+  const settingsKey = `${SETTINGS_KEY}:${userId}`;
+
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const syncedRef = useRef(new Map());
+  const openTokenRef = useRef(0);
+  const chatLoadingRef = useRef(false);
+  const hydratedRef = useRef(false);
+  const lastSettingsRef = useRef(null);
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -306,23 +338,113 @@ export default function OzlindApp({ initialUser = null }) {
   // ---------- persistence ----------
 
   useEffect(() => {
+    let cacheList = [];
+    let legacyList = [];
+    let localSettings = null;
+
     try {
-      const storedHistory = localStorage.getItem(HISTORY_KEY);
-      const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      if (storedHistory) {
-        const parsed = JSON.parse(storedHistory);
-        if (Array.isArray(parsed)) setHistory(parsed);
+      const rawCache = localStorage.getItem(historyKey);
+      if (rawCache) {
+        const parsed = JSON.parse(rawCache);
+        if (Array.isArray(parsed)) cacheList = parsed.filter(isHistoryRecord);
       }
-      if (storedSettings) {
-        const parsed = JSON.parse(storedSettings);
-        if (parsed && typeof parsed === "object") {
-          setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+      const rawLegacy = localStorage.getItem(HISTORY_KEY);
+      if (rawLegacy) {
+        const parsed = JSON.parse(rawLegacy);
+        if (Array.isArray(parsed)) legacyList = parsed.filter(isHistoryRecord);
+      }
+      const rawSettings = localStorage.getItem(settingsKey) ?? localStorage.getItem(SETTINGS_KEY);
+      if (rawSettings) localSettings = JSON.parse(rawSettings);
+    } catch {
+      cacheList = [];
+      legacyList = [];
+    }
+
+    const remoteSettings = initialSettings ? normalizeSettings(initialSettings) : null;
+    setSettings(remoteSettings || normalizeSettings(localSettings));
+    lastSettingsRef.current = remoteSettings ? JSON.stringify(remoteSettings) : null;
+
+    if (cloudEnabled) {
+      const cacheMap = new Map(cacheList.map((item) => [item.id, item]));
+      const cloudIds = new Set(initialHistory.map((item) => item.id));
+
+      const merged = initialHistory.map((item) => {
+        const cached = cacheMap.get(item.id);
+        if (cached && !cached.pending && Array.isArray(cached.messages) && (cached.updatedAt || 0) >= (item.updatedAt || 0)) {
+          return { ...item, messages: cached.messages };
+        }
+        return item;
+      });
+
+      const hasContent = (item) => Array.isArray(item.messages) && item.messages.length > 0;
+      const pending = cacheList.filter((item) => item.pending && hasContent(item));
+      const legacy = legacyList.filter((item) => hasContent(item) && !cloudIds.has(item.id));
+      const pendingIds = new Set(pending.map((item) => item.id));
+
+      const combined = [
+        ...merged.filter((item) => !pendingIds.has(item.id)),
+        ...pending,
+        ...legacy.map((item) => ({ ...item, pending: true })),
+      ].sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));
+
+      setHistory(combined);
+
+      const toUpload = [...pending, ...legacy];
+      if (toUpload.length) {
+        (async () => {
+          let uploaded = 0;
+          let failed = false;
+          for (const item of toUpload) {
+            const prepared = prepareForCloud(item);
+            if (!prepared.messages.length) continue;
+            try {
+              const stored = await saveConversation({
+                userId,
+                conversationId: prepared.id,
+                title: prepared.title,
+                updatedAt: prepared.updatedAt,
+                messages: prepared.messages,
+                synced: new Set(),
+              });
+              syncedRef.current.set(prepared.id, stored);
+              uploaded += 1;
+              setHistory((current) =>
+                current.map((entry) =>
+                  entry.id === item.id
+                    ? { ...entry, id: prepared.id, messages: prepared.messages, pending: false }
+                    : entry
+                )
+              );
+            } catch (uploadError) {
+              failed = true;
+              console.error("OZLIND sync failed:", uploadError);
+            }
+          }
+          if (legacy.length && !failed) {
+            try {
+              localStorage.removeItem(HISTORY_KEY);
+            } catch {
+              // ignore
+            }
+          }
+          if (uploaded && legacy.length) {
+            showNotice(`Moved ${legacy.length} conversation${legacy.length === 1 ? "" : "s"} to your account`);
+          }
+        })();
+      }
+    } else {
+      const base = cacheList.length ? cacheList : legacyList;
+      setHistory(base);
+      if (!cacheList.length && legacyList.length) {
+        try {
+          localStorage.removeItem(HISTORY_KEY);
+        } catch {
+          // ignore
         }
       }
-    } catch {
-      setHistory([]);
-      setSettings(DEFAULT_SETTINGS);
     }
+
+    hydratedRef.current = true;
 
     try {
       const storedTheme = localStorage.getItem(THEME_KEY);
@@ -331,6 +453,7 @@ export default function OzlindApp({ initialUser = null }) {
     } catch {
       // ignore
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -344,19 +467,38 @@ export default function OzlindApp({ initialUser = null }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      const slim = history.map((item, index) =>
+        index < 15 || item.pending
+          ? item
+          : { id: item.id, title: item.title, updatedAt: item.updatedAt }
+      );
+      localStorage.setItem(historyKey, JSON.stringify(slim));
     } catch {
       // ignore
     }
-  }, [history]);
+  }, [history, historyKey]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      localStorage.setItem(settingsKey, JSON.stringify(settings));
     } catch {
       // ignore
     }
-  }, [settings]);
+  }, [settings, settingsKey]);
+
+  useEffect(() => {
+    if (!cloudEnabled || !hydratedRef.current) return undefined;
+    const serialized = JSON.stringify(settings);
+    if (serialized === lastSettingsRef.current) return undefined;
+    const timer = setTimeout(() => {
+      saveSettings(userId, settings)
+        .then(() => {
+          lastSettingsRef.current = serialized;
+        })
+        .catch((saveError) => console.error("OZLIND settings sync failed:", saveError));
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [settings, cloudEnabled, userId]);
 
   // ---------- global listeners ----------
 
@@ -421,29 +563,54 @@ export default function OzlindApp({ initialUser = null }) {
     autoResizeTextarea();
   }
 
+  function markPending(id, value) {
+    setHistory((current) => current.map((item) => (item.id === id ? { ...item, pending: value } : item)));
+  }
+
+  async function persistChat(record) {
+    if (!cloudEnabled) return;
+    try {
+      const stored = await saveConversation({
+        userId,
+        conversationId: record.id,
+        title: record.title,
+        updatedAt: record.updatedAt,
+        messages: record.messages,
+        synced: syncedRef.current.get(record.id) || new Set(),
+      });
+      syncedRef.current.set(record.id, stored);
+      markPending(record.id, false);
+    } catch (syncError) {
+      console.error("OZLIND sync failed:", syncError);
+      markPending(record.id, true);
+      showNotice("Could not sync to your account. Saved on this device.");
+    }
+  }
+
   function updateHistoryFromMessages(nextMessages, chatId) {
     if (!chatId || !nextMessages?.length) return;
     const firstUser = nextMessages.find((item) => item.role === "user");
     const title = firstUser ? createTitle(firstUser.content) : "New conversation";
-    const updatedAt = Date.now();
+    const existing = historyRef.current.find((item) => item.id === chatId);
+    const record = {
+      id: chatId,
+      title: existing?.title || title,
+      messages: nextMessages.map(stripAttachmentData),
+      updatedAt: Date.now(),
+      pending: cloudEnabled,
+    };
 
-    setHistory((current) => {
-      const existing = current.find((item) => item.id === chatId);
-      const record = {
-        id: chatId,
-        title: existing?.title || title,
-        messages: nextMessages.map(stripAttachmentData),
-        updatedAt,
-      };
-      if (!existing) return [record, ...current];
-      return [record, ...current.filter((item) => item.id !== chatId)];
-    });
+    historyRef.current = [record, ...historyRef.current.filter((item) => item.id !== chatId)];
+    setHistory((current) => [record, ...current.filter((item) => item.id !== chatId)]);
+    persistChat(record);
   }
 
   // ---------- navigation ----------
 
   function startNewChat() {
     abortControllerRef.current?.abort();
+    openTokenRef.current += 1;
+    chatLoadingRef.current = false;
     setMessages([]);
     setInput("");
     setSelectedFile(null);
@@ -454,19 +621,52 @@ export default function OzlindApp({ initialUser = null }) {
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
-  function openHistoryItem(item) {
+  async function openHistoryItem(item) {
     abortControllerRef.current?.abort();
-    setMessages(Array.isArray(item.messages) ? item.messages : []);
+    openTokenRef.current += 1;
+    const token = openTokenRef.current;
+    const loaded = Array.isArray(item.messages);
+
+    setMessages(loaded ? item.messages : []);
     setActiveChatId(item.id);
     setInput("");
     setSelectedFile(null);
     setError("");
     setIsStreaming(false);
     setSidebarOpen(false);
+
+    if (loaded) {
+      chatLoadingRef.current = false;
+      if (!item.pending && !syncedRef.current.has(item.id)) {
+        syncedRef.current.set(item.id, new Set(item.messages.map((message) => message.id)));
+      }
+      return;
+    }
+
+    chatLoadingRef.current = true;
+    try {
+      const stored = await fetchMessages(item.id);
+      if (openTokenRef.current !== token) return;
+      syncedRef.current.set(item.id, new Set(stored.map((message) => message.id)));
+      setMessages(stored);
+      setHistory((current) => current.map((entry) => (entry.id === item.id ? { ...entry, messages: stored } : entry)));
+    } catch (loadError) {
+      console.error("OZLIND could not load conversation:", loadError);
+      if (openTokenRef.current === token) showNotice("Could not load this conversation");
+    } finally {
+      if (openTokenRef.current === token) chatLoadingRef.current = false;
+    }
   }
 
   function deleteHistoryItem(id) {
     setHistory((current) => current.filter((item) => item.id !== id));
+    syncedRef.current.delete(id);
+    if (cloudEnabled) {
+      deleteConversation(id).catch((deleteError) => {
+        console.error("OZLIND delete failed:", deleteError);
+        showNotice("Could not delete it from your account");
+      });
+    }
     if (activeChatId === id) startNewChat();
     showNotice("Conversation deleted");
   }
@@ -474,6 +674,13 @@ export default function OzlindApp({ initialUser = null }) {
   function clearHistory() {
     if (!history.length) return;
     setHistory([]);
+    syncedRef.current.clear();
+    if (cloudEnabled) {
+      deleteAllConversations(userId).catch((deleteError) => {
+        console.error("OZLIND delete failed:", deleteError);
+        showNotice("Could not delete it from your account");
+      });
+    }
     if (activeChatId) startNewChat();
     showNotice("History cleared");
   }
@@ -486,7 +693,14 @@ export default function OzlindApp({ initialUser = null }) {
     setError("");
     setIsStreaming(false);
     if (activeChatId) {
-      setHistory((current) => current.filter((item) => item.id !== activeChatId));
+      const clearedId = activeChatId;
+      setHistory((current) => current.filter((item) => item.id !== clearedId));
+      syncedRef.current.delete(clearedId);
+      if (cloudEnabled) {
+        deleteConversation(clearedId).catch((deleteError) => {
+          console.error("OZLIND delete failed:", deleteError);
+        });
+      }
     }
     setActiveChatId(null);
     showNotice("Chat cleared");
@@ -505,14 +719,19 @@ export default function OzlindApp({ initialUser = null }) {
     setAccountOpen(false);
   }
 
-  function exportOzlindData() {
+  async function exportOzlindData() {
     try {
+      let conversations = history;
+      if (cloudEnabled) {
+        conversations = await fetchEverything();
+      }
       const payload = {
         exportedAt: new Date().toISOString(),
         product: "OZLIND AI",
         organization: "OZLIND Enterprises",
         owner: "Athul",
-        history,
+        account: accountUser?.email || null,
+        history: conversations,
         settings,
         theme: isDark ? "dark" : "light",
       };
@@ -532,11 +751,27 @@ export default function OzlindApp({ initialUser = null }) {
     }
   }
 
-  function clearAllLocalData() {
-    if (!window.confirm("Clear all local OZLIND conversations and preferences? This cannot be undone.")) return;
+  function removeDeviceData() {
+    try {
+      localStorage.removeItem(historyKey);
+      localStorage.removeItem(settingsKey);
+      localStorage.removeItem(HISTORY_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
+      localStorage.removeItem(THEME_KEY);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function clearAllData() {
+    const where = cloudEnabled ? "this device and your OZLIND account" : "this device";
+    if (!window.confirm(`Delete all conversations and preferences from ${where}? This cannot be undone.`)) return;
     abortControllerRef.current?.abort();
+    openTokenRef.current += 1;
+    chatLoadingRef.current = false;
     setMessages([]);
     setHistory([]);
+    syncedRef.current.clear();
     setActiveChatId(null);
     setInput("");
     setSelectedFile(null);
@@ -545,23 +780,68 @@ export default function OzlindApp({ initialUser = null }) {
     setSettings(DEFAULT_SETTINGS);
     setAccountSection(null);
     setIsDark(false);
-    try {
-      localStorage.removeItem(HISTORY_KEY);
-      localStorage.removeItem(SETTINGS_KEY);
-      localStorage.removeItem(THEME_KEY);
-    } catch {
-      // ignore
+    removeDeviceData();
+    if (cloudEnabled) {
+      try {
+        await deleteAllConversations(userId);
+        await deleteSettings(userId);
+        lastSettingsRef.current = null;
+      } catch (deleteError) {
+        console.error("OZLIND delete failed:", deleteError);
+        showNotice("Cleared on this device, but could not clear your account");
+        return;
+      }
     }
-    showNotice("Local OZLIND data cleared");
+    showNotice("All OZLIND data deleted");
+  }
+
+  async function deleteAccount() {
+    if (!window.confirm("Permanently delete your OZLIND account and all of its data? This cannot be undone.")) return;
+    const typed = window.prompt("Type DELETE to confirm.");
+    if (typed !== "DELETE") {
+      showNotice("Account was not deleted");
+      return;
+    }
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+      if (!response.ok) {
+        let message = "Could not delete your account. Please try again.";
+        try {
+          const data = await response.json();
+          if (data?.error) message = data.error;
+        } catch {
+          // ignore
+        }
+        showNotice(message);
+        return;
+      }
+    } catch {
+      showNotice("Could not delete your account. Please try again.");
+      return;
+    }
+    removeDeviceData();
+    try {
+      const supabase = await createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // the account no longer exists
+    }
+    window.location.assign("/login");
   }
 
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
-    try {
-      localStorage.removeItem(HISTORY_KEY);
-    } catch {
-      // ignore
+    if (cloudEnabled && !historyRef.current.some((item) => item.pending)) {
+      try {
+        localStorage.removeItem(historyKey);
+      } catch {
+        // ignore
+      }
     }
     try {
       const supabase = await createClient();
@@ -710,6 +990,10 @@ export default function OzlindApp({ initialUser = null }) {
 
   async function sendMessage(customPrompt, options = {}) {
     if (sendingRef.current || isStreaming) return;
+    if (chatLoadingRef.current) {
+      showNotice("Loading conversation…");
+      return;
+    }
 
     const resend = Array.isArray(options.resendMessages);
     const prompt = String(customPrompt !== undefined ? customPrompt : input).trim();
@@ -1394,7 +1678,7 @@ export default function OzlindApp({ initialUser = null }) {
 
                 <AccountGroup title="Privacy & data">
                   <AccountRow icon={Shield} title="Privacy Center" subtitle="Privacy and workspace information" onClick={() => setAccountSection("privacy")} />
-                  <AccountRow icon={Database} title="Data Controls" subtitle="Manage your local OZLIND data" onClick={() => setAccountSection("data")} />
+                  <AccountRow icon={Database} title="Data Controls" subtitle="Manage your OZLIND data" onClick={() => setAccountSection("data")} />
                 </AccountGroup>
 
                 <AccountGroup title="Support">
@@ -1487,7 +1771,7 @@ export default function OzlindApp({ initialUser = null }) {
                 <section className="account-detail-hero compact">
                   <BrainCircuit size={30} />
                   <strong>Memory</strong>
-                  <span>Control whether relevant local conversation context is used.</span>
+                  <span>Control whether relevant conversation context is used.</span>
                 </section>
                 <div className="account-group-card">
                   <AccountRow
@@ -1546,7 +1830,7 @@ export default function OzlindApp({ initialUser = null }) {
                 <div className="account-group-card">
                   <AccountInfoRow label="AI workspace" value="OZLIND AI" />
                   <AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Not connected"} />
-                  <AccountInfoRow label="Workspace storage" value="Local" />
+                  <AccountInfoRow label="Workspace storage" value={cloudEnabled ? "Your account" : "This device"} />
                   <AccountInfoRow label="Web Research" value={settings.research ? "Enabled" : "Disabled"} />
                 </div>
                 <p className="account-detail-note">Additional integrations can be connected as OZLIND features become available.</p>
@@ -1578,11 +1862,11 @@ export default function OzlindApp({ initialUser = null }) {
                   <span>Understand your current workspace data behavior.</span>
                 </section>
                 <div className="account-group-card">
-                  <AccountInfoRow label="Conversation history" value="Stored locally" />
-                  <AccountInfoRow label="Preferences" value="Stored locally" />
+                  <AccountInfoRow label="Conversation history" value={cloudEnabled ? "Saved to your account" : "Stored on this device"} />
+                  <AccountInfoRow label="Preferences" value={cloudEnabled ? "Synced to your account" : "Stored on this device"} />
                   <AccountInfoRow label="Authentication" value={accountUser ? "Account session" : "Not connected"} />
                 </div>
-                <p className="account-detail-note">OZLIND currently keeps chat history and preferences in your browser's local storage. Server-side AI requests are handled through the configured OZLIND API routes.</p>
+                <p className="account-detail-note">{cloudEnabled ? "Your conversations and preferences are saved to your OZLIND account and are only visible to you. Chats are sent to the configured AI services to generate replies." : "Your conversations and preferences are kept in this browser. Chats are sent to the configured AI services to generate replies."}</p>
               </div>
             )}
 
@@ -1595,16 +1879,20 @@ export default function OzlindApp({ initialUser = null }) {
                 </section>
                 <AccountGroup title="Your data">
                   <AccountInfoRow label="Conversations" value={`${history.length} saved`} />
-                  <AccountInfoRow label="Preferences" value="Local" />
+                  <AccountInfoRow label="Preferences" value={cloudEnabled ? "Account" : "This device"} />
                   <AccountInfoRow label="Theme" value={isDark ? "Dark" : "Light"} />
                 </AccountGroup>
                 <button type="button" className="account-primary-action" onClick={exportOzlindData}>
                   <Database size={17} />Export OZLIND data
                 </button>
-                <button type="button" className="account-danger-action" onClick={clearAllLocalData}>
-                  <Trash2 size={17} />Clear all local data
+                <button type="button" className="account-danger-action" onClick={clearAllData}>
+                  <Trash2 size={17} />Delete all my data
                 </button>
-                <p className="account-detail-note">Clearing local data removes saved conversations, preferences and theme settings from this browser.</p>
+                <p className="account-detail-note">Deletes saved conversations, preferences and theme settings{cloudEnabled ? " from this device and your account" : " from this browser"}. Your sign-in stays active.</p>
+                <button type="button" className="account-danger-action" onClick={deleteAccount}>
+                  <Trash2 size={17} />Delete my account
+                </button>
+                <p className="account-detail-note">Permanently removes your OZLIND account and everything stored in it.</p>
               </div>
             )}
 
@@ -1701,7 +1989,7 @@ export default function OzlindApp({ initialUser = null }) {
                 <div className="setting-row">
                   <div>
                     <strong>Memory</strong>
-                    <span>Keep useful local conversation context.</span>
+                    <span>Keep useful conversation context.</span>
                   </div>
                   <button
                     className={`switch ${settings.memory ? "active" : ""}`}
