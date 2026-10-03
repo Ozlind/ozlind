@@ -24,6 +24,60 @@ function sse(event, data) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Research helpers                                                           */
+/* -------------------------------------------------------------------------- */
+
+function userText(message) {
+  if (typeof message?.content === "string") {
+    return message.content;
+  }
+
+  if (Array.isArray(message?.content)) {
+    return message.content
+      .filter((part) => part?.type === "text")
+      .map((part) => part.text || "")
+      .join(" ");
+  }
+
+  return "";
+}
+
+/*
+ * Short follow-ups such as "and tomorrow?" carry no topic on their own,
+ * so they are searched together with the previous user question.
+ */
+function buildSearchQuery(messages) {
+  const userMessages = messages
+    .filter((message) => message.role === "user")
+    .map(userText)
+    .map((text) => text.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const latest = userMessages[userMessages.length - 1] || "";
+  const previous = userMessages[userMessages.length - 2] || "";
+
+  if (latest.length < 35 && previous) {
+    return `${previous.slice(0, 200)} ${latest}`.trim();
+  }
+
+  return latest;
+}
+
+function looksLikeNews(query) {
+  return /\b(news|latest|breaking|headlines|today|tonight|this week|happening|happened|score|won|results?)\b/i.test(
+    query,
+  );
+}
+
+function publicSources(sources) {
+  return sources.map((source) => ({
+    title: source.title,
+    url: source.url,
+    domain: source.domain,
+  }));
+}
+
+/* -------------------------------------------------------------------------- */
 /* Tavily research                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -76,6 +130,7 @@ async function performResearch(query, signal) {
         headers: {
           "Content-Type":
             "application/json",
+          Authorization: `Bearer ${tavilyKey}`,
         },
         body: JSON.stringify({
           api_key: tavilyKey,
@@ -83,6 +138,9 @@ async function performResearch(query, signal) {
           search_depth: "basic",
           include_answer: false,
           max_results: 5,
+          ...(looksLikeNews(normalizedQuery)
+            ? { topic: "news", days: 7 }
+            : {}),
         }),
         signal: controller.signal,
         cache: "no-store",
@@ -138,7 +196,7 @@ async function performResearch(query, signal) {
 
         content:
           typeof item.content === "string"
-            ? item.content
+            ? item.content.slice(0, 1200)
             : "",
       }));
 
@@ -298,64 +356,6 @@ export async function POST(request) {
         userQuery,
       );
 
-    let researchSources = [];
-    let researchNotice = null;
-    let researchAnswer = null;
-
-    /*
-     * Tavily runs before the AI provider when
-     * current/live information is required.
-     */
-    if (researchEnabled) {
-      const research =
-        await performResearch(
-          userQuery,
-          request.signal,
-        );
-
-      researchSources =
-        research.sources;
-
-      researchNotice =
-        research.notice;
-
-      researchAnswer =
-        research.answer || null;
-    }
-
-    /* ---------------------------------------------------------------------- */
-    /* 7. BUILD ONE OZLIND SYSTEM PROMPT                                      */
-    /* ---------------------------------------------------------------------- */
-
-    /*
-     * The same prompt is sent to Groq and Gemini.
-     *
-     * This keeps the assistant personality consistent
-     * even when Auto switches providers.
-     */
-    const prompt = systemPrompt(
-      {
-        responseStyle:
-          body.responseStyle,
-
-        responseLength:
-          body.responseLength,
-
-        customInstructions:
-          body.customInstructions,
-
-        memory:
-          body.memory,
-      },
-      {
-        answer:
-          researchAnswer,
-
-        results:
-          researchSources,
-      },
-    );
-
     /* ---------------------------------------------------------------------- */
     /* 8. SELECT AI PROVIDER(S)                                               */
     /* ---------------------------------------------------------------------- */
@@ -451,6 +451,62 @@ export async function POST(request) {
             });
 
             /* ---------------------------------------------------------------- */
+            /* WEB RESEARCH (runs inside the stream so the person sees status)  */
+            /* ---------------------------------------------------------------- */
+
+            let researchSources = [];
+            let researchNotice = null;
+            let researchAnswer = null;
+
+            if (researchEnabled) {
+              send("status", {
+                type: "status",
+                message:
+                  "Searching the web…",
+              });
+
+              const research =
+                await performResearch(
+                  buildSearchQuery(
+                    messages,
+                  ),
+                  request.signal,
+                );
+
+              researchSources =
+                research.sources;
+              researchNotice =
+                research.notice;
+              researchAnswer =
+                research.answer || null;
+
+              send("status", {
+                type: "status",
+                message: "",
+              });
+            }
+
+            /* The same OZLIND prompt is sent to every provider. */
+            const prompt = systemPrompt(
+              {
+                responseStyle:
+                  body.responseStyle,
+                responseLength:
+                  body.responseLength,
+                customInstructions:
+                  body.customInstructions,
+                memory:
+                  body.memory,
+              },
+              {
+                answer:
+                  researchAnswer,
+                results:
+                  researchSources,
+              },
+            );
+
+            /* ---------------------------------------------------------------- */
             /* RESEARCH NOTICE                                                  */
             /* ---------------------------------------------------------------- */
 
@@ -472,7 +528,9 @@ export async function POST(request) {
               send("sources", {
                 type: "sources",
                 sources:
-                  researchSources,
+                  publicSources(
+                    researchSources,
+                  ),
               });
             }
 
@@ -575,10 +633,17 @@ export async function POST(request) {
               return;
             }
 
+            const friendly =
+              safeError(error);
+
             send("error", {
               type: "error",
               error:
-                safeError(error),
+                vision &&
+                friendly ===
+                  "OZLIND could not complete that request. Please try again."
+                  ? "OZLIND could not analyse that image right now. Please try again shortly."
+                  : friendly,
             });
 
             close();
