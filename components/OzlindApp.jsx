@@ -141,10 +141,66 @@ function getMessageText(message) {
   return "";
 }
 
+// Small preview kept with saved chats so images survive a reload and can still
+// be discussed in follow-up questions.
+async function makeThumbnail(dataUrl) {
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = reject;
+      element.src = dataUrl;
+    });
+    const maxSide = 480;
+    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const output = canvas.toDataURL("image/jpeg", 0.6);
+    return output.length < 150000 ? output : null;
+  } catch {
+    return null;
+  }
+}
+
+// Saved copy of a message: the full-size image is dropped, the small preview
+// and any attached text file content are kept.
 function stripAttachmentData(message) {
   if (!message?.attachment) return message;
-  const { dataUrl, text, ...rest } = message.attachment;
+  const { dataUrl, ...rest } = message.attachment;
   return { ...message, attachment: rest };
+}
+
+function withoutThumbnails(item) {
+  if (!Array.isArray(item?.messages)) return item;
+  return {
+    ...item,
+    messages: item.messages.map((message) => {
+      if (!message?.attachment?.thumb) return message;
+      const { thumb, ...rest } = message.attachment;
+      return { ...message, attachment: rest };
+    }),
+  };
+}
+
+// Turns [1], [2] in an answer into links to the matching web source.
+function linkifyCitations(content, sources) {
+  if (typeof content !== "string" || !Array.isArray(sources) || !sources.length) return content;
+  return content
+    .split(/(```[\s\S]*?```)/g)
+    .map((part, index) => {
+      if (index % 2 === 1) return part;
+      return part.replace(/\[(\d{1,2})\](?!\()/g, (match, number) => {
+        const url = sources[Number(number) - 1]?.url;
+        if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return match;
+        return `[[${number}]](${url.replace(/\(/g, "%28").replace(/\)/g, "%29")})`;
+      });
+    })
+    .join("");
 }
 
 // Removes base64 image payloads from older user messages so the request
@@ -152,7 +208,8 @@ function stripAttachmentData(message) {
 function buildApiMessages(currentMessages) {
   const lastImageIndex = (() => {
     for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
-      if (currentMessages[i].attachment?.dataUrl) return i;
+      const candidate = currentMessages[i].attachment;
+      if (candidate?.type?.startsWith("image/") && (candidate.dataUrl || candidate.thumb)) return i;
     }
     return -1;
   })();
@@ -161,11 +218,13 @@ function buildApiMessages(currentMessages) {
     const text = getMessageText(message);
     const attachment = message.attachment;
 
-    if (attachment?.dataUrl && attachment.type?.startsWith("image/")) {
+    const imageUrl = attachment?.dataUrl || attachment?.thumb;
+
+    if (imageUrl && attachment.type?.startsWith("image/")) {
       const content = [];
       if (text) content.push({ type: "text", text });
       if (index === lastImageIndex) {
-        content.push({ type: "image_url", image_url: { url: attachment.dataUrl } });
+        content.push({ type: "image_url", image_url: { url: imageUrl } });
       } else {
         content.push({ type: "text", text: `[Earlier image: ${attachment.name}]` });
       }
@@ -467,16 +526,16 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
   useEffect(() => {
     try {
-      const slim = history.map((item, index) =>
-        index < 15 || item.pending
-          ? item
-          : { id: item.id, title: item.title, updatedAt: item.updatedAt }
-      );
+      const slim = history.map((item, index) => {
+        const meta = { id: item.id, title: item.title, updatedAt: item.updatedAt };
+        if (cloudEnabled) return item.pending ? item : meta;
+        return index < 15 ? withoutThumbnails(item) : meta;
+      });
       localStorage.setItem(historyKey, JSON.stringify(slim));
     } catch {
       // ignore
     }
-  }, [history, historyKey]);
+  }, [history, historyKey, cloudEnabled]);
 
   useEffect(() => {
     try {
@@ -886,16 +945,18 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
     try {
       let dataUrl = null;
       let text = null;
+      let thumb = null;
       if (isImage) {
         dataUrl = await imageToOptimizedDataUrl(file);
         if (dataUrl.length > 4000000) {
           setError("This image is too large to send. Please try a smaller one.");
           return;
         }
+        thumb = await makeThumbnail(dataUrl);
       } else {
         text = await readTextFile(file);
       }
-      setSelectedFile({ name: file.name, type: file.type || "text/plain", size: file.size, dataUrl, text });
+      setSelectedFile({ name: file.name, type: file.type || "text/plain", size: file.size, dataUrl, thumb, text });
       showNotice(`${file.name} attached`);
     } catch {
       setError("Could not read the selected file.");
@@ -1016,7 +1077,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
       const userMessage = {
         id: createId(),
         role: "user",
-        content: prompt || "Please analyze the attached file.",
+        content: prompt || (selectedFile?.dataUrl ? "Describe this image and point out anything important." : "Please analyze the attached file."),
         createdAt: Date.now(),
         attachment: selectedFile
           ? {
@@ -1024,6 +1085,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
               type: selectedFile.type,
               size: selectedFile.size,
               dataUrl: selectedFile.dataUrl,
+              thumb: selectedFile.thumb || null,
               text: selectedFile.text || null,
             }
           : null,
@@ -1109,6 +1171,10 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
         if (event.type === "error" || event.error) {
           throw new Error(event.error || "The AI service returned an error.");
         }
+        if (event.type === "status") {
+          updateAssistant({ status: event.message || null });
+          return;
+        }
         if (event.type === "notice" && event.message) {
           showNotice(event.message);
           return;
@@ -1150,7 +1216,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
       buffer += decoder.decode();
       if (buffer.trim()) processLine(buffer);
 
-      updateAssistant({ content: fullText || "No response was returned.", sources, streaming: false });
+      updateAssistant({ content: fullText || "No response was returned.", sources, streaming: false, status: null });
 
       const finalMessages = [
         ...nextMessages,
@@ -1187,7 +1253,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
   // ---------- markdown ----------
 
-  function renderMarkdown(content) {
+  function renderMarkdown(content, sources) {
     return (
       <ReactMarkdown
         components={{
@@ -1202,7 +1268,7 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
           ),
         }}
       >
-        {content}
+        {linkifyCitations(content, sources)}
       </ReactMarkdown>
     );
   }
@@ -1412,8 +1478,8 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
                         <div className="message-bubble">
                           {message.attachment && (
                             <div className="message-attachment">
-                              {message.attachment.dataUrl && message.attachment.type?.startsWith("image/") ? (
-                                <img src={message.attachment.dataUrl} alt={message.attachment.name} />
+                              {(message.attachment.dataUrl || message.attachment.thumb) && message.attachment.type?.startsWith("image/") ? (
+                                <img src={message.attachment.dataUrl || message.attachment.thumb} alt={message.attachment.name} />
                               ) : (
                                 <div className="attachment-file">
                                   <FileText size={16} />
@@ -1427,13 +1493,16 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
                             isUser ? (
                               <p>{content}</p>
                             ) : (
-                              <div className="markdown-content">{renderMarkdown(content)}</div>
+                              <div className="markdown-content">{renderMarkdown(content, message.sources)}</div>
                             )
                           ) : message.streaming ? (
                             <div className="streaming-indicator">
                               <span />
                               <span />
                               <span />
+                              {message.status ? (
+                                <em style={{ fontStyle: "normal", marginLeft: 10, fontSize: 13, opacity: 0.7, whiteSpace: "nowrap" }}>{message.status}</em>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
