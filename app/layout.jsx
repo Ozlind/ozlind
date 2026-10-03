@@ -10,12 +10,15 @@ export const metadata = {
   icons: {
     icon: "/ozlind-icons.svg",
   },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: "#0B0C0E",
 };
