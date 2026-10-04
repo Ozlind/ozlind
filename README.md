@@ -21,7 +21,7 @@ streaming chat, image understanding and optional live web research.
 | `lib/supabase/*` | Supabase browser and server clients |
 | `middleware.js` | Auth gate for pages and APIs |
 | `constants/`, `types/` | Shared modes, limits, settings and types |
-| `supabase/schema.sql` | Database tables and row-level security |
+| `supabase/schema.sql` | Complete database: tables, search, sharing, usage, documents (pgvector), admin, storage, row-level security |
 
 ## Environment variables
 
@@ -36,7 +36,8 @@ provider keys to the browser.
 
 ## Supabase setup
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor (safe to run again after updates).
+1. Run `supabase/schema.sql` in the Supabase SQL editor. It only adds things, never deletes, and is safe to run again. If it is too long to paste at once, run it one numbered section at a time.
+   To become an admin, run the `update public.profiles set role = 'admin' ...` line at the bottom of the file with your email.
 2. Authentication → Providers → enable Google.
 3. Authentication → URL Configuration: set Site URL to your production
    domain and add `https://<your-domain>/auth/callback` to Redirect URLs.
