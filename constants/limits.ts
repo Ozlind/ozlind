@@ -15,6 +15,25 @@ export const LIMITS = {
   maxTextFileChars: 8_000,
 
   titleMaxChars: 52,
+
+  /** Free daily messages. profiles.daily_limit overrides this per user. */
+  dailyMessages: 30,
+
+  /** Documents and retrieval (RAG). */
+  maxUploadBytes: 10 * 1024 * 1024,
+  maxDocumentsPerUser: 20,
+  ragChunkChars: 1_200,
+  ragChunkOverlap: 150,
+  ragTopK: 6,
+  /** Must match vector(768) in supabase/schema.sql. */
+  embeddingDimensions: 768,
+
+  /** Chat search and organisation. */
+  searchMinChars: 2,
+  searchResultLimit: 30,
+  folderNameMaxChars: 40,
+  maxTagsPerChat: 5,
+  feedbackMaxChars: 2_000,
 } as const;
 
 export const TEXT_FILE_PATTERN =
