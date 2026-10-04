@@ -1,16 +1,9 @@
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
-/*
- * OZLIND's interactive workspace is intentionally loaded as a
- * separate client chunk.
- *
- * This keeps the authenticated server route lightweight while
- * preserving server-side authentication and initial data loading.
- */
-const OzlindApp = dynamic(
+const OzlindApp = dynamicImport(
   () => import("@/components/OzlindApp"),
   {
     loading: () => (
@@ -61,14 +54,6 @@ export default async function Page() {
     },
   };
 
-  /*
-   * Load the conversation list and saved settings on the server so
-   * authenticated data is available as soon as the interactive
-   * workspace hydrates.
-   *
-   * Only lightweight conversation metadata is selected here.
-   * Full messages continue to be loaded only when required.
-   */
   let initialHistory = null;
   let initialSettings = null;
 
@@ -87,19 +72,20 @@ export default async function Page() {
         .maybeSingle(),
     ]);
 
-    if (!conversations.error && !settings.error) {
+    if (!conversations.error) {
       initialHistory = (conversations.data ?? []).map((row) => ({
         id: row.id,
         title: row.title,
         updatedAt: Date.parse(row.updated_at) || Date.now(),
       }));
+    }
 
-      if (
-        settings.data?.settings &&
-        typeof settings.data.settings === "object"
-      ) {
-        initialSettings = settings.data.settings;
-      }
+    if (
+      !settings.error &&
+      settings.data?.settings &&
+      typeof settings.data.settings === "object"
+    ) {
+      initialSettings = settings.data.settings;
     }
   } catch (loadError) {
     console.error(
