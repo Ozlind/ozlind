@@ -1,7 +1,34 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 
-import OzlindApp from "@/components/OzlindApp";
 import { createClient } from "@/lib/supabase/server";
+
+/*
+ * OZLIND's interactive workspace is intentionally loaded as a
+ * separate client chunk.
+ *
+ * This keeps the authenticated server route lightweight while
+ * preserving server-side authentication and initial data loading.
+ */
+const OzlindApp = dynamic(
+  () => import("@/components/OzlindApp"),
+  {
+    loading: () => (
+      <main className="ozlind-loading" aria-label="Loading OZLIND AI">
+        <div className="ozlind-loading-mark" aria-hidden="true">
+          <span className="ozlind-loading-dot" />
+        </div>
+
+        <div className="ozlind-loading-content" aria-hidden="true">
+          <div className="ozlind-loading-line ozlind-loading-line-lg" />
+          <div className="ozlind-loading-line ozlind-loading-line-sm" />
+        </div>
+
+        <span className="sr-only">Loading OZLIND AI</span>
+      </main>
+    ),
+  },
+);
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +62,12 @@ export default async function Page() {
   };
 
   /*
-   * Load the conversation list and saved settings on the server so the
-   * sidebar is ready on first paint. If the database tables are missing
-   * or the query fails, both stay null and the app falls back to
-   * on-device storage instead of breaking.
+   * Load the conversation list and saved settings on the server so
+   * authenticated data is available as soon as the interactive
+   * workspace hydrates.
+   *
+   * Only lightweight conversation metadata is selected here.
+   * Full messages continue to be loaded only when required.
    */
   let initialHistory = null;
   let initialSettings = null;
@@ -50,6 +79,7 @@ export default async function Page() {
         .select("id, title, updated_at")
         .order("updated_at", { ascending: false })
         .limit(100),
+
       supabase
         .from("user_settings")
         .select("settings")
@@ -72,7 +102,10 @@ export default async function Page() {
       }
     }
   } catch (loadError) {
-    console.error("OZLIND could not load cloud data:", loadError);
+    console.error(
+      "OZLIND could not load cloud data:",
+      loadError,
+    );
   }
 
   return (
