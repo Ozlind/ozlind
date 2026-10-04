@@ -13,38 +13,49 @@ import {
   streamFromProviders,
 } from "@/lib/providers";
 
-import { checkUserRateLimit } from "@/lib/rate-limit";
-
 import {
-  createAgentTask,
-  setAgentStep,
-  verifyAgentOutput,
-} from "@/lib/agent";
+  checkUserRateLimit,
+} from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function sse(event, data) {
+function sse(
+  event,
+  data,
+) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
 /* -------------------------------------------------------------------------- */
-/* MESSAGE HELPERS                                                            */
+/* RESEARCH                                                                   */
 /* -------------------------------------------------------------------------- */
 
-function userText(message) {
-  if (typeof message?.content === "string") {
+function userText(
+  message,
+) {
+  if (
+    typeof message?.content ===
+    "string"
+  ) {
     return message.content;
   }
 
-  if (Array.isArray(message?.content)) {
+  if (
+    Array.isArray(
+      message?.content,
+    )
+  ) {
     return message.content
       .filter(
-        (part) => part?.type === "text",
+        (part) =>
+          part?.type ===
+          "text",
       )
       .map(
-        (part) => part.text || "",
+        (part) =>
+          part.text || "",
       )
       .join(" ");
   }
@@ -52,27 +63,26 @@ function userText(message) {
   return "";
 }
 
-/*
- * Short follow-ups such as:
- *
- * "and tomorrow?"
- *
- * need the previous user message
- * to make the research query meaningful.
- */
-function buildSearchQuery(messages) {
-  const userMessages = messages
-    .filter(
-      (message) =>
-        message.role === "user",
-    )
-    .map(userText)
-    .map((text) =>
-      text
-        .replace(/\s+/g, " ")
-        .trim(),
-    )
-    .filter(Boolean);
+function buildSearchQuery(
+  messages,
+) {
+  const userMessages =
+    messages
+      .filter(
+        (message) =>
+          message.role ===
+          "user",
+      )
+      .map(userText)
+      .map((text) =>
+        text
+          .replace(
+            /\s+/g,
+            " ",
+          )
+          .trim(),
+      )
+      .filter(Boolean);
 
   const latest =
     userMessages[
@@ -90,20 +100,24 @@ function buildSearchQuery(messages) {
   ) {
     return `${previous.slice(
       0,
-      200,
+      250,
     )} ${latest}`.trim();
   }
 
   return latest;
 }
 
-function looksLikeNews(query) {
+function looksLikeNews(
+  query,
+) {
   return /\b(news|latest|breaking|headlines|today|tonight|this week|happening|happened|score|won|results?)\b/i.test(
     query,
   );
 }
 
-function publicSources(sources) {
+function publicSources(
+  sources,
+) {
   return sources.map(
     ({
       title,
@@ -117,31 +131,26 @@ function publicSources(sources) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* TAVILY RESEARCH                                                            */
-/* -------------------------------------------------------------------------- */
-
 async function performResearch(
   query,
   signal,
 ) {
-  const tavilyKey =
+  const apiKey =
     process.env.TAVILY_API_KEY;
 
-  if (!tavilyKey) {
+  if (!apiKey) {
     return {
       sources: [],
-      notice:
-        "Web research is not configured, so I continued without live sources.",
+      notice: null,
     };
   }
 
-  const normalizedQuery =
+  const normalized =
     String(query || "")
       .trim()
       .slice(0, 500);
 
-  if (!normalizedQuery) {
+  if (!normalized) {
     return {
       sources: [],
       notice: null,
@@ -151,11 +160,12 @@ async function performResearch(
   const controller =
     new AbortController();
 
-  const timeout = setTimeout(
-    () =>
-      controller.abort(),
-    12_000,
-  );
+  const timer =
+    setTimeout(
+      () =>
+        controller.abort(),
+      10000,
+    );
 
   const abortParent =
     () =>
@@ -164,9 +174,7 @@ async function performResearch(
   signal?.addEventListener(
     "abort",
     abortParent,
-    {
-      once: true,
-    },
+    { once: true },
   );
 
   try {
@@ -175,31 +183,20 @@ async function performResearch(
         "https://api.tavily.com/search",
         {
           method: "POST",
-
           headers: {
             "Content-Type":
               "application/json",
-
-            Authorization: `Bearer ${tavilyKey}`,
+            Authorization:
+              `Bearer ${apiKey}`,
           },
-
           body: JSON.stringify({
-            api_key:
-              tavilyKey,
-
-            query:
-              normalizedQuery,
-
-            search_depth:
-              "basic",
-
-            include_answer:
-              false,
-
+            api_key: apiKey,
+            query: normalized,
+            search_depth: "basic",
+            include_answer: false,
             max_results: 5,
-
             ...(looksLikeNews(
-              normalizedQuery,
+              normalized,
             )
               ? {
                   topic: "news",
@@ -207,12 +204,9 @@ async function performResearch(
                 }
               : {}),
           }),
-
           signal:
             controller.signal,
-
-          cache:
-            "no-store",
+          cache: "no-store",
         },
       );
 
@@ -220,7 +214,7 @@ async function performResearch(
       return {
         sources: [],
         notice:
-          "Web research was unavailable, so I continued without live sources.",
+          "Live web sources were unavailable, so OZLIND continued without them.",
       };
     }
 
@@ -235,7 +229,7 @@ async function performResearch(
       return {
         sources: [],
         notice:
-          "Web research returned no usable sources, so I continued without live sources.",
+          "No usable live sources were found.",
       };
     }
 
@@ -258,7 +252,7 @@ async function performResearch(
                 item.url,
               ).hostname;
           } catch {
-            // Invalid URL.
+            domain = "";
           }
 
           return {
@@ -269,8 +263,7 @@ async function performResearch(
                 ? item.title.trim()
                 : item.url,
 
-            url:
-              item.url,
+            url: item.url,
 
             domain,
 
@@ -279,7 +272,7 @@ async function performResearch(
                 "string"
                 ? item.content.slice(
                     0,
-                    1200,
+                    1600,
                   )
                 : "",
           };
@@ -287,26 +280,23 @@ async function performResearch(
 
     return {
       sources,
-
       notice:
         sources.length
           ? null
-          : "Web research returned no usable sources, so I continued without live sources.",
+          : "No usable live sources were found.",
     };
   } catch (error) {
-    if (
-      signal?.aborted
-    ) {
+    if (signal?.aborted) {
       throw error;
     }
 
     return {
       sources: [],
       notice:
-        "Web research timed out, so I continued without live sources.",
+        "Live web research timed out, so OZLIND continued without it.",
     };
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
 
     signal?.removeEventListener(
       "abort",
@@ -316,23 +306,17 @@ async function performResearch(
 }
 
 /* -------------------------------------------------------------------------- */
-/* POST /api/chat                                                             */
+/* POST                                                                       */
 /* -------------------------------------------------------------------------- */
 
 export async function POST(
   request,
 ) {
   try {
-    /* ---------------------------------------------------------------------- */
-    /* 1. RATE LIMIT                                                          */
-    /* ---------------------------------------------------------------------- */
-
     const rate =
       await checkUserRateLimit();
 
-    if (
-      rate.unauthorized
-    ) {
+    if (rate.unauthorized) {
       return json(
         {
           error:
@@ -354,16 +338,11 @@ export async function POST(
             String(
               rate.retryAfterSeconds,
             ),
-
           "X-RateLimit-Remaining":
             "0",
         },
       );
     }
-
-    /* ---------------------------------------------------------------------- */
-    /* 2. PARSE REQUEST                                                       */
-    /* ---------------------------------------------------------------------- */
 
     let body;
 
@@ -395,10 +374,6 @@ export async function POST(
       );
     }
 
-    /* ---------------------------------------------------------------------- */
-    /* 3. VALIDATE MESSAGES                                                   */
-    /* ---------------------------------------------------------------------- */
-
     const validation =
       validateMessages(
         body.messages,
@@ -418,10 +393,6 @@ export async function POST(
     const messages =
       validation.messages;
 
-    /* ---------------------------------------------------------------------- */
-    /* 4. NORMALIZE MODE                                                      */
-    /* ---------------------------------------------------------------------- */
-
     const allowedModes =
       new Set([
         "auto",
@@ -439,48 +410,19 @@ export async function POST(
         ? body.mode
         : "auto";
 
-    /* ---------------------------------------------------------------------- */
-    /* 5. VISION                                                              */
-    /* ---------------------------------------------------------------------- */
-
     const vision =
       hasVision(messages);
 
-    /* ---------------------------------------------------------------------- */
-    /* 6. RESEARCH                                                            */
-    /* ---------------------------------------------------------------------- */
-
-    const userQuery =
+    const query =
       latestUserMessage(
         messages,
       );
 
-    const researchEnabled =
+    const research =
       shouldResearch(
         body,
-        userQuery,
+        query,
       );
-
-    /* ---------------------------------------------------------------------- */
-    /* 7. CREATE AGENT TASK                                                   */
-    /* ---------------------------------------------------------------------- */
-
-    const task =
-      createAgentTask({
-        query:
-          userQuery,
-
-        vision,
-
-        research:
-          researchEnabled,
-
-        mode,
-      });
-
-    /* ---------------------------------------------------------------------- */
-    /* 8. SELECT PROVIDERS                                                    */
-    /* ---------------------------------------------------------------------- */
 
     const providers =
       providerOrder(
@@ -488,27 +430,20 @@ export async function POST(
         vision,
         {
           messages,
-
-          research:
-            researchEnabled,
+          research,
         },
       );
 
     if (!providers.length) {
       return json(
         {
-          error:
-            vision
-              ? "No compatible vision provider is configured."
-              : "No compatible AI provider is configured.",
+          error: vision
+            ? "Image analysis is temporarily unavailable."
+            : "OZLIND is temporarily unavailable.",
         },
         503,
       );
     }
-
-    /* ---------------------------------------------------------------------- */
-    /* 9. CREATE SSE STREAM                                                   */
-    /* ---------------------------------------------------------------------- */
 
     const encoder =
       new TextEncoder();
@@ -518,11 +453,8 @@ export async function POST(
         async start(
           controller,
         ) {
-          let closed =
-            false;
-
-          let streamedText =
-            "";
+          let closed = false;
+          let output = "";
 
           const send = (
             event,
@@ -545,128 +477,48 @@ export async function POST(
                 ),
               );
             } catch {
-              closed =
-                true;
+              closed = true;
             }
           };
 
-          const close =
-            () => {
-              if (closed) {
-                return;
-              }
+          const close = () => {
+            if (closed) {
+              return;
+            }
 
-              closed =
-                true;
+            closed = true;
 
-              try {
-                controller.close();
-              } catch {
-                // Already closed.
-              }
-            };
+            try {
+              controller.close();
+            } catch {
+              // Already closed.
+            }
+          };
 
-          const status =
-            (
-              message,
-              stepId,
-            ) => {
-              if (stepId) {
-                setAgentStep(
-                  task,
-                  stepId,
-                  "running",
-                );
-              }
+          try {
+            send(
+              "ready",
+              {
+                type: "ready",
+              },
+            );
 
+            let sources = [];
+            let researchNotice =
+              null;
+
+            if (research) {
               send(
                 "status",
                 {
                   type:
                     "status",
-
-                  message,
+                  message:
+                    "Searching for current information…",
                 },
               );
-            };
 
-          try {
-            /* -------------------------------------------------------------- */
-            /* READY                                                          */
-            /* -------------------------------------------------------------- */
-
-            send(
-              "ready",
-              {
-                type:
-                  "ready",
-              },
-            );
-
-            /* -------------------------------------------------------------- */
-            /* AGENT TASK                                                     */
-            /* -------------------------------------------------------------- */
-
-            send(
-              "agent",
-              {
-                type:
-                  "agent",
-
-                taskId:
-                  task.taskId,
-
-                status:
-                  "planning",
-
-                goal:
-                  task.goal,
-
-                kind:
-                  task.kind,
-
-                steps:
-                  task.steps,
-              },
-            );
-
-            /* -------------------------------------------------------------- */
-            /* UNDERSTAND                                                     */
-            /* -------------------------------------------------------------- */
-
-            status(
-              "Planning task…",
-              "understand",
-            );
-
-            setAgentStep(
-              task,
-              "understand",
-              "completed",
-            );
-
-            /* -------------------------------------------------------------- */
-            /* RESEARCH                                                       */
-            /* -------------------------------------------------------------- */
-
-            let researchSources =
-              [];
-
-            let researchNotice =
-              null;
-
-            let researchAnswer =
-              null;
-
-            if (
-              researchEnabled
-            ) {
-              status(
-                "Searching the web…",
-                "research",
-              );
-
-              const research =
+              const result =
                 await performResearch(
                   buildSearchQuery(
                     messages,
@@ -674,26 +526,42 @@ export async function POST(
                   request.signal,
                 );
 
-              researchSources =
-                research.sources;
+              sources =
+                result.sources;
 
               researchNotice =
-                research.notice;
+                result.notice;
 
-              researchAnswer =
-                research.answer ||
-                null;
+              if (
+                sources.length
+              ) {
+                send(
+                  "sources",
+                  {
+                    type:
+                      "sources",
+                    sources:
+                      publicSources(
+                        sources,
+                      ),
+                  },
+                );
+              }
 
-              setAgentStep(
-                task,
-                "research",
-                "completed",
-              );
+              if (
+                researchNotice
+              ) {
+                send(
+                  "notice",
+                  {
+                    type:
+                      "notice",
+                    message:
+                      researchNotice,
+                  },
+                );
+              }
             }
-
-            /* -------------------------------------------------------------- */
-            /* ABORT CHECK                                                    */
-            /* -------------------------------------------------------------- */
 
             if (
               request.signal?.aborted
@@ -702,143 +570,66 @@ export async function POST(
               return;
             }
 
-            /* -------------------------------------------------------------- */
-            /* SYSTEM PROMPT                                                  */
-            /* -------------------------------------------------------------- */
-
             const prompt =
               systemPrompt(
                 {
                   responseStyle:
                     body.responseStyle,
-
                   responseLength:
                     body.responseLength,
-
                   customInstructions:
                     body.customInstructions,
-
                   memory:
                     body.memory,
                 },
-
                 {
-                  answer:
-                    researchAnswer,
-
                   results:
-                    researchSources,
+                    sources,
                 },
               );
 
-            /* -------------------------------------------------------------- */
-            /* RESEARCH NOTICE                                                */
-            /* -------------------------------------------------------------- */
-
-            if (
-              researchNotice
-            ) {
-              send(
-                "notice",
-                {
-                  type:
-                    "notice",
-
-                  message:
-                    researchNotice,
-                },
-              );
-            }
-
-            /* -------------------------------------------------------------- */
-            /* SOURCES                                                        */
-            /* -------------------------------------------------------------- */
-
-            if (
-              researchSources.length
-            ) {
-              send(
-                "sources",
-                {
-                  type:
-                    "sources",
-
-                  sources:
-                    publicSources(
-                      researchSources,
-                    ),
-                },
-              );
-            }
-
-            /* -------------------------------------------------------------- */
-            /* RESPONSE                                                       */
-            /* -------------------------------------------------------------- */
-
-            status(
-              "Preparing response…",
-              "respond",
+            send(
+              "status",
+              {
+                type: "status",
+                message:
+                  vision
+                    ? "Analysing the request…"
+                    : "Preparing your response…",
+              },
             );
-
-            let selectedProvider =
-              null;
-
-            let selectedModel =
-              null;
 
             await streamFromProviders(
               {
                 messages,
-
                 mode,
-
                 vision,
-
                 systemPrompt:
                   prompt,
-
                 providers,
-
                 signal:
                   request.signal,
 
+                /*
+                 * Provider information remains
+                 * internal. It is deliberately NOT
+                 * sent to the browser.
+                 */
                 onProvider:
-                  (
-                    provider,
-                    model,
-                  ) => {
-                    selectedProvider =
-                      provider;
-
-                    selectedModel =
-                      model;
-
-                    send(
-                      "meta",
-                      {
-                        type:
-                          "meta",
-
-                        provider,
-
-                        model,
-                      },
-                    );
-                  },
+                  () => {},
 
                 onDelta:
-                  (
-                    content,
-                  ) => {
+                  (content) => {
                     if (
                       typeof content !==
                         "string" ||
-                      !content
+                      !content ||
+                      closed
                     ) {
                       return;
                     }
 
-                    streamedText +=
+                    output +=
                       content;
 
                     send(
@@ -846,17 +637,12 @@ export async function POST(
                       {
                         type:
                           "delta",
-
                         content,
                       },
                     );
                   },
               },
             );
-
-            /* -------------------------------------------------------------- */
-            /* ABORT CHECK                                                    */
-            /* -------------------------------------------------------------- */
 
             if (
               request.signal?.aborted
@@ -865,124 +651,29 @@ export async function POST(
               return;
             }
 
-            setAgentStep(
-              task,
-              "respond",
-              "completed",
-            );
-
-            /* -------------------------------------------------------------- */
-            /* VERIFY                                                         */
-            /* -------------------------------------------------------------- */
-
-            status(
-              "Checking response…",
-              "verify",
-            );
-
-            const verification =
-              verifyAgentOutput(
-                streamedText,
-              );
-
-            if (
-              !verification.ok
-            ) {
+            if (!output.trim()) {
               throw new Error(
-                verification.reason,
-              );
-            }
-
-            setAgentStep(
-              task,
-              "verify",
-              "completed",
-            );
-
-            task.status =
-              "completed";
-
-            /* -------------------------------------------------------------- */
-            /* AGENT COMPLETE                                                */
-            /* -------------------------------------------------------------- */
-
-            send(
-              "agent",
-              {
-                type:
-                  "agent",
-
-                taskId:
-                  task.taskId,
-
-                status:
-                  "completed",
-
-                steps:
-                  task.steps,
-
-                verification:
-                  {
-                    ok: true,
-
-                    characterCount:
-                      verification.characterCount,
-                  },
-              },
-            );
-
-            /* -------------------------------------------------------------- */
-            /* CLEAR STATUS                                                   */
-            /* -------------------------------------------------------------- */
-
-            if (
-              selectedProvider &&
-              selectedModel
-            ) {
-              send(
-                "notice",
-                {
-                  type:
-                    "notice",
-
-                  message:
-                    "",
-                },
+                "The AI returned an empty response.",
               );
             }
 
             send(
               "status",
               {
-                type:
-                  "status",
-
-                message:
-                  "",
+                type: "status",
+                message: "",
               },
             );
-
-            /* -------------------------------------------------------------- */
-            /* DONE                                                           */
-            /* -------------------------------------------------------------- */
 
             send(
               "done",
               {
-                type:
-                  "done",
-
-                taskId:
-                  task.taskId,
+                type: "done",
               },
             );
 
             close();
           } catch (error) {
-            /* -------------------------------------------------------------- */
-            /* ABORT                                                         */
-            /* -------------------------------------------------------------- */
-
             if (
               closed ||
               request.signal?.aborted
@@ -991,49 +682,25 @@ export async function POST(
               return;
             }
 
-            /* -------------------------------------------------------------- */
-            /* AGENT FAILURE                                                 */
-            /* -------------------------------------------------------------- */
-
-            task.status =
-              "failed";
-
-            send(
-              "agent",
-              {
-                type:
-                  "agent",
-
-                taskId:
-                  task.taskId,
-
-                status:
-                  "failed",
-
-                steps:
-                  task.steps,
-              },
-            );
-
-            /* -------------------------------------------------------------- */
-            /* USER-SAFE ERROR                                                */
-            /* -------------------------------------------------------------- */
-
-            const friendly =
-              safeError(error);
-
             send(
               "error",
               {
-                type:
-                  "error",
-
+                type: "error",
                 error:
-                  vision &&
-                  friendly ===
-                    "OZLIND could not complete that request. Please try again."
-                    ? "OZLIND could not analyse that image right now. Please try again shortly."
-                    : friendly,
+                  vision
+                    ? (
+                        safeError(
+                          error,
+                        ) ===
+                        "OZLIND could not complete that request. Please try again."
+                          ? "OZLIND could not analyse that image right now. Please try again shortly."
+                          : safeError(
+                              error,
+                            )
+                      )
+                    : safeError(
+                        error,
+                      ),
               },
             );
 
@@ -1042,28 +709,19 @@ export async function POST(
         },
       });
 
-    /* ---------------------------------------------------------------------- */
-    /* 10. RETURN SSE RESPONSE                                                */
-    /* ---------------------------------------------------------------------- */
-
     return new Response(
       stream,
       {
         status: 200,
-
         headers: {
           "Content-Type":
             "text/event-stream; charset=utf-8",
-
           "Cache-Control":
             "no-cache, no-transform",
-
           Connection:
             "keep-alive",
-
           "X-Accel-Buffering":
             "no",
-
           "X-RateLimit-Remaining":
             String(
               rate.remaining,
