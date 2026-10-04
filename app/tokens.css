@@ -1,42 +1,83 @@
 /*
  * OZLIND AI
- * Design-token compatibility layer.
+ * Premium visual token layer
  *
- * The existing application theme lives in globals.css.
- * These aliases allow newer UI primitives to use the
- * same visual system without rewriting the legacy shell.
+ * This file intentionally overrides the existing visual system
+ * without changing application behavior or component structure.
  */
 
 :root {
-  --surface-1: var(--surface);
-  --surface-2: var(--surface-soft);
-  --surface-3: var(--surface-hover);
+  /* Core surfaces */
+  --surface-1: #171914;
+  --surface-2: #1d2019;
+  --surface-3: #25291f;
 
-  --text-dim: var(--text-soft);
+  /* Text */
+  --text-dim: #a5aa9b;
 
-  --accent: var(--primary);
-  --accent-hover: var(--primary-dark);
+  /* OZLIND accent */
+  --accent: #a6b66a;
+  --accent-hover: #b7c978;
 
-  --focus-ring: var(--shadow-focus);
+  /* Focus */
+  --focus-ring: 0 0 0 3px rgba(166, 182, 106, 0.18);
+
+  /* Premium depth */
+  --premium-shadow-sm:
+    0 6px 24px rgba(0, 0, 0, 0.08);
+
+  --premium-shadow-md:
+    0 18px 55px rgba(0, 0, 0, 0.14);
+
+  --premium-border:
+    rgba(92, 99, 77, 0.22);
+
+  --premium-border-strong:
+    rgba(112, 120, 91, 0.34);
+
+  --premium-glow:
+    0 0 0 1px rgba(166, 182, 106, 0.08),
+    0 10px 35px rgba(76, 86, 42, 0.08);
+
+  --premium-radius-sm: 11px;
+  --premium-radius-md: 16px;
+  --premium-radius-lg: 22px;
+  --premium-radius-pill: 999px;
 }
 
 body.dark {
-  --surface-1: var(--surface);
-  --surface-2: var(--surface-soft);
-  --surface-3: var(--surface-hover);
+  /* Graphite / olive dark system */
+  --surface-1: #151712;
+  --surface-2: #1b1e17;
+  --surface-3: #24281e;
 
-  --text-dim: var(--text-soft);
+  --text-dim: #aeb4a4;
 
-  --accent: var(--primary);
-  --accent-hover: var(--primary-dark);
+  --accent: #a6b66a;
+  --accent-hover: #bdcf79;
 
-  --focus-ring: var(--shadow-focus);
+  --focus-ring: 0 0 0 3px rgba(166, 182, 106, 0.2);
+
+  --premium-shadow-sm:
+    0 8px 28px rgba(0, 0, 0, 0.28);
+
+  --premium-shadow-md:
+    0 24px 70px rgba(0, 0, 0, 0.42);
+
+  --premium-border:
+    rgba(105, 112, 87, 0.2);
+
+  --premium-border-strong:
+    rgba(126, 135, 101, 0.32);
+
+  --premium-glow:
+    0 0 0 1px rgba(166, 182, 106, 0.07),
+    0 14px 42px rgba(70, 79, 39, 0.12);
 }
 
-/*
- * Consistent keyboard focus treatment.
- * Visible only when the user is navigating with a keyboard.
- */
+/* -------------------------------------------------------------
+   Global premium treatment
+   ------------------------------------------------------------- */
 
 :where(
   button,
@@ -50,9 +91,272 @@ body.dark {
   box-shadow: var(--focus-ring);
 }
 
-/*
- * Respect users who prefer reduced motion.
- */
+/* -------------------------------------------------------------
+   Existing OZLIND surfaces
+   ------------------------------------------------------------- */
+
+.ozlind-sidebar,
+.ozlind-topbar,
+.composer-shell,
+.mode-menu,
+.account-page-header {
+  border-color: var(--premium-border);
+}
+
+.composer-shell {
+  border-radius: var(--premium-radius-lg);
+  box-shadow: var(--premium-shadow-sm);
+}
+
+.composer-shell:focus-within {
+  border-color: rgba(166, 182, 106, 0.55);
+  box-shadow: var(--premium-glow);
+}
+
+.mode-button,
+.research-toggle {
+  border-color: var(--premium-border);
+}
+
+.mode-button:hover,
+.research-toggle:hover {
+  border-color: var(--premium-border-strong);
+}
+
+/* -------------------------------------------------------------
+   Brand
+   ------------------------------------------------------------- */
+
+.brand-button {
+  border-radius: var(--premium-radius-sm);
+}
+
+.brand-button:hover {
+  background: rgba(166, 182, 106, 0.06);
+}
+
+.brand-mark {
+  background: linear-gradient(
+    135deg,
+    #a6b66a,
+    #77864a
+  );
+  box-shadow:
+    0 6px 20px rgba(94, 108, 52, 0.2);
+}
+
+/* -------------------------------------------------------------
+   Navigation
+   ------------------------------------------------------------- */
+
+.sidebar-nav-item.active,
+.history-item.active {
+  background: rgba(166, 182, 106, 0.1);
+  color: var(--accent-hover);
+}
+
+.sidebar-nav-item:hover,
+.history-item:hover {
+  background: rgba(166, 182, 106, 0.055);
+}
+
+.new-chat-button {
+  background: linear-gradient(
+    135deg,
+    #a6b66a,
+    #879951
+  );
+  box-shadow:
+    0 7px 22px rgba(91, 105, 48, 0.18);
+}
+
+.new-chat-button:hover {
+  background: linear-gradient(
+    135deg,
+    #b4c575,
+    #91a45a
+  );
+}
+
+/* -------------------------------------------------------------
+   Welcome
+   ------------------------------------------------------------- */
+
+.welcome-badge {
+  background: rgba(166, 182, 106, 0.1);
+  color: var(--accent-hover);
+}
+
+.suggestion-card {
+  border-color: var(--premium-border);
+  border-radius: var(--premium-radius-md);
+  box-shadow: none;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.suggestion-card:hover {
+  border-color: rgba(166, 182, 106, 0.35);
+  background: rgba(166, 182, 106, 0.035);
+  box-shadow: var(--premium-shadow-sm);
+}
+
+.suggestion-icon {
+  background: rgba(166, 182, 106, 0.1);
+  color: var(--accent);
+}
+
+/* -------------------------------------------------------------
+   Assistant identity
+   ------------------------------------------------------------- */
+
+.assistant-avatar {
+  background: linear-gradient(
+    135deg,
+    #a6b66a,
+    #6e7c43
+  );
+
+  box-shadow:
+    0 5px 18px rgba(79, 91, 43, 0.18);
+}
+
+/* -------------------------------------------------------------
+   User messages
+   ------------------------------------------------------------- */
+
+.message-row.user .message-bubble > p {
+  background: linear-gradient(
+    135deg,
+    #899953,
+    #748344
+  );
+
+  box-shadow:
+    0 5px 18px rgba(73, 85, 40, 0.13);
+}
+
+/* -------------------------------------------------------------
+   Markdown / code
+   ------------------------------------------------------------- */
+
+.code-block,
+.table-scroll,
+.attachment-file,
+.selected-file,
+.source-chip {
+  border-color: var(--premium-border);
+}
+
+.code-block {
+  border-radius: var(--premium-radius-md);
+  box-shadow: var(--premium-shadow-sm);
+}
+
+.code-block-header {
+  background: rgba(166, 182, 106, 0.045);
+  border-color: var(--premium-border);
+}
+
+.markdown-content a {
+  color: var(--accent-hover);
+}
+
+.source-chip:hover {
+  border-color: var(--premium-border-strong);
+  background: rgba(166, 182, 106, 0.045);
+}
+
+.source-index {
+  background: rgba(166, 182, 106, 0.1);
+  color: var(--accent-hover);
+}
+
+/* -------------------------------------------------------------
+   Account
+   ------------------------------------------------------------- */
+
+.account-profile-hero,
+.account-group-card,
+.account-detail-hero {
+  border-color: var(--premium-border);
+  box-shadow: var(--premium-shadow-sm);
+}
+
+.account-provider-badge {
+  background: rgba(166, 182, 106, 0.1);
+  color: var(--accent-hover);
+}
+
+.account-provider-dot {
+  background: var(--accent);
+}
+
+.account-row-icon {
+  background: rgba(166, 182, 106, 0.09);
+  color: var(--accent);
+}
+
+.account-primary-action {
+  background: linear-gradient(
+    135deg,
+    #a6b66a,
+    #84944e
+  );
+  box-shadow:
+    0 7px 22px rgba(84, 97, 43, 0.16);
+}
+
+.account-primary-action:hover {
+  background: linear-gradient(
+    135deg,
+    #b4c575,
+    #91a45a
+  );
+}
+
+/* -------------------------------------------------------------
+   Loading / error surfaces
+   ------------------------------------------------------------- */
+
+.ozlind-loading-mark {
+  border-color: var(--premium-border);
+  box-shadow: var(--premium-shadow-sm);
+}
+
+.ozlind-loading-dot {
+  background: var(--accent);
+}
+
+.ozlind-loading-line {
+  background: rgba(166, 182, 106, 0.08);
+}
+
+/* -------------------------------------------------------------
+   Mobile refinement
+   ------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .composer-shell {
+    border-radius: 20px;
+    padding: 9px 10px 8px;
+  }
+
+  .suggestion-card {
+    border-radius: 15px;
+  }
+
+  .account-profile-hero {
+    border-radius: 20px;
+  }
+}
+
+/* -------------------------------------------------------------
+   Accessibility
+   ------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *,
