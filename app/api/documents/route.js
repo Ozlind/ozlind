@@ -5,15 +5,59 @@ import {
 } from "@/lib/rag";
 
 import { json } from "@/lib/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+async function getAuthenticatedUser() {
+  const supabase =
+    await createClient();
+
+  const {
+    data: {
+      user,
+    },
+    error,
+  } =
+    await supabase.auth.getUser();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!user) {
+    const error =
+      new Error(
+        "Authentication required.",
+      );
+
+    error.code =
+      "AUTH_REQUIRED";
+
+    throw error;
+  }
+
+  return {
+    supabase,
+    user,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* POST — INGEST DOCUMENT                                                     */
+/* -------------------------------------------------------------------------- */
+
 export async function POST(
   request,
 ) {
   try {
+    const {
+      user,
+    } =
+      await getAuthenticatedUser();
+
     let body;
 
     try {
@@ -44,6 +88,12 @@ export async function POST(
       );
     }
 
+    /*
+     * The authenticated user is obtained
+     * from the server session.
+     *
+     * No client-provided user ID is accepted.
+     */
     const document =
       await ingestDocument({
         name: body.name,
@@ -67,13 +117,11 @@ export async function POST(
       error,
     );
 
-    const message =
-      error?.message ||
-      "Could not process the document.";
-
     if (
+      error?.code ===
+      "AUTH_REQUIRED" ||
       /authentication required/i.test(
-        message,
+        error?.message || "",
       )
     ) {
       return json(
@@ -84,6 +132,9 @@ export async function POST(
         401,
       );
     }
+
+    const message =
+      error?.message || "";
 
     if (
       /too large/i.test(
@@ -121,10 +172,20 @@ export async function POST(
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* GET — LIST DOCUMENTS OR SEARCH DOCUMENTS                                   */
+/* -------------------------------------------------------------------------- */
+
 export async function GET(
   request,
 ) {
   try {
+    const {
+      supabase,
+      user,
+    } =
+      await getAuthenticatedUser();
+
     const url =
       new URL(
         request.url,
@@ -135,56 +196,136 @@ export async function GET(
         .get("q")
         ?.trim() || "";
 
-    if (!query) {
-      return json(
-        {
-          ok: true,
-          results: [],
-        },
-      );
+    /*
+     * Search mode:
+     *
+     * /api/documents?q=...
+     *
+     * Uses vector retrieval and returns only
+     * chunks belonging to the authenticated user.
+     */
+    if (query) {
+      const results =
+        await searchDocuments(
+          query,
+          {
+            matchThreshold:
+              Number(
+                url.searchParams.get(
+                  "threshold",
+                ),
+              ) || 0.55,
+
+            matchCount:
+              Number(
+                url.searchParams.get(
+                  "limit",
+                ),
+              ) || 8,
+          },
+        );
+
+      return json({
+        ok: true,
+        results,
+      });
     }
 
-    const results =
-      await searchDocuments(
-        query,
-        {
-          matchThreshold:
-            Number(
-              url.searchParams.get(
-                "threshold",
-              ),
-            ) || 0.55,
-          matchCount:
-            Number(
-              url.searchParams.get(
-                "limit",
-              ),
-            ) || 8,
-        },
-      );
+    /*
+     * Library mode:
+     *
+     * /api/documents
+     *
+     * Only document metadata is returned.
+     * Document contents and embeddings are never
+     * exposed through this endpoint.
+     */
+    const {
+      data,
+      error,
+    } =
+      await supabase
+        .from("documents")
+        .select(
+          [
+            "id",
+            "name",
+            "mime",
+            "size_bytes",
+            "char_count",
+            "chunk_count",
+            "status",
+            "created_at",
+          ].join(", "),
+        )
+        .eq(
+          "user_id",
+          user.id,
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          },
+        )
+        .limit(100);
+
+    if (error) {
+      throw error;
+    }
+
+    const documents =
+      Array.isArray(data)
+        ? data.map(
+            (document) => ({
+              id:
+                document.id,
+
+              name:
+                document.name,
+
+              mime:
+                document.mime,
+
+              sizeBytes:
+                document.size_bytes,
+
+              charCount:
+                document.char_count,
+
+              chunkCount:
+                document.chunk_count,
+
+              status:
+                document.status,
+
+              createdAt:
+                document.created_at,
+            }),
+          )
+        : [];
 
     return json({
       ok: true,
-      results,
+      documents,
     });
   } catch (error) {
     console.error(
-      "OZLIND document search error:",
+      "OZLIND document request error:",
       error,
     );
 
-    const message =
-      error?.message || "";
-
     if (
+      error?.code ===
+      "AUTH_REQUIRED" ||
       /authentication required/i.test(
-        message,
+        error?.message || "",
       )
     ) {
       return json(
         {
           error:
-            "Please sign in before searching documents.",
+            "Please sign in before accessing your documents.",
         },
         401,
       );
@@ -193,17 +334,23 @@ export async function GET(
     return json(
       {
         error:
-          "OZLIND could not search your documents right now.",
+          "OZLIND could not load your documents right now.",
       },
       500,
     );
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* DELETE — DELETE OWN DOCUMENT                                               */
+/* -------------------------------------------------------------------------- */
+
 export async function DELETE(
   request,
 ) {
   try {
+    await getAuthenticatedUser();
+
     const url =
       new URL(
         request.url,
@@ -212,13 +359,24 @@ export async function DELETE(
     const documentId =
       url.searchParams
         .get("id")
-        ?.trim();
+        ?.trim() || "";
 
-    if (!documentId) {
+    /*
+     * UUID format validation prevents accidental
+     * malformed database requests.
+     */
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    if (
+      !uuidPattern.test(
+        documentId,
+      )
+    ) {
       return json(
         {
           error:
-            "Document id is required.",
+            "A valid document id is required.",
         },
         400,
       );
@@ -237,12 +395,11 @@ export async function DELETE(
       error,
     );
 
-    const message =
-      error?.message || "";
-
     if (
+      error?.code ===
+      "AUTH_REQUIRED" ||
       /authentication required/i.test(
-        message,
+        error?.message || "",
       )
     ) {
       return json(
