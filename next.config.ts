@@ -24,12 +24,19 @@ function supabaseOrigins(): string[] {
 const contentSecurityPolicy = [
   "default-src 'self'",
   // Next.js injects small inline bootstrap scripts; 'unsafe-eval' is dev only.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // challenges.cloudflare.com: Turnstile bot check (Stage 6).
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // Avatars (Google) and user-attached images (data:/blob:).
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseOrigins().join(" ")}`,
+  // *.ingest.*.sentry.io: error reports (Stage 1).
+  `connect-src 'self' ${supabaseOrigins().join(" ")} https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io`,
+  "frame-src https://challenges.cloudflare.com",
+  // Read-aloud audio (Stage 4) and the installable app (Stage 7).
+  "media-src 'self' blob: data:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
