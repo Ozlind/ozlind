@@ -4,11 +4,14 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
-function linkifyCitations(content, sources) {
+function linkifyCitations(
+  content,
+  sources,
+) {
   if (
     typeof content !== "string" ||
     !Array.isArray(sources) ||
-    sources.length === 0
+    !sources.length
   ) {
     return content;
   }
@@ -16,40 +19,60 @@ function linkifyCitations(content, sources) {
   return content
     .split(/(```[\s\S]*?```)/g)
     .map((part, index) => {
-      if (index % 2 === 1) return part;
+      if (index % 2 === 1) {
+        return part;
+      }
 
-      return part.replace(/\[(\d{1,2})\](?!\()/g, (match, number) => {
-        const url = sources[Number(number) - 1]?.url;
+      return part.replace(
+        /\[(\d{1,2})\](?!\()/g,
+        (match, number) => {
+          const url =
+            sources[
+              Number(number) - 1
+            ]?.url;
 
-        if (
-          typeof url !== "string" ||
-          !/^https?:\/\//i.test(url)
-        ) {
-          return match;
-        }
+          if (
+            typeof url !== "string" ||
+            !/^https?:\/\//i.test(url)
+          ) {
+            return match;
+          }
 
-        return `[[${number}]](${url
-          .replace(/\(/g, "%28")
-          .replace(/\)/g, "%29")})`;
-      });
+          return `[[${number}]](${url
+            .replace(
+              /\(/g,
+              "%28",
+            )
+            .replace(
+              /\)/g,
+              "%29",
+            )})`;
+        },
+      );
     })
     .join("");
 }
 
 function CodeBlock({ children }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] =
+    useState(false);
 
-  const codeElement = Array.isArray(children)
-    ? children[0]
-    : children;
+  const codeElement =
+    Array.isArray(children)
+      ? children[0]
+      : children;
 
   const className =
-    codeElement?.props?.className || "";
+    codeElement?.props
+      ?.className || "";
 
   const language =
-    (/language-([\w-]+)/.exec(className) || [])[1] || "";
+    (/language-([\w-]+)/.exec(
+      className,
+    ) || [])[1] || "";
 
-  const raw = codeElement?.props?.children;
+  const raw =
+    codeElement?.props?.children;
 
   const code = String(
     Array.isArray(raw)
@@ -59,26 +82,33 @@ function CodeBlock({ children }) {
 
   async function copyCode() {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(
+        code,
+      );
 
       setCopied(true);
 
-      window.setTimeout(() => {
-        setCopied(false);
-      }, 1600);
+      setTimeout(
+        () => setCopied(false),
+        1600,
+      );
     } catch {
-      // Clipboard access may be unavailable.
+      // ignore
     }
   }
 
   return (
     <div className="code-block">
       <div className="code-block-header">
-        <span>{language || "code"}</span>
+        <span>
+          {language || "code"}
+        </span>
 
         <button
           type="button"
-          onClick={copyCode}
+          onClick={
+            copyCode
+          }
           aria-label="Copy code"
         >
           {copied ? (
@@ -88,13 +118,17 @@ function CodeBlock({ children }) {
           )}
 
           <span>
-            {copied ? "Copied" : "Copy"}
+            {copied
+              ? "Copied"
+              : "Copy"}
           </span>
         </button>
       </div>
 
       <pre>
-        <code className={className}>
+        <code
+          className={className}
+        >
           {code}
         </code>
       </pre>
@@ -109,7 +143,10 @@ export default function MarkdownRenderer({
   return (
     <ReactMarkdown
       components={{
-        a: ({ children, ...props }) => (
+        a: ({
+          children,
+          ...props
+        }) => (
           <a
             {...props}
             target="_blank"
@@ -120,17 +157,26 @@ export default function MarkdownRenderer({
         ),
 
         pre: ({ children }) => (
-          <CodeBlock>{children}</CodeBlock>
+          <CodeBlock>
+            {children}
+          </CodeBlock>
         ),
 
-        table: ({ children }) => (
+        table: ({
+          children,
+        }) => (
           <div className="table-scroll">
-            <table>{children}</table>
+            <table>
+              {children}
+            </table>
           </div>
         ),
       }}
     >
-      {linkifyCitations(content, sources)}
+      {linkifyCitations(
+        content,
+        sources,
+      )}
     </ReactMarkdown>
   );
 }
