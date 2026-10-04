@@ -4,91 +4,43 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfterSeconds: number;
-  /** True when there is no signed-in user for this request. */
   unauthorized?: boolean;
-}
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
+  unavailable?: boolean;
 }
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 20;
 const DATABASE_TIMEOUT_MS = 2_500;
 
-/* ---------- fallback: per-instance memory ---------- */
+/**
+ * Shared, database-backed rate limiter for authenticated chat requests.
+ *
+ * Security note:
+ * We intentionally fail closed when the shared limiter cannot be reached.
+ * An in-memory fallback is unsafe on a distributed Vercel deployment because
+ * each instance would have its own counter and could be bypassed by routing
+ * requests across instances.
+ */
+export async function checkUserRateLimit(): Promise<RateLimitResult> {
+  let supabase;
 
-const entries = new Map<string, RateLimitEntry>();
-
-function cleanup(now: number): void {
-  for (const [key, entry] of entries) {
-    if (entry.resetAt <= now) {
-      entries.delete(key);
-    }
-  }
-}
-
-function checkMemoryLimit(key: string): RateLimitResult {
-  const now = Date.now();
-
-  if (entries.size > 1_000) {
-    cleanup(now);
-  }
-
-  const existing = entries.get(key);
-
-  if (!existing || existing.resetAt <= now) {
-    entries.set(key, {
-      count: 1,
-      resetAt: now + WINDOW_SECONDS * 1000,
-    });
-
-    return {
-      allowed: true,
-      remaining: MAX_REQUESTS - 1,
-      retryAfterSeconds: 0,
-    };
-  }
-
-  if (existing.count >= MAX_REQUESTS) {
+  try {
+    supabase = await createClient();
+  } catch {
     return {
       allowed: false,
       remaining: 0,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((existing.resetAt - now) / 1000),
-      ),
+      retryAfterSeconds: 5,
+      unavailable: true,
     };
   }
 
-  existing.count += 1;
-
-  return {
-    allowed: true,
-    remaining: MAX_REQUESTS - existing.count,
-    retryAfterSeconds: 0,
-  };
-}
-
-/* ---------- main entry ---------- */
-
-/**
- * Limits chat requests per signed-in user.
- *
- * The count lives in Supabase (check_rate_limit function), so it is shared
- * by every server instance. If the database is unreachable or the function
- * is not installed yet, it falls back to an in-memory counter so chat keeps
- * working.
- */
-export async function checkUserRateLimit(): Promise<RateLimitResult> {
-  const supabase = await createClient();
-
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     return {
       allowed: false,
       remaining: 0,
@@ -103,6 +55,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
         p_limit: MAX_REQUESTS,
         p_window_seconds: WINDOW_SECONDS,
       }),
+
       new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error("rate limit timeout")),
@@ -111,18 +64,45 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
       ),
     ]);
 
-    const row = Array.isArray(result.data) ? result.data[0] : null;
-
-    if (!result.error && row) {
+    if (result.error) {
       return {
-        allowed: Boolean(row.allowed),
-        remaining: Number(row.remaining) || 0,
-        retryAfterSeconds: Number(row.retry_after) || 0,
+        allowed: false,
+        remaining: 0,
+        retryAfterSeconds: 5,
+        unavailable: true,
       };
     }
-  } catch {
-    // fall through to the in-memory limiter
-  }
 
-  return checkMemoryLimit(user.id);
+    const row = Array.isArray(result.data)
+      ? result.data[0]
+      : null;
+
+    if (!row) {
+      return {
+        allowed: false,
+        remaining: 0,
+        retryAfterSeconds: 5,
+        unavailable: true,
+      };
+    }
+
+    return {
+      allowed: Boolean(row.allowed),
+      remaining: Math.max(
+        0,
+        Number(row.remaining) || 0,
+      ),
+      retryAfterSeconds: Math.max(
+        0,
+        Number(row.retry_after) || 0,
+      ),
+    };
+  } catch {
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: 5,
+      unavailable: true,
+    };
+  }
 }
