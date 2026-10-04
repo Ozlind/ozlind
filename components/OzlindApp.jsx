@@ -1,15 +1,44 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUp, ChevronRight, BrainCircuit, Check, ChevronDown, Code2, Copy,
-  FileText, Lightbulb, Map, Menu, MessageSquare, Moon, Paperclip,
-  PanelLeftClose, PenLine, RefreshCw, Search, Settings2, SlidersHorizontal,
-  UserRound, LogOut, LockKeyhole, Database, Shield, Palette, CircleHelp,
-  Info, Plug, Share2, Sparkles, Telescope, Trash2, X, Zap, Sun,
+  ArrowUp,
+  BrainCircuit,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Code2,
+  Copy,
+  Database,
+  FileText,
+  Lightbulb,
+  LogOut,
+  LockKeyhole,
+  Map,
+  Menu,
+  MessageSquare,
+  Moon,
+  Paperclip,
+  PanelLeftClose,
+  PenLine,
+  Palette,
+  RefreshCw,
+  Search,
+  Settings2,
+  Shield,
+  Share2,
+  Sparkles,
+  Sun,
+  Telescope,
+  Trash2,
+  UserRound,
+  X,
+  Zap,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+
 import { createClient } from "@/lib/supabase/client";
+
 import {
   deleteAllConversations,
   deleteConversation,
@@ -24,8 +53,36 @@ import {
 
 import { MODES as MODE_DEFS } from "@/constants/modes";
 import { DEFAULT_SETTINGS } from "@/constants/settings";
-import { ATTACHMENT_ACCEPT, LIMITS, TEXT_FILE_PATTERN } from "@/constants/limits";
-import { HISTORY_KEY, SETTINGS_KEY, THEME_KEY } from "@/constants/storage";
+import {
+  ATTACHMENT_ACCEPT,
+  LIMITS,
+  TEXT_FILE_PATTERN,
+} from "@/constants/limits";
+import {
+  HISTORY_KEY,
+  SETTINGS_KEY,
+  THEME_KEY,
+} from "@/constants/storage";
+
+/*
+ * Markdown is kept outside the main client component bundle.
+ * This makes the initial OZLIND workspace smaller.
+ */
+const MarkdownRenderer = dynamic(
+  () => import("./MarkdownRenderer"),
+  {
+    loading: () => (
+      <div
+        className="streaming-indicator"
+        aria-label="Rendering response"
+      >
+        <span />
+        <span />
+        <span />
+      </div>
+    ),
+  },
+);
 
 const MODE_ICONS = {
   sparkles: Sparkles,
@@ -36,46 +93,93 @@ const MODE_ICONS = {
 
 const MODES = MODE_DEFS.map((mode) => ({
   ...mode,
-  icon: MODE_ICONS[mode.iconName],
+  icon: MODE_ICONS[mode.iconName] || Sparkles,
 }));
 
 const SUGGESTIONS = [
-  { icon: Lightbulb, title: "Explain a topic", prompt: "Explain how large language models work, in simple terms." },
-  { icon: Code2, title: "Write or review code", prompt: "Review this code and suggest improvements:\n\n" },
-  { icon: FileText, title: "Summarize a text", prompt: "Summarize the key points of the following text:\n\n" },
-  { icon: Map, title: "Plan a project", prompt: "Create a practical, step-by-step plan for this goal: " },
+  {
+    icon: Lightbulb,
+    title: "Explain a topic",
+    prompt:
+      "Explain how large language models work, in simple terms.",
+  },
+  {
+    icon: Code2,
+    title: "Write or review code",
+    prompt:
+      "Review this code and suggest improvements:\n\n",
+  },
+  {
+    icon: FileText,
+    title: "Summarize a text",
+    prompt:
+      "Summarize the key points of the following text:\n\n",
+  },
+  {
+    icon: Map,
+    title: "Plan a project",
+    prompt:
+      "Create a practical, step-by-step plan for this goal: ",
+  },
 ];
 
 const MAX_TEXT_FILE_CHARS = LIMITS.maxTextFileChars;
 const MAX_IMAGE_BYTES = LIMITS.maxImageBytes;
 const MAX_TEXT_BYTES = LIMITS.maxTextFileBytes;
 
-// ---------- utilities ----------
+/* -------------------------------------------------------------------------- */
+/* Utilities                                                                  */
+/* -------------------------------------------------------------------------- */
 
 function normalizeSettings(raw) {
   const result = { ...DEFAULT_SETTINGS };
-  if (raw && typeof raw === "object") {
-    for (const key of Object.keys(DEFAULT_SETTINGS)) {
-      if (typeof raw[key] === typeof DEFAULT_SETTINGS[key]) result[key] = raw[key];
+
+  if (!raw || typeof raw !== "object") {
+    return result;
+  }
+
+  for (const key of Object.keys(DEFAULT_SETTINGS)) {
+    if (typeof raw[key] === typeof DEFAULT_SETTINGS[key]) {
+      result[key] = raw[key];
     }
   }
+
   return result;
 }
 
 function isHistoryRecord(item) {
-  return Boolean(item) && typeof item.id === "string" && typeof item.title === "string";
+  return Boolean(
+    item &&
+      typeof item.id === "string" &&
+      typeof item.title === "string",
+  );
 }
 
-function createTitle(text) {
-  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
-  if (!cleaned) return "New conversation";
-  return cleaned.length > 52 ? `${cleaned.slice(0, 52).trim()}…` : cleaned;
+function createTitle(value) {
+  const text = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return "New conversation";
+
+  return text.length > 52
+    ? `${text.slice(0, 52).trim()}…`
+    : text;
 }
 
 function formatFileSize(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -89,6 +193,7 @@ function isTextFile(file) {
 
 async function readTextFile(file) {
   const text = await file.text();
+
   return text.length > MAX_TEXT_FILE_CHARS
     ? `${text.slice(0, MAX_TEXT_FILE_CHARS)}\n…[file truncated]`
     : text;
@@ -97,179 +202,342 @@ async function readTextFile(file) {
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read the image."));
+    reader.onerror = () =>
+      reject(new Error("Could not read the image."));
+
     reader.readAsDataURL(file);
   });
 }
 
-async function imageToOptimizedDataUrl(file) {
+async function optimizeImage(file) {
   const original = await fileToDataUrl(file);
-  if (file.type === "image/gif" || file.type === "image/svg+xml") return original;
+
+  if (
+    file.type === "image/gif" ||
+    file.type === "image/svg+xml"
+  ) {
+    return original;
+  }
 
   try {
     const image = await new Promise((resolve, reject) => {
       const element = new Image();
+
       element.onload = () => resolve(element);
       element.onerror = reject;
       element.src = original;
     });
 
     const maxSide = 1600;
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-    if (scale === 1 && file.size < 1.5 * 1024 * 1024) return original;
+    const scale = Math.min(
+      1,
+      maxSide / Math.max(image.width, image.height),
+    );
+
+    if (
+      scale === 1 &&
+      file.size < 1.5 * 1024 * 1024
+    ) {
+      return original;
+    }
 
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
+
+    canvas.width = Math.max(
+      1,
+      Math.round(image.width * scale),
+    );
+
+    canvas.height = Math.max(
+      1,
+      Math.round(image.height * scale),
+    );
+
     const context = canvas.getContext("2d");
+
+    if (!context) {
+      return original;
+    }
+
     context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    context.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    context.drawImage(
+      image,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
     return canvas.toDataURL("image/jpeg", 0.85);
   } catch {
     return original;
   }
 }
 
-function getMessageText(message) {
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => (typeof part === "string" ? part : part?.text || "")).join("");
-  }
-  return "";
-}
-
-// Small preview kept with saved chats so images survive a reload and can still
-// be discussed in follow-up questions.
 async function makeThumbnail(dataUrl) {
   try {
     const image = await new Promise((resolve, reject) => {
       const element = new Image();
+
       element.onload = () => resolve(element);
       element.onerror = reject;
       element.src = dataUrl;
     });
+
     const maxSide = 480;
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+    const scale = Math.min(
+      1,
+      maxSide / Math.max(image.width, image.height),
+    );
+
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.width * scale));
-    canvas.height = Math.max(1, Math.round(image.height * scale));
+
+    canvas.width = Math.max(
+      1,
+      Math.round(image.width * scale),
+    );
+
+    canvas.height = Math.max(
+      1,
+      Math.round(image.height * scale),
+    );
+
     const context = canvas.getContext("2d");
+
+    if (!context) return null;
+
     context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const output = canvas.toDataURL("image/jpeg", 0.6);
-    return output.length < 150000 ? output : null;
+    context.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    context.drawImage(
+      image,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    const output = canvas.toDataURL(
+      "image/jpeg",
+      0.6,
+    );
+
+    return output.length < 150000
+      ? output
+      : null;
   } catch {
     return null;
   }
 }
 
-// Saved copy of a message: the full-size image is dropped, the small preview
-// and any attached text file content are kept.
+function getMessageText(message) {
+  if (!message) return "";
+
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+
+  if (Array.isArray(message.content)) {
+    return message.content
+      .map((part) =>
+        typeof part === "string"
+          ? part
+          : part?.text || "",
+      )
+      .join("");
+  }
+
+  return "";
+}
+
 function stripAttachmentData(message) {
-  if (!message?.attachment) return message;
-  const { dataUrl, ...rest } = message.attachment;
-  return { ...message, attachment: rest };
+  if (!message?.attachment) {
+    return message;
+  }
+
+  const { dataUrl, ...attachment } =
+    message.attachment;
+
+  return {
+    ...message,
+    attachment,
+  };
 }
 
 function withoutThumbnails(item) {
-  if (!Array.isArray(item?.messages)) return item;
+  if (!Array.isArray(item?.messages)) {
+    return item;
+  }
+
   return {
     ...item,
     messages: item.messages.map((message) => {
-      if (!message?.attachment?.thumb) return message;
-      const { thumb, ...rest } = message.attachment;
-      return { ...message, attachment: rest };
+      if (!message?.attachment?.thumb) {
+        return message;
+      }
+
+      const { thumb, ...attachment } =
+        message.attachment;
+
+      return {
+        ...message,
+        attachment,
+      };
     }),
   };
 }
 
-// Turns [1], [2] in an answer into links to the matching web source.
-function linkifyCitations(content, sources) {
-  if (typeof content !== "string" || !Array.isArray(sources) || !sources.length) return content;
-  return content
-    .split(/(```[\s\S]*?```)/g)
-    .map((part, index) => {
-      if (index % 2 === 1) return part;
-      return part.replace(/\[(\d{1,2})\](?!\()/g, (match, number) => {
-        const url = sources[Number(number) - 1]?.url;
-        if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return match;
-        return `[[${number}]](${url.replace(/\(/g, "%28").replace(/\)/g, "%29")})`;
-      });
-    })
-    .join("");
-}
+function buildApiMessages(messages) {
+  let lastImageIndex = -1;
 
-// Removes base64 image payloads from older user messages so the request
-// stays small. Only the most recent image is kept for vision.
-function buildApiMessages(currentMessages) {
-  const lastImageIndex = (() => {
-    for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
-      const candidate = currentMessages[i].attachment;
-      if (candidate?.type?.startsWith("image/") && (candidate.dataUrl || candidate.thumb)) return i;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const attachment = messages[index]?.attachment;
+
+    if (
+      attachment?.type?.startsWith("image/") &&
+      (attachment.dataUrl || attachment.thumb)
+    ) {
+      lastImageIndex = index;
+      break;
     }
-    return -1;
-  })();
+  }
 
-  return currentMessages.map((message, index) => {
+  return messages.map((message, index) => {
     const text = getMessageText(message);
     const attachment = message.attachment;
 
-    const imageUrl = attachment?.dataUrl || attachment?.thumb;
+    const imageUrl =
+      attachment?.dataUrl ||
+      attachment?.thumb;
 
-    if (imageUrl && attachment.type?.startsWith("image/")) {
+    if (
+      imageUrl &&
+      attachment?.type?.startsWith("image/")
+    ) {
       const content = [];
-      if (text) content.push({ type: "text", text });
-      if (index === lastImageIndex) {
-        content.push({ type: "image_url", image_url: { url: imageUrl } });
-      } else {
-        content.push({ type: "text", text: `[Earlier image: ${attachment.name}]` });
+
+      if (text) {
+        content.push({
+          type: "text",
+          text,
+        });
       }
-      return { role: message.role, content };
+
+      if (index === lastImageIndex) {
+        content.push({
+          type: "image_url",
+          image_url: {
+            url: imageUrl,
+          },
+        });
+      } else {
+        content.push({
+          type: "text",
+          text: `[Earlier image: ${attachment.name}]`,
+        });
+      }
+
+      return {
+        role: message.role,
+        content,
+      };
     }
 
     if (attachment?.text) {
       return {
         role: message.role,
-        content: `${text}\n\n[Attached file: ${attachment.name}]\n\`\`\`\n${attachment.text}\n\`\`\``,
+        content:
+          `${text}\n\n` +
+          `[Attached file: ${attachment.name}]\n` +
+          "```\n" +
+          attachment.text +
+          "\n```",
       };
     }
 
     if (attachment?.name) {
       return {
         role: message.role,
-        content: `${text}\n\n[Earlier attachment: ${attachment.name} — no longer available]`,
+        content:
+          `${text}\n\n` +
+          `[Earlier attachment: ${attachment.name} — no longer available]`,
       };
     }
 
-    return { role: message.role, content: text };
+    return {
+      role: message.role,
+      content: text,
+    };
   });
 }
 
-function hasImagePart(apiMessages) {
-  return apiMessages.some(
+function hasImagePart(messages) {
+  return messages.some(
     (message) =>
       Array.isArray(message.content) &&
       message.content.some(
         (part) =>
           part?.type === "image_url" &&
           typeof part?.image_url?.url === "string" &&
-          part.image_url.url.startsWith("data:image/")
-      )
+          part.image_url.url.startsWith(
+            "data:image/",
+          ),
+      ),
   );
 }
 
-// ---------- small components ----------
+/* -------------------------------------------------------------------------- */
+/* Small UI components                                                        */
+/* -------------------------------------------------------------------------- */
 
-function AccountInfoRow({ label, value }) {
+function AccountRow({
+  icon: Icon,
+  title,
+  subtitle,
+  trailing,
+  onClick,
+}) {
   return (
-    <div className="account-info-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <button
+      type="button"
+      className="account-row"
+      onClick={onClick}
+    >
+      <span className="account-row-icon">
+        {Icon ? (
+          <Icon
+            size={20}
+            strokeWidth={1.8}
+          />
+        ) : null}
+      </span>
+
+      <span className="account-row-copy">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </span>
+
+      {trailing || (
+        <ChevronRight
+          size={18}
+          className="account-row-chevron"
+        />
+      )}
+    </button>
   );
 }
 
@@ -277,124 +545,171 @@ function AccountGroup({ title, children }) {
   return (
     <section className="account-group">
       <h2>{title}</h2>
-      <div className="account-group-card">{children}</div>
+      <div className="account-group-card">
+        {children}
+      </div>
     </section>
   );
 }
 
-function AccountRow({ icon: Icon, title, subtitle, trailing, onClick }) {
+function Switch({ checked }) {
   return (
-    <button type="button" className="account-row" onClick={onClick}>
-      <span className="account-row-icon">{Icon ? <Icon size={20} strokeWidth={1.8} /> : null}</span>
-      <span className="account-row-copy">
-        <strong>{title}</strong>
-        <span>{subtitle}</span>
-      </span>
-      {trailing || <ChevronRight size={18} className="account-row-chevron" />}
-    </button>
-  );
-}
-
-function AccountSwitch({ checked }) {
-  return (
-    <span className={`account-switch ${checked ? "active" : ""}`} aria-hidden="true">
+    <span
+      className={`account-switch ${
+        checked ? "active" : ""
+      }`}
+      aria-hidden="true"
+    >
       <span />
     </span>
   );
 }
 
-function CodeBlock({ children }) {
-  const [copied, setCopied] = useState(false);
-  const codeElement = Array.isArray(children) ? children[0] : children;
-  const className = codeElement?.props?.className || "";
-  const language = (/language-([\w-]+)/.exec(className) || [])[1] || "";
-  const raw = codeElement?.props?.children;
-  const code = String(Array.isArray(raw) ? raw.join("") : raw ?? "").replace(/\n$/, "");
+/* -------------------------------------------------------------------------- */
+/* Main application                                                           */
+/* -------------------------------------------------------------------------- */
 
-  async function copyCode() {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // ignore
-    }
-  }
-
-  return (
-    <div className="code-block">
-      <div className="code-block-header">
-        <span>{language || "code"}</span>
-        <button type="button" onClick={copyCode} aria-label="Copy code">
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          <span>{copied ? "Copied" : "Copy"}</span>
-        </button>
-      </div>
-      <pre>
-        <code className={className}>{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-// ---------- main ----------
-
-export default function OzlindApp({ initialUser = null, initialHistory = null, initialSettings = null }) {
+export default function OzlindApp({
+  initialUser = null,
+  initialHistory = null,
+  initialSettings = null,
+}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
-  const [settings, setSettings] = useState(() => normalizeSettings(initialSettings));
-  const [history, setHistory] = useState(() => (Array.isArray(initialHistory) ? initialHistory : []));
-  const [activeChatId, setActiveChatId] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [accountSection, setAccountSection] = useState(null);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [modeOpen, setModeOpen] = useState(false);
-  const [historySearch, setHistorySearch] = useState("");
-  const [notice, setNotice] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [error, setError] = useState("");
-  const [copiedMessage, setCopiedMessage] = useState(null);
-  const [isDark, setIsDark] = useState(false);
+  const [settings, setSettings] = useState(
+    () => normalizeSettings(initialSettings),
+  );
 
-  const accountUser = initialUser || null;
+  const [history, setHistory] = useState(
+    () =>
+      Array.isArray(initialHistory)
+        ? initialHistory
+        : [],
+  );
+
+  const [activeChatId, setActiveChatId] =
+    useState(null);
+
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const [settingsOpen, setSettingsOpen] =
+    useState(false);
+
+  const [accountOpen, setAccountOpen] =
+    useState(false);
+
+  const [modeOpen, setModeOpen] =
+    useState(false);
+
+  const [historySearch, setHistorySearch] =
+    useState("");
+
+  const [notice, setNotice] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  const [isStreaming, setIsStreaming] =
+    useState(false);
+
+  const [selectedFile, setSelectedFile] =
+    useState(null);
+
+  const [copiedMessage, setCopiedMessage] =
+    useState(null);
+
+  const [isDark, setIsDark] =
+    useState(false);
+
+  const [loggingOut, setLoggingOut] =
+    useState(false);
+
+  const accountUser = initialUser;
   const userId = accountUser?.id || "anon";
-  const cloudEnabled = Array.isArray(initialHistory);
-  const historyKey = `${HISTORY_KEY}:${userId}`;
-  const settingsKey = `${SETTINGS_KEY}:${userId}`;
+  const cloudEnabled =
+    Array.isArray(initialHistory);
+
+  const historyKey =
+    `${HISTORY_KEY}:${userId}`;
+
+  const settingsKey =
+    `${SETTINGS_KEY}:${userId}`;
 
   const historyRef = useRef(history);
   historyRef.current = history;
-  const syncedRef = useRef(new globalThis.Map());
+
+  const syncedRef = useRef(
+    new globalThis.Map(),
+  );
+
   const openTokenRef = useRef(0);
   const chatLoadingRef = useRef(false);
   const hydratedRef = useRef(false);
+  const sendingRef = useRef(false);
+
   const lastSettingsRef = useRef(null);
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const abortControllerRef = useRef(null);
-  const sendingRef = useRef(false);
+  const abortControllerRef =
+    useRef(null);
   const bottomRef = useRef(null);
   const modeRef = useRef(null);
   const noticeTimerRef = useRef(null);
   const copiedTimerRef = useRef(null);
 
   const selectedMode = useMemo(
-    () => MODES.find((item) => item.id === mode) || MODES[0],
-    [mode]
+    () =>
+      MODES.find(
+        (item) => item.id === mode,
+      ) || MODES[0],
+    [mode],
   );
 
   const filteredHistory = useMemo(() => {
-    const query = historySearch.trim().toLowerCase();
+    const query = historySearch
+      .trim()
+      .toLowerCase();
+
     if (!query) return history;
-    return history.filter((item) => String(item.title || "").toLowerCase().includes(query));
+
+    return history.filter((item) =>
+      String(item.title || "")
+        .toLowerCase()
+        .includes(query),
+    );
   }, [history, historySearch]);
 
-  // ---------- persistence ----------
+  const userName =
+    accountUser?.user_metadata?.full_name ||
+    accountUser?.user_metadata?.name ||
+    accountUser?.email?.split("@")[0] ||
+    "OZLIND User";
+
+  const userEmail =
+    accountUser?.email ||
+    "Local OZLIND account";
+
+  const avatarUrl =
+    accountUser?.user_metadata?.avatar_url ||
+    accountUser?.user_metadata?.picture ||
+    "";
+
+  const userInitials =
+    userName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "O";
+
+  /* ---------------------------------------------------------------------- */
+  /* Persistence                                                            */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     let cacheList = [];
@@ -402,101 +717,219 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
     let localSettings = null;
 
     try {
-      const rawCache = localStorage.getItem(historyKey);
+      const rawCache =
+        localStorage.getItem(historyKey);
+
       if (rawCache) {
         const parsed = JSON.parse(rawCache);
-        if (Array.isArray(parsed)) cacheList = parsed.filter(isHistoryRecord);
+
+        if (Array.isArray(parsed)) {
+          cacheList =
+            parsed.filter(isHistoryRecord);
+        }
       }
-      const rawLegacy = localStorage.getItem(HISTORY_KEY);
+
+      const rawLegacy =
+        localStorage.getItem(HISTORY_KEY);
+
       if (rawLegacy) {
         const parsed = JSON.parse(rawLegacy);
-        if (Array.isArray(parsed)) legacyList = parsed.filter(isHistoryRecord);
+
+        if (Array.isArray(parsed)) {
+          legacyList =
+            parsed.filter(isHistoryRecord);
+        }
       }
-      const rawSettings = localStorage.getItem(settingsKey) ?? localStorage.getItem(SETTINGS_KEY);
-      if (rawSettings) localSettings = JSON.parse(rawSettings);
+
+      const rawSettings =
+        localStorage.getItem(settingsKey) ??
+        localStorage.getItem(SETTINGS_KEY);
+
+      if (rawSettings) {
+        localSettings =
+          JSON.parse(rawSettings);
+      }
     } catch {
       cacheList = [];
       legacyList = [];
     }
 
-    const remoteSettings = initialSettings ? normalizeSettings(initialSettings) : null;
-    setSettings(remoteSettings || normalizeSettings(localSettings));
-    lastSettingsRef.current = remoteSettings ? JSON.stringify(remoteSettings) : null;
+    const remoteSettings =
+      initialSettings
+        ? normalizeSettings(initialSettings)
+        : null;
+
+    setSettings(
+      remoteSettings ||
+        normalizeSettings(localSettings),
+    );
+
+    lastSettingsRef.current =
+      remoteSettings
+        ? JSON.stringify(remoteSettings)
+        : null;
 
     if (cloudEnabled) {
-      const cacheMap = new globalThis.Map(cacheList.map((item) => [item.id, item]));
-      const cloudIds = new Set(initialHistory.map((item) => item.id));
+      const cacheMap =
+        new globalThis.Map(
+          cacheList.map((item) => [
+            item.id,
+            item,
+          ]),
+        );
 
-      const merged = initialHistory.map((item) => {
-        const cached = cacheMap.get(item.id);
-        if (cached && !cached.pending && Array.isArray(cached.messages) && (cached.updatedAt || 0) >= (item.updatedAt || 0)) {
-          return { ...item, messages: cached.messages };
-        }
-        return item;
-      });
+      const cloudIds = new Set(
+        initialHistory.map(
+          (item) => item.id,
+        ),
+      );
 
-      const hasContent = (item) => Array.isArray(item.messages) && item.messages.length > 0;
-      const pending = cacheList.filter((item) => item.pending && hasContent(item));
-      const legacy = legacyList.filter((item) => hasContent(item) && !cloudIds.has(item.id));
-      const pendingIds = new Set(pending.map((item) => item.id));
+      const merged =
+        initialHistory.map((item) => {
+          const cached =
+            cacheMap.get(item.id);
+
+          if (
+            cached &&
+            !cached.pending &&
+            Array.isArray(
+              cached.messages,
+            ) &&
+            (cached.updatedAt || 0) >=
+              (item.updatedAt || 0)
+          ) {
+            return {
+              ...item,
+              messages: cached.messages,
+            };
+          }
+
+          return item;
+        });
+
+      const hasContent = (item) =>
+        Array.isArray(item?.messages) &&
+        item.messages.length > 0;
+
+      const pending = cacheList.filter(
+        (item) =>
+          item.pending &&
+          hasContent(item),
+      );
+
+      const legacy = legacyList.filter(
+        (item) =>
+          hasContent(item) &&
+          !cloudIds.has(item.id),
+      );
+
+      const pendingIds = new Set(
+        pending.map(
+          (item) => item.id,
+        ),
+      );
 
       const combined = [
-        ...merged.filter((item) => !pendingIds.has(item.id)),
+        ...merged.filter(
+          (item) =>
+            !pendingIds.has(item.id),
+        ),
         ...pending,
-        ...legacy.map((item) => ({ ...item, pending: true })),
-      ].sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));
+        ...legacy.map((item) => ({
+          ...item,
+          pending: true,
+        })),
+      ].sort(
+        (a, b) =>
+          (b.updatedAt || 0) -
+          (a.updatedAt || 0),
+      );
 
       setHistory(combined);
 
-      const toUpload = [...pending, ...legacy];
+      const toUpload = [
+        ...pending,
+        ...legacy,
+      ];
+
       if (toUpload.length) {
         (async () => {
-          let uploaded = 0;
-          let failed = false;
           for (const item of toUpload) {
-            const prepared = prepareForCloud(item);
-            if (!prepared.messages.length) continue;
+            const prepared =
+              prepareForCloud(item);
+
+            if (!prepared.messages.length) {
+              continue;
+            }
+
             try {
-              const stored = await saveConversation({
-                userId,
-                conversationId: prepared.id,
-                title: prepared.title,
-                updatedAt: prepared.updatedAt,
-                messages: prepared.messages,
-                synced: new Set(),
-              });
-              syncedRef.current.set(prepared.id, stored);
-              uploaded += 1;
+              const stored =
+                await saveConversation({
+                  userId,
+                  conversationId:
+                    prepared.id,
+                  title: prepared.title,
+                  updatedAt:
+                    prepared.updatedAt,
+                  messages:
+                    prepared.messages,
+                  synced:
+                    new Set(),
+                });
+
+              syncedRef.current.set(
+                prepared.id,
+                stored,
+              );
+
               setHistory((current) =>
                 current.map((entry) =>
                   entry.id === item.id
-                    ? { ...entry, id: prepared.id, messages: prepared.messages, pending: false }
-                    : entry
-                )
+                    ? {
+                        ...entry,
+                        id: prepared.id,
+                        messages:
+                          prepared.messages,
+                        pending: false,
+                      }
+                    : entry,
+                ),
               );
-            } catch (uploadError) {
-              failed = true;
-              console.error("OZLIND sync failed:", uploadError);
+            } catch (syncError) {
+              console.error(
+                "OZLIND sync failed:",
+                syncError,
+              );
             }
           }
-          if (legacy.length && !failed) {
+
+          if (legacy.length) {
             try {
-              localStorage.removeItem(HISTORY_KEY);
+              localStorage.removeItem(
+                HISTORY_KEY,
+              );
             } catch {
               // ignore
             }
           }
-          if (uploaded && legacy.length) {
-            showNotice(`Moved ${legacy.length} conversation${legacy.length === 1 ? "" : "s"} to your account`);
-          }
         })();
       }
     } else {
-      const base = cacheList.length ? cacheList : legacyList;
+      const base =
+        cacheList.length
+          ? cacheList
+          : legacyList;
+
       setHistory(base);
-      if (!cacheList.length && legacyList.length) {
+
+      if (
+        !cacheList.length &&
+        legacyList.length
+      ) {
         try {
-          localStorage.removeItem(HISTORY_KEY);
+          localStorage.removeItem(
+            HISTORY_KEY,
+          );
         } catch {
           // ignore
         }
@@ -506,19 +939,38 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
     hydratedRef.current = true;
 
     try {
-      const storedTheme = localStorage.getItem(THEME_KEY);
-      const prefersDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-      setIsDark(storedTheme ? storedTheme === "dark" : Boolean(prefersDark));
+      const storedTheme =
+        localStorage.getItem(THEME_KEY);
+
+      const prefersDark =
+        window.matchMedia?.(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+      setIsDark(
+        storedTheme
+          ? storedTheme === "dark"
+          : Boolean(prefersDark),
+      );
     } catch {
       // ignore
     }
+
+    // Initial hydration intentionally runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    document.body.classList.toggle("dark", isDark);
+    document.body.classList.toggle(
+      "dark",
+      isDark,
+    );
+
     try {
-      localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+      localStorage.setItem(
+        THEME_KEY,
+        isDark ? "dark" : "light",
+      );
     } catch {
       // ignore
     }
@@ -526,95 +978,216 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
   useEffect(() => {
     try {
-      const slim = history.map((item, index) => {
-        const meta = { id: item.id, title: item.title, updatedAt: item.updatedAt };
-        if (cloudEnabled) return item.pending ? item : meta;
-        return index < 15 ? withoutThumbnails(item) : meta;
-      });
-      localStorage.setItem(historyKey, JSON.stringify(slim));
+      const slim = history.map(
+        (item, index) => {
+          const meta = {
+            id: item.id,
+            title: item.title,
+            updatedAt: item.updatedAt,
+          };
+
+          if (cloudEnabled) {
+            return item.pending
+              ? item
+              : meta;
+          }
+
+          return index < 15
+            ? withoutThumbnails(item)
+            : meta;
+        },
+      );
+
+      localStorage.setItem(
+        historyKey,
+        JSON.stringify(slim),
+      );
     } catch {
       // ignore
     }
-  }, [history, historyKey, cloudEnabled]);
+  }, [
+    history,
+    historyKey,
+    cloudEnabled,
+  ]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(settingsKey, JSON.stringify(settings));
+      localStorage.setItem(
+        settingsKey,
+        JSON.stringify(settings),
+      );
     } catch {
       // ignore
     }
   }, [settings, settingsKey]);
 
   useEffect(() => {
-    if (!cloudEnabled || !hydratedRef.current) return undefined;
-    const serialized = JSON.stringify(settings);
-    if (serialized === lastSettingsRef.current) return undefined;
-    const timer = setTimeout(() => {
-      saveSettings(userId, settings)
-        .then(() => {
-          lastSettingsRef.current = serialized;
-        })
-        .catch((saveError) => console.error("OZLIND settings sync failed:", saveError));
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [settings, cloudEnabled, userId]);
+    if (
+      !cloudEnabled ||
+      !hydratedRef.current
+    ) {
+      return undefined;
+    }
 
-  // ---------- global listeners ----------
+    const serialized =
+      JSON.stringify(settings);
+
+    if (
+      serialized ===
+      lastSettingsRef.current
+    ) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      saveSettings(
+        userId,
+        settings,
+      )
+        .then(() => {
+          lastSettingsRef.current =
+            serialized;
+        })
+        .catch((saveError) => {
+          console.error(
+            "OZLIND settings sync failed:",
+            saveError,
+          );
+        });
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [
+    settings,
+    cloudEnabled,
+    userId,
+  ]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Global listeners                                                       */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     const handleClick = (event) => {
-      if (modeRef.current && !modeRef.current.contains(event.target)) setModeOpen(false);
+      if (
+        modeRef.current &&
+        !modeRef.current.contains(
+          event.target,
+        )
+      ) {
+        setModeOpen(false);
+      }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+
+    document.addEventListener(
+      "mousedown",
+      handleClick,
+    );
+
+    return () =>
+      document.removeEventListener(
+        "mousedown",
+        handleClick,
+      );
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
   }, [messages, isStreaming]);
 
   useEffect(() => {
     if (!notice) return undefined;
-    clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = setTimeout(() => setNotice(""), 2600);
-    return () => clearTimeout(noticeTimerRef.current);
+
+    clearTimeout(
+      noticeTimerRef.current,
+    );
+
+    noticeTimerRef.current =
+      setTimeout(
+        () => setNotice(""),
+        2600,
+      );
+
+    return () =>
+      clearTimeout(
+        noticeTimerRef.current,
+      );
   }, [notice]);
 
   useEffect(() => {
     const handleKeyboard = (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "k") {
+      if (
+        (event.ctrlKey ||
+          event.metaKey) &&
+        event.key === "k"
+      ) {
         event.preventDefault();
         textareaRef.current?.focus();
       }
+
       if (event.key === "Escape") {
         setModeOpen(false);
         setSettingsOpen(false);
       }
     };
-    window.addEventListener("keydown", handleKeyboard);
-    return () => window.removeEventListener("keydown", handleKeyboard);
+
+    window.addEventListener(
+      "keydown",
+      handleKeyboard,
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleKeyboard,
+      );
   }, []);
 
-  useEffect(() => () => {
-    clearTimeout(copiedTimerRef.current);
-    abortControllerRef.current?.abort();
+  useEffect(() => {
+    return () => {
+      clearTimeout(
+        copiedTimerRef.current,
+      );
+
+      abortControllerRef.current?.abort();
+    };
   }, []);
 
-  // ---------- helpers ----------
+  /* ---------------------------------------------------------------------- */
+  /* Helpers                                                                */
+  /* ---------------------------------------------------------------------- */
 
   function showNotice(message) {
     setNotice(message);
   }
 
   function updateSettings(patch) {
-    setSettings((current) => ({ ...current, ...patch }));
+    setSettings((current) => ({
+      ...current,
+      ...patch,
+    }));
   }
 
   function autoResizeTextarea() {
-    const element = textareaRef.current;
+    const element =
+      textareaRef.current;
+
     if (!element) return;
+
     element.style.height = "auto";
-    element.style.height = `${Math.min(Math.max(element.scrollHeight, 48), 180)}px`;
+
+    element.style.height =
+      `${Math.min(
+        Math.max(
+          element.scrollHeight,
+          48,
+        ),
+        180,
+      )}px`;
   }
 
   function handleInputChange(event) {
@@ -623,53 +1196,124 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
   }
 
   function markPending(id, value) {
-    setHistory((current) => current.map((item) => (item.id === id ? { ...item, pending: value } : item)));
+    setHistory((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              pending: value,
+            }
+          : item,
+      ),
+    );
   }
 
   async function persistChat(record) {
     if (!cloudEnabled) return;
+
     try {
-      const stored = await saveConversation({
-        userId,
-        conversationId: record.id,
-        title: record.title,
-        updatedAt: record.updatedAt,
-        messages: record.messages,
-        synced: syncedRef.current.get(record.id) || new Set(),
-      });
-      syncedRef.current.set(record.id, stored);
-      markPending(record.id, false);
+      const stored =
+        await saveConversation({
+          userId,
+          conversationId: record.id,
+          title: record.title,
+          updatedAt: record.updatedAt,
+          messages: record.messages,
+          synced:
+            syncedRef.current.get(
+              record.id,
+            ) || new Set(),
+        });
+
+      syncedRef.current.set(
+        record.id,
+        stored,
+      );
+
+      markPending(
+        record.id,
+        false,
+      );
     } catch (syncError) {
-      console.error("OZLIND sync failed:", syncError);
-      markPending(record.id, true);
-      showNotice("Could not sync to your account. Saved on this device.");
+      console.error(
+        "OZLIND sync failed:",
+        syncError,
+      );
+
+      markPending(
+        record.id,
+        true,
+      );
+
+      showNotice(
+        "Could not sync to your account. Saved on this device.",
+      );
     }
   }
 
-  function updateHistoryFromMessages(nextMessages, chatId) {
-    if (!chatId || !nextMessages?.length) return;
-    const firstUser = nextMessages.find((item) => item.role === "user");
-    const title = firstUser ? createTitle(firstUser.content) : "New conversation";
-    const existing = historyRef.current.find((item) => item.id === chatId);
+  function updateHistoryFromMessages(
+    nextMessages,
+    chatId,
+  ) {
+    if (
+      !chatId ||
+      !nextMessages?.length
+    ) {
+      return;
+    }
+
+    const firstUser =
+      nextMessages.find(
+        (item) => item.role === "user",
+      );
+
     const record = {
       id: chatId,
-      title: existing?.title || title,
-      messages: nextMessages.map(stripAttachmentData),
+      title:
+        historyRef.current.find(
+          (item) =>
+            item.id === chatId,
+        )?.title ||
+        createTitle(
+          firstUser?.content,
+        ),
+      messages:
+        nextMessages.map(
+          stripAttachmentData,
+        ),
       updatedAt: Date.now(),
       pending: cloudEnabled,
     };
 
-    historyRef.current = [record, ...historyRef.current.filter((item) => item.id !== chatId)];
-    setHistory((current) => [record, ...current.filter((item) => item.id !== chatId)]);
+    historyRef.current = [
+      record,
+      ...historyRef.current.filter(
+        (item) =>
+          item.id !== chatId,
+      ),
+    ];
+
+    setHistory((current) => [
+      record,
+      ...current.filter(
+        (item) =>
+          item.id !== chatId,
+      ),
+    ]);
+
     persistChat(record);
   }
 
-  // ---------- navigation ----------
+  /* ---------------------------------------------------------------------- */
+  /* Navigation                                                             */
+  /* ---------------------------------------------------------------------- */
 
   function startNewChat() {
     abortControllerRef.current?.abort();
+
     openTokenRef.current += 1;
     chatLoadingRef.current = false;
+
     setMessages([]);
     setInput("");
     setSelectedFile(null);
@@ -677,16 +1321,27 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
     setActiveChatId(null);
     setIsStreaming(false);
     setSidebarOpen(false);
-    requestAnimationFrame(() => textareaRef.current?.focus());
+
+    requestAnimationFrame(() =>
+      textareaRef.current?.focus(),
+    );
   }
 
   async function openHistoryItem(item) {
     abortControllerRef.current?.abort();
-    openTokenRef.current += 1;
-    const token = openTokenRef.current;
-    const loaded = Array.isArray(item.messages);
 
-    setMessages(loaded ? item.messages : []);
+    openTokenRef.current += 1;
+
+    const token =
+      openTokenRef.current;
+
+    const loaded =
+      Array.isArray(item.messages);
+
+    setMessages(
+      loaded ? item.messages : [],
+    );
+
     setActiveChatId(item.id);
     setInput("");
     setSelectedFile(null);
@@ -696,295 +1351,320 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
     if (loaded) {
       chatLoadingRef.current = false;
-      if (!item.pending && !syncedRef.current.has(item.id)) {
-        syncedRef.current.set(item.id, new Set(item.messages.map((message) => message.id)));
+
+      if (
+        !item.pending &&
+        !syncedRef.current.has(
+          item.id,
+        )
+      ) {
+        syncedRef.current.set(
+          item.id,
+          new Set(
+            item.messages.map(
+              (message) =>
+                message.id,
+            ),
+          ),
+        );
       }
+
       return;
     }
 
     chatLoadingRef.current = true;
+
     try {
-      const stored = await fetchMessages(item.id);
-      if (openTokenRef.current !== token) return;
-      syncedRef.current.set(item.id, new Set(stored.map((message) => message.id)));
+      const stored =
+        await fetchMessages(item.id);
+
+      if (
+        openTokenRef.current !==
+        token
+      ) {
+        return;
+      }
+
+      syncedRef.current.set(
+        item.id,
+        new Set(
+          stored.map(
+            (message) =>
+              message.id,
+          ),
+        ),
+      );
+
       setMessages(stored);
-      setHistory((current) => current.map((entry) => (entry.id === item.id ? { ...entry, messages: stored } : entry)));
+
+      setHistory((current) =>
+        current.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                messages: stored,
+              }
+            : entry,
+        ),
+      );
     } catch (loadError) {
-      console.error("OZLIND could not load conversation:", loadError);
-      if (openTokenRef.current === token) showNotice("Could not load this conversation");
+      console.error(
+        "OZLIND could not load conversation:",
+        loadError,
+      );
+
+      if (
+        openTokenRef.current ===
+        token
+      ) {
+        showNotice(
+          "Could not load this conversation",
+        );
+      }
     } finally {
-      if (openTokenRef.current === token) chatLoadingRef.current = false;
+      if (
+        openTokenRef.current ===
+        token
+      ) {
+        chatLoadingRef.current =
+          false;
+      }
     }
   }
 
   function deleteHistoryItem(id) {
-    setHistory((current) => current.filter((item) => item.id !== id));
+    setHistory((current) =>
+      current.filter(
+        (item) => item.id !== id,
+      ),
+    );
+
     syncedRef.current.delete(id);
+
     if (cloudEnabled) {
-      deleteConversation(id).catch((deleteError) => {
-        console.error("OZLIND delete failed:", deleteError);
-        showNotice("Could not delete it from your account");
-      });
+      deleteConversation(id).catch(
+        (deleteError) => {
+          console.error(
+            "OZLIND delete failed:",
+            deleteError,
+          );
+        },
+      );
     }
-    if (activeChatId === id) startNewChat();
-    showNotice("Conversation deleted");
+
+    if (activeChatId === id) {
+      startNewChat();
+    }
+
+    showNotice(
+      "Conversation deleted",
+    );
   }
 
   function clearHistory() {
     if (!history.length) return;
+
     setHistory([]);
     syncedRef.current.clear();
+
     if (cloudEnabled) {
-      deleteAllConversations(userId).catch((deleteError) => {
-        console.error("OZLIND delete failed:", deleteError);
-        showNotice("Could not delete it from your account");
+      deleteAllConversations(
+        userId,
+      ).catch((deleteError) => {
+        console.error(
+          "OZLIND delete failed:",
+          deleteError,
+        );
       });
     }
-    if (activeChatId) startNewChat();
+
+    if (activeChatId) {
+      startNewChat();
+    }
+
     showNotice("History cleared");
   }
 
   function clearCurrentChat() {
     abortControllerRef.current?.abort();
+
     setMessages([]);
     setInput("");
     setSelectedFile(null);
     setError("");
     setIsStreaming(false);
+
     if (activeChatId) {
-      const clearedId = activeChatId;
-      setHistory((current) => current.filter((item) => item.id !== clearedId));
-      syncedRef.current.delete(clearedId);
+      const id = activeChatId;
+
+      setHistory((current) =>
+        current.filter(
+          (item) => item.id !== id,
+        ),
+      );
+
+      syncedRef.current.delete(id);
+
       if (cloudEnabled) {
-        deleteConversation(clearedId).catch((deleteError) => {
-          console.error("OZLIND delete failed:", deleteError);
-        });
+        deleteConversation(id).catch(
+          (deleteError) => {
+            console.error(
+              "OZLIND delete failed:",
+              deleteError,
+            );
+          },
+        );
       }
     }
+
     setActiveChatId(null);
+
     showNotice("Chat cleared");
   }
 
-  // ---------- account ----------
-
-  function openAccount() {
-    setSidebarOpen(false);
-    setAccountSection(null);
-    setAccountOpen(true);
-  }
-
-  function closeAccount() {
-    setAccountSection(null);
-    setAccountOpen(false);
-  }
-
-  async function exportOzlindData() {
-    try {
-      let conversations = history;
-      if (cloudEnabled) {
-        conversations = await fetchEverything();
-      }
-      const payload = {
-        exportedAt: new Date().toISOString(),
-        product: "OZLIND AI",
-        organization: "OZLIND Enterprises",
-        owner: "Athul",
-        account: accountUser?.email || null,
-        history: conversations,
-        settings,
-        theme: isDark ? "dark" : "light",
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "ozlind-data-export.json";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      showNotice("OZLIND data exported");
-    } catch (exportError) {
-      console.error("OZLIND data export failed:", exportError);
-      showNotice("Could not export your data");
-    }
-  }
-
-  function removeDeviceData() {
-    try {
-      localStorage.removeItem(historyKey);
-      localStorage.removeItem(settingsKey);
-      localStorage.removeItem(HISTORY_KEY);
-      localStorage.removeItem(SETTINGS_KEY);
-      localStorage.removeItem(THEME_KEY);
-    } catch {
-      // ignore
-    }
-  }
-
-  async function clearAllData() {
-    const where = cloudEnabled ? "this device and your OZLIND account" : "this device";
-    if (!window.confirm(`Delete all conversations and preferences from ${where}? This cannot be undone.`)) return;
-    abortControllerRef.current?.abort();
-    openTokenRef.current += 1;
-    chatLoadingRef.current = false;
-    setMessages([]);
-    setHistory([]);
-    syncedRef.current.clear();
-    setActiveChatId(null);
-    setInput("");
-    setSelectedFile(null);
-    setError("");
-    setIsStreaming(false);
-    setSettings(DEFAULT_SETTINGS);
-    setAccountSection(null);
-    setIsDark(false);
-    removeDeviceData();
-    if (cloudEnabled) {
-      try {
-        await deleteAllConversations(userId);
-        await deleteSettings(userId);
-        lastSettingsRef.current = null;
-      } catch (deleteError) {
-        console.error("OZLIND delete failed:", deleteError);
-        showNotice("Cleared on this device, but could not clear your account");
-        return;
-      }
-    }
-    showNotice("All OZLIND data deleted");
-  }
-
-  async function deleteAccount() {
-    if (!window.confirm("Permanently delete your OZLIND account and all of its data? This cannot be undone.")) return;
-    const typed = window.prompt("Type DELETE to confirm.");
-    if (typed !== "DELETE") {
-      showNotice("Account was not deleted");
-      return;
-    }
-    try {
-      const response = await fetch("/api/account/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "DELETE" }),
-      });
-      if (!response.ok) {
-        let message = "Could not delete your account. Please try again.";
-        try {
-          const data = await response.json();
-          if (data?.error) message = data.error;
-        } catch {
-          // ignore
-        }
-        showNotice(message);
-        return;
-      }
-    } catch {
-      showNotice("Could not delete your account. Please try again.");
-      return;
-    }
-    removeDeviceData();
-    try {
-      const supabase = await createClient();
-      await supabase.auth.signOut();
-    } catch {
-      // the account no longer exists
-    }
-    window.location.assign("/login");
-  }
-
-  async function handleLogout() {
-    if (loggingOut) return;
-    setLoggingOut(true);
-    if (cloudEnabled && !historyRef.current.some((item) => item.pending)) {
-      try {
-        localStorage.removeItem(historyKey);
-      } catch {
-        // ignore
-      }
-    }
-    try {
-      const supabase = await createClient();
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Sign out failed:", err);
-    }
-    window.location.assign("/login");
-  }
-
-  const userName =
-    accountUser?.user_metadata?.full_name ||
-    accountUser?.user_metadata?.name ||
-    accountUser?.email?.split("@")[0] ||
-    "OZLIND User";
-  const userEmail = accountUser?.email || "Local OZLIND account";
-  const avatarUrl = accountUser?.user_metadata?.avatar_url || accountUser?.user_metadata?.picture || "";
-  const userInitials =
-    userName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "O";
-
-  // ---------- files ----------
+  /* ---------------------------------------------------------------------- */
+  /* Files                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   async function handleFileChange(event) {
-    const file = event.target.files?.[0];
+    const file =
+      event.target.files?.[0];
+
     event.target.value = "";
+
     if (!file) return;
 
-    const isImage = file.type.startsWith("image/");
+    const isImage =
+      file.type.startsWith("image/");
+
     const isText = isTextFile(file);
 
     if (!isImage && !isText) {
-      setError("This file type isn't supported. Attach an image or a text file (.txt, .md, .csv, .json).");
+      setError(
+        "This file type isn't supported. Attach an image or a text file (.txt, .md, .csv, .json).",
+      );
       return;
     }
-    const maxSize = isImage ? MAX_IMAGE_BYTES : MAX_TEXT_BYTES;
+
+    const maxSize = isImage
+      ? MAX_IMAGE_BYTES
+      : MAX_TEXT_BYTES;
+
     if (file.size > maxSize) {
-      setError(isImage ? "This image is too large. Please choose one under 12 MB." : "This file is too large. Text files must be under 2 MB.");
+      setError(
+        isImage
+          ? "This image is too large. Please choose one under 12 MB."
+          : "This file is too large. Text files must be under 2 MB.",
+      );
       return;
     }
+
     setError("");
 
     try {
       let dataUrl = null;
       let text = null;
       let thumb = null;
+
       if (isImage) {
-        dataUrl = await imageToOptimizedDataUrl(file);
-        if (dataUrl.length > 4000000) {
-          setError("This image is too large to send. Please try a smaller one.");
+        dataUrl =
+          await optimizeImage(file);
+
+        if (
+          dataUrl.length > 4000000
+        ) {
+          setError(
+            "This image is too large to send. Please try a smaller one.",
+          );
           return;
         }
-        thumb = await makeThumbnail(dataUrl);
+
+        thumb =
+          await makeThumbnail(
+            dataUrl,
+          );
       } else {
-        text = await readTextFile(file);
+        text =
+          await readTextFile(file);
       }
-      setSelectedFile({ name: file.name, type: file.type || "text/plain", size: file.size, dataUrl, thumb, text });
-      showNotice(`${file.name} attached`);
+
+      setSelectedFile({
+        name: file.name,
+        type:
+          file.type ||
+          "text/plain",
+        size: file.size,
+        dataUrl,
+        thumb,
+        text,
+      });
+
+      showNotice(
+        `${file.name} attached`,
+      );
     } catch {
-      setError("Could not read the selected file.");
+      setError(
+        "Could not read the selected file.",
+      );
     }
   }
 
-  // ---------- message actions ----------
+  /* ---------------------------------------------------------------------- */
+  /* Message actions                                                        */
+  /* ---------------------------------------------------------------------- */
 
-  async function copyMessage(content, index) {
+  async function copyMessage(
+    content,
+    index,
+  ) {
     try {
-      await navigator.clipboard.writeText(String(content || ""));
+      await navigator.clipboard.writeText(
+        String(content || ""),
+      );
+
       setCopiedMessage(index);
       showNotice("Copied");
-      clearTimeout(copiedTimerRef.current);
-      copiedTimerRef.current = setTimeout(() => {
-        setCopiedMessage((current) => (current === index ? null : current));
-      }, 1600);
+
+      clearTimeout(
+        copiedTimerRef.current,
+      );
+
+      copiedTimerRef.current =
+        setTimeout(() => {
+          setCopiedMessage(
+            (current) =>
+              current === index
+                ? null
+                : current,
+          );
+        }, 1600);
     } catch {
-      setError("Could not copy the message.");
+      setError(
+        "Could not copy the message.",
+      );
     }
   }
 
   function editMessage(message) {
     if (isStreaming) return;
-    const content = getMessageText(message);
-    const index = messages.findIndex((item) => item.id === message.id);
-    if (index >= 0) setMessages(messages.slice(0, index));
+
+    const content =
+      getMessageText(message);
+
+    const index =
+      messages.findIndex(
+        (item) =>
+          item.id === message.id,
+      );
+
+    if (index >= 0) {
+      setMessages(
+        messages.slice(0, index),
+      );
+    }
+
     setInput(content);
+
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
       autoResizeTextarea();
@@ -993,73 +1673,160 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
   async function shareConversation() {
     const text = messages
-      .map((message) => `${message.role === "user" ? "You" : "Ozlind AI"}:\n${getMessageText(message)}`)
+      .map(
+        (message) =>
+          `${message.role === "user" ? "You" : "Ozlind AI"}:\n${getMessageText(message)}`,
+      )
       .join("\n\n");
+
     if (!text) {
-      showNotice("Nothing to share yet");
+      showNotice(
+        "Nothing to share yet",
+      );
       return;
     }
+
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Ozlind AI conversation", text });
+        await navigator.share({
+          title:
+            "OZLIND AI conversation",
+          text,
+        });
         return;
       }
-      await navigator.clipboard.writeText(text);
-      showNotice("Conversation copied");
+
+      await navigator.clipboard.writeText(
+        text,
+      );
+
+      showNotice(
+        "Conversation copied",
+      );
     } catch {
-      // user cancelled
+      // User cancelled sharing.
     }
   }
 
   function selectSuggestion(prompt) {
     setInput(prompt);
+
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
       autoResizeTextarea();
     });
   }
 
-  // ---------- streaming ----------
+  /* ---------------------------------------------------------------------- */
+  /* Streaming                                                              */
+  /* ---------------------------------------------------------------------- */
 
   function handleTextareaKeyDown(event) {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent?.isComposing) {
-      if (window.matchMedia?.("(pointer: coarse)").matches) return;
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent?.isComposing
+    ) {
+      if (
+        window.matchMedia?.(
+          "(pointer: coarse)",
+        ).matches
+      ) {
+        return;
+      }
+
       event.preventDefault();
-      if (!isStreaming) sendMessage();
+
+      if (!isStreaming) {
+        sendMessage();
+      }
     }
   }
 
   function stopGeneration() {
-    const controller = abortControllerRef.current;
-    if (controller) {
-      controller.userStopped = true;
-      controller.abort();
-    }
+    const controller =
+      abortControllerRef.current;
+
+    if (!controller) return;
+
+    controller.userStopped = true;
+    controller.abort();
   }
 
-  async function regenerateLastResponse() {
-    if (isStreaming || !messages.length) return;
-    let lastUserIndex = -1;
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i].role === "user") { lastUserIndex = i; break; }
-    }
-    if (lastUserIndex < 0) return;
-    const baseMessages = messages.slice(0, lastUserIndex + 1);
-    setMessages(baseMessages);
-    sendMessage(undefined, { resendMessages: baseMessages });
-  }
-
-  async function sendMessage(customPrompt, options = {}) {
-    if (sendingRef.current || isStreaming) return;
-    if (chatLoadingRef.current) {
-      showNotice("Loading conversation…");
+  function regenerateLastResponse() {
+    if (
+      isStreaming ||
+      !messages.length
+    ) {
       return;
     }
 
-    const resend = Array.isArray(options.resendMessages);
-    const prompt = String(customPrompt !== undefined ? customPrompt : input).trim();
+    let lastUserIndex = -1;
 
-    if (!resend && !prompt && !selectedFile) {
+    for (
+      let index =
+        messages.length - 1;
+      index >= 0;
+      index -= 1
+    ) {
+      if (
+        messages[index].role ===
+        "user"
+      ) {
+        lastUserIndex = index;
+        break;
+      }
+    }
+
+    if (lastUserIndex < 0) return;
+
+    const baseMessages =
+      messages.slice(
+        0,
+        lastUserIndex + 1,
+      );
+
+    setMessages(baseMessages);
+
+    sendMessage(undefined, {
+      resendMessages:
+        baseMessages,
+    });
+  }
+
+  async function sendMessage(
+    customPrompt,
+    options = {},
+  ) {
+    if (
+      sendingRef.current ||
+      isStreaming
+    ) {
+      return;
+    }
+
+    if (chatLoadingRef.current) {
+      showNotice(
+        "Loading conversation…",
+      );
+      return;
+    }
+
+    const resend = Array.isArray(
+      options.resendMessages,
+    );
+
+    const prompt = String(
+      customPrompt !== undefined
+        ? customPrompt
+        : input,
+    ).trim();
+
+    if (
+      !resend &&
+      !prompt &&
+      !selectedFile
+    ) {
       textareaRef.current?.focus();
       return;
     }
@@ -1067,40 +1834,68 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
     sendingRef.current = true;
     setError("");
 
-    const chatId = activeChatId || createId();
-    if (!activeChatId) setActiveChatId(chatId);
+    const chatId =
+      activeChatId || createId();
+
+    if (!activeChatId) {
+      setActiveChatId(chatId);
+    }
 
     let nextMessages;
+
     if (resend) {
-      nextMessages = options.resendMessages;
+      nextMessages =
+        options.resendMessages;
     } else {
       const userMessage = {
         id: createId(),
         role: "user",
-        content: prompt || (selectedFile?.dataUrl ? "Describe this image and point out anything important." : "Please analyze the attached file."),
+        content:
+          prompt ||
+          (selectedFile?.dataUrl
+            ? "Describe this image and point out anything important."
+            : "Please analyze the attached file."),
         createdAt: Date.now(),
         attachment: selectedFile
           ? {
-              name: selectedFile.name,
-              type: selectedFile.type,
-              size: selectedFile.size,
-              dataUrl: selectedFile.dataUrl,
-              thumb: selectedFile.thumb || null,
-              text: selectedFile.text || null,
+              name:
+                selectedFile.name,
+              type:
+                selectedFile.type,
+              size:
+                selectedFile.size,
+              dataUrl:
+                selectedFile.dataUrl,
+              thumb:
+                selectedFile.thumb ||
+                null,
+              text:
+                selectedFile.text ||
+                null,
             }
           : null,
       };
-      nextMessages = [...messages, userMessage];
+
+      nextMessages = [
+        ...messages,
+        userMessage,
+      ];
+
       setInput("");
       setSelectedFile(null);
     }
 
     setMessages(nextMessages);
+
     requestAnimationFrame(() => {
-      if (textareaRef.current) textareaRef.current.style.height = "48px";
+      if (textareaRef.current) {
+        textareaRef.current.style.height =
+          "48px";
+      }
     });
 
     const assistantId = createId();
+
     const assistantMessage = {
       id: assistantId,
       role: "assistant",
@@ -1110,39 +1905,76 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
       streaming: true,
     };
 
-    setMessages((current) => [...current, assistantMessage]);
+    setMessages((current) => [
+      ...current,
+      assistantMessage,
+    ]);
+
     setIsStreaming(true);
 
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    const controller =
+      new AbortController();
+
+    abortControllerRef.current =
+      controller;
 
     let fullText = "";
     let sources = [];
 
-    const updateAssistant = (patch) => {
+    const updateAssistant = (
+      patch,
+    ) => {
       setMessages((current) =>
-        current.map((message) => (message.id === assistantId ? { ...message, ...patch } : message))
+        current.map((message) =>
+          message.id ===
+          assistantId
+            ? {
+                ...message,
+                ...patch,
+              }
+            : message,
+        ),
       );
     };
 
     try {
-      const apiMessages = buildApiMessages(nextMessages);
+      const apiMessages =
+        buildApiMessages(
+          nextMessages,
+        );
+
       const body = {
         messages: apiMessages,
-        mode: hasImagePart(apiMessages) ? "vision" : mode,
-        research: settings.research,
-        memory: settings.memory,
-        responseStyle: settings.responseStyle,
-        responseLength: settings.responseLength,
-        customInstructions: settings.customInstructions,
+        mode: hasImagePart(
+          apiMessages,
+        )
+          ? "vision"
+          : mode,
+        research:
+          settings.research,
+        memory:
+          settings.memory,
+        responseStyle:
+          settings.responseStyle,
+        responseLength:
+          settings.responseLength,
+        customInstructions:
+          settings.customInstructions,
       };
 
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
+      const response = await fetch(
+        "/api/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(body),
+          signal:
+            controller.signal,
+        },
+      );
 
       if (!response.ok) {
         let message =
@@ -1150,197 +1982,706 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
             ? "Your session has expired. Please sign in again."
             : response.status === 413
               ? "The attachment is too large to send."
-              : "Something went wrong. Please try again.";
+              : response.status === 429
+                ? "Too many requests. Please wait a moment and try again."
+                : "Something went wrong. Please try again.";
+
         try {
-          const data = await response.json();
-          if (data?.error) message = data.error;
+          const data =
+            await response.json();
+
+          if (data?.error) {
+            message =
+              data.error;
+          }
         } catch {
           // ignore
         }
+
         throw new Error(message);
       }
 
-      if (!response.body) throw new Error("The server returned an empty response.");
+      if (!response.body) {
+        throw new Error(
+          "The server returned an empty response.",
+        );
+      }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
       let buffer = "";
 
-      const handleEvent = (event) => {
-        if (!event || typeof event !== "object") return;
-        if (event.type === "error" || event.error) {
-          throw new Error(event.error || "The AI service returned an error.");
-        }
-        if (event.type === "status") {
-          updateAssistant({ status: event.message || null });
+      const handleEvent = (
+        event,
+      ) => {
+        if (
+          !event ||
+          typeof event !==
+            "object"
+        ) {
           return;
         }
-        if (event.type === "notice" && event.message) {
-          showNotice(event.message);
+
+        if (
+          event.type === "error" ||
+          event.error
+        ) {
+          throw new Error(
+            event.error ||
+              "The AI service returned an error.",
+          );
+        }
+
+        if (
+          event.type ===
+          "status"
+        ) {
+          updateAssistant({
+            status:
+              event.message ||
+              null,
+          });
           return;
         }
-        if (event.type === "sources" && Array.isArray(event.sources)) {
-          sources = event.sources;
-          updateAssistant({ sources });
+
+        if (
+          event.type ===
+            "notice" &&
+          event.message
+        ) {
+          showNotice(
+            event.message,
+          );
           return;
         }
-        if (typeof event.content === "string" && event.content) {
-          fullText += event.content;
-          updateAssistant({ content: fullText, streaming: true });
+
+        if (
+          event.type ===
+            "sources" &&
+          Array.isArray(
+            event.sources,
+          )
+        ) {
+          sources =
+            event.sources;
+
+          updateAssistant({
+            sources,
+          });
+
+          return;
+        }
+
+        if (
+          typeof event.content ===
+            "string" &&
+          event.content
+        ) {
+          fullText +=
+            event.content;
+
+          updateAssistant({
+            content:
+              fullText,
+            streaming:
+              true,
+          });
         }
       };
 
-      const processLine = (rawLine) => {
-        const line = rawLine.trim();
-        if (!line.startsWith("data:")) return;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === "[DONE]") return;
-        let event;
-        try {
-          event = JSON.parse(payload);
-        } catch {
+      const processLine = (
+        rawLine,
+      ) => {
+        const line =
+          rawLine.trim();
+
+        if (
+          !line.startsWith(
+            "data:",
+          )
+        ) {
           return;
         }
-        handleEvent(event);
+
+        const payload =
+          line.slice(5).trim();
+
+        if (
+          !payload ||
+          payload ===
+            "[DONE]"
+        ) {
+          return;
+        }
+
+        try {
+          handleEvent(
+            JSON.parse(
+              payload,
+            ),
+          );
+        } catch {
+          // Ignore malformed stream fragments.
+        }
       };
 
       while (true) {
-        const { value, done } = await reader.read();
+        const { value, done } =
+          await reader.read();
+
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        lines.forEach(processLine);
+
+        buffer += decoder.decode(
+          value,
+          {
+            stream: true,
+          },
+        );
+
+        const lines =
+          buffer.split("\n");
+
+        buffer =
+          lines.pop() || "";
+
+        lines.forEach(
+          processLine,
+        );
       }
 
-      buffer += decoder.decode();
-      if (buffer.trim()) processLine(buffer);
+      buffer +=
+        decoder.decode();
 
-      updateAssistant({ content: fullText || "No response was returned.", sources, streaming: false, status: null });
+      if (buffer.trim()) {
+        processLine(buffer);
+      }
 
-      const finalMessages = [
-        ...nextMessages,
-        { ...assistantMessage, content: fullText || "No response was returned.", sources, streaming: false },
-      ];
-      updateHistoryFromMessages(finalMessages, chatId);
+      const finalText =
+        fullText ||
+        "No response was returned.";
+
+      updateAssistant({
+        content: finalText,
+        sources,
+        streaming: false,
+        status: null,
+      });
+
+      updateHistoryFromMessages(
+        [
+          ...nextMessages,
+          {
+            ...assistantMessage,
+            content: finalText,
+            sources,
+            streaming: false,
+          },
+        ],
+        chatId,
+      );
     } catch (requestError) {
-      if (requestError?.name === "AbortError") {
-        if (controller.userStopped) {
-          updateAssistant({ content: fullText || "Generation stopped.", sources, streaming: false });
+      if (
+        requestError?.name ===
+        "AbortError"
+      ) {
+        if (
+          controller.userStopped
+        ) {
+          updateAssistant({
+            content:
+              fullText ||
+              "Generation stopped.",
+            sources,
+            streaming: false,
+          });
+
           if (fullText) {
-            const stopped = [
-              ...nextMessages,
-              { ...assistantMessage, content: fullText, sources, streaming: false },
-            ];
-            updateHistoryFromMessages(stopped, chatId);
+            updateHistoryFromMessages(
+              [
+                ...nextMessages,
+                {
+                  ...assistantMessage,
+                  content:
+                    fullText,
+                  sources,
+                  streaming:
+                    false,
+                },
+              ],
+              chatId,
+            );
           }
         }
+
         return;
       }
-      const message = requestError?.message || "Unable to connect to the AI service.";
+
+      const message =
+        requestError?.message ||
+        "Unable to connect to the AI service.";
+
       updateAssistant({
         streaming: false,
-        content: fullText || `I couldn't complete that request.\n\n${message}`,
+        content:
+          fullText ||
+          `I couldn't complete that request.\n\n${message}`,
       });
     } finally {
       sendingRef.current = false;
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null;
+
+      if (
+        abortControllerRef.current ===
+        controller
+      ) {
+        abortControllerRef.current =
+          null;
+
         setIsStreaming(false);
       }
     }
   }
 
-  // ---------- markdown ----------
+  /* ---------------------------------------------------------------------- */
+  /* Account                                                                */
+  /* ---------------------------------------------------------------------- */
 
-  function renderMarkdown(content, sources) {
-    return (
-      <ReactMarkdown
-        components={{
-          a: ({ children, ...props }) => (
-            <a {...props} target="_blank" rel="noreferrer">{children}</a>
+  function openAccount() {
+    setSidebarOpen(false);
+    setAccountOpen(true);
+  }
+
+  function removeDeviceData() {
+    try {
+      localStorage.removeItem(
+        historyKey,
+      );
+      localStorage.removeItem(
+        settingsKey,
+      );
+      localStorage.removeItem(
+        HISTORY_KEY,
+      );
+      localStorage.removeItem(
+        SETTINGS_KEY,
+      );
+      localStorage.removeItem(
+        THEME_KEY,
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  async function exportOzlindData() {
+    try {
+      const conversations =
+        cloudEnabled
+          ? await fetchEverything()
+          : history;
+
+      const payload = {
+        exportedAt:
+          new Date().toISOString(),
+        product: "OZLIND AI",
+        account:
+          accountUser?.email ||
+          null,
+        history:
+          conversations,
+        settings,
+        theme:
+          isDark
+            ? "dark"
+            : "light",
+      };
+
+      const blob = new Blob(
+        [
+          JSON.stringify(
+            payload,
+            null,
+            2,
           ),
-          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-          table: ({ children }) => (
-            <div className="table-scroll">
-              <table>{children}</table>
-            </div>
-          ),
-        }}
-      >
-        {linkifyCitations(content, sources)}
-      </ReactMarkdown>
+        ],
+        {
+          type:
+            "application/json",
+        },
+      );
+
+      const url =
+        URL.createObjectURL(
+          blob,
+        );
+
+      const anchor =
+        document.createElement(
+          "a",
+        );
+
+      anchor.href = url;
+      anchor.download =
+        "ozlind-data-export.json";
+
+      document.body.appendChild(
+        anchor,
+      );
+
+      anchor.click();
+      anchor.remove();
+
+      URL.revokeObjectURL(url);
+
+      showNotice(
+        "OZLIND data exported",
+      );
+    } catch (exportError) {
+      console.error(
+        "OZLIND data export failed:",
+        exportError,
+      );
+
+      showNotice(
+        "Could not export your data",
+      );
+    }
+  }
+
+  async function clearAllData() {
+    const target =
+      cloudEnabled
+        ? "this device and your OZLIND account"
+        : "this device";
+
+    if (
+      !window.confirm(
+        `Delete all conversations and preferences from ${target}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    abortControllerRef.current?.abort();
+
+    openTokenRef.current += 1;
+
+    setMessages([]);
+    setHistory([]);
+    setActiveChatId(null);
+    setInput("");
+    setSelectedFile(null);
+    setError("");
+    setIsStreaming(false);
+    setSettings(
+      DEFAULT_SETTINGS,
+    );
+    setIsDark(false);
+
+    syncedRef.current.clear();
+
+    removeDeviceData();
+
+    if (cloudEnabled) {
+      try {
+        await deleteAllConversations(
+          userId,
+        );
+
+        await deleteSettings(
+          userId,
+        );
+
+        lastSettingsRef.current =
+          null;
+      } catch (deleteError) {
+        console.error(
+          "OZLIND delete failed:",
+          deleteError,
+        );
+
+        showNotice(
+          "Cleared on this device, but could not clear your account",
+        );
+
+        return;
+      }
+    }
+
+    showNotice(
+      "All OZLIND data deleted",
     );
   }
 
-  const hasMessages = messages.length > 0;
+  async function deleteAccount() {
+    if (
+      !window.confirm(
+        "Permanently delete your OZLIND account and all of its data? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
 
-  // ---------- render ----------
+    const typed =
+      window.prompt(
+        "Type DELETE to confirm.",
+      );
+
+    if (typed !== "DELETE") {
+      showNotice(
+        "Account was not deleted",
+      );
+      return;
+    }
+
+    try {
+      const response =
+        await fetch(
+          "/api/account/delete",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              confirm: "DELETE",
+            }),
+          },
+        );
+
+      if (!response.ok) {
+        let message =
+          "Could not delete your account. Please try again.";
+
+        try {
+          const data =
+            await response.json();
+
+          if (data?.error) {
+            message =
+              data.error;
+          }
+        } catch {
+          // ignore
+        }
+
+        showNotice(message);
+        return;
+      }
+    } catch {
+      showNotice(
+        "Could not delete your account. Please try again.",
+      );
+      return;
+    }
+
+    removeDeviceData();
+
+    try {
+      const supabase =
+        await createClient();
+
+      await supabase.auth.signOut();
+    } catch {
+      // Account may already be deleted.
+    }
+
+    window.location.assign(
+      "/login",
+    );
+  }
+
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
+    if (
+      cloudEnabled &&
+      !historyRef.current.some(
+        (item) => item.pending,
+      )
+    ) {
+      try {
+        localStorage.removeItem(
+          historyKey,
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      const supabase =
+        await createClient();
+
+      await supabase.auth.signOut();
+    } catch (logoutError) {
+      console.error(
+        "Sign out failed:",
+        logoutError,
+      );
+    }
+
+    window.location.assign(
+      "/login",
+    );
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const hasMessages =
+    messages.length > 0;
 
   return (
     <div className="ozlind-app">
       {sidebarOpen && (
-        <button className="mobile-sidebar-backdrop" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)} />
+        <button
+          className="mobile-sidebar-backdrop"
+          aria-label="Close sidebar"
+          onClick={() =>
+            setSidebarOpen(false)
+          }
+        />
       )}
 
-      <aside className={`ozlind-sidebar ${sidebarOpen ? "is-open" : ""}`}>
+      <aside
+        className={`ozlind-sidebar ${
+          sidebarOpen
+            ? "is-open"
+            : ""
+        }`}
+      >
         <div className="sidebar-header">
-          <button className="brand-button" onClick={startNewChat} aria-label="Ozlind home">
+          <button
+            className="brand-button"
+            onClick={startNewChat}
+            aria-label="OZLIND home"
+          >
             <span className="brand-mark">
-              <svg viewBox="0 0 96 96" aria-hidden="true">
+              <svg
+                viewBox="0 0 96 96"
+                aria-hidden="true"
+              >
                 <use href="/ozlind-icons.svg#ozl-mark" />
               </svg>
             </span>
+
             <span className="brand-copy">
-              <strong>OZLIND</strong>
-              <span>Intelligent workspace</span>
+              <strong>
+                OZLIND
+              </strong>
+              <span>
+                Intelligent workspace
+              </span>
             </span>
           </button>
-          <button className="icon-button sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
-            <PanelLeftClose size={18} />
+
+          <button
+            className="icon-button sidebar-close"
+            onClick={() =>
+              setSidebarOpen(false)
+            }
+            aria-label="Close sidebar"
+          >
+            <PanelLeftClose
+              size={18}
+            />
           </button>
         </div>
 
         <div className="sidebar-content">
-          <button className="new-chat-button" onClick={startNewChat}>
+          <button
+            className="new-chat-button"
+            onClick={startNewChat}
+          >
             <PenLine size={17} />
-            <span>New chat</span>
+            <span>
+              New chat
+            </span>
           </button>
 
           <nav className="sidebar-nav">
-            <button className="sidebar-nav-item active" onClick={startNewChat}>
-              <MessageSquare size={17} />
-              <span>AI Chat</span>
-              <span className="live-dot">LIVE</span>
-            </button>
             <button
-              className={`sidebar-nav-item ${settings.research ? "active" : ""}`}
+              className="sidebar-nav-item active"
+              onClick={
+                startNewChat
+              }
+            >
+              <MessageSquare
+                size={17}
+              />
+              <span>
+                AI Chat
+              </span>
+            </button>
+
+            <button
+              className={`sidebar-nav-item ${
+                settings.research
+                  ? "active"
+                  : ""
+              }`}
               onClick={() => {
-                const next = !settings.research;
-                updateSettings({ research: next });
-                showNotice(next ? "Research enabled" : "Research disabled");
+                const next =
+                  !settings.research;
+
+                updateSettings({
+                  research: next,
+                });
+
+                showNotice(
+                  next
+                    ? "Research enabled"
+                    : "Research disabled",
+                );
               }}
             >
               <Search size={17} />
-              <span>Web Research</span>
-              <span className="live-dot">LIVE</span>
+              <span>
+                Web Research
+              </span>
             </button>
           </nav>
 
           <div className="sidebar-section history-section">
             <div className="sidebar-section-heading">
-              <span>History</span>
+              <span>
+                History
+              </span>
+
               {history.length > 0 && (
-                <button className="text-button" onClick={clearHistory}>Clear</button>
+                <button
+                  className="text-button"
+                  onClick={
+                    clearHistory
+                  }
+                >
+                  Clear
+                </button>
               )}
             </div>
 
             {history.length > 0 && (
               <div className="history-search">
                 <Search size={14} />
+
                 <input
-                  value={historySearch}
-                  onChange={(event) => setHistorySearch(event.target.value)}
+                  value={
+                    historySearch
+                  }
+                  onChange={(event) =>
+                    setHistorySearch(
+                      event.target
+                        .value,
+                    )
+                  }
                   placeholder="Search history"
                   aria-label="Search history"
                 />
@@ -1348,44 +2689,106 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
             )}
 
             <div className="history-list">
-              {filteredHistory.length === 0 ? (
+              {filteredHistory.length ===
+              0 ? (
                 <div className="history-empty">
-                  <span>No conversations yet.</span>
+                  <span>
+                    No conversations yet.
+                  </span>
                 </div>
               ) : (
-                filteredHistory.map((item) => (
-                  <div className={`history-item ${activeChatId === item.id ? "active" : ""}`} key={item.id}>
-                    <button className="history-item-main" onClick={() => openHistoryItem(item)}>
-                      <MessageSquare size={14} />
-                      <span>{item.title}</span>
-                    </button>
-                    <button
-                      className="history-delete"
-                      onClick={() => deleteHistoryItem(item.id)}
-                      aria-label={`Delete ${item.title}`}
+                filteredHistory.map(
+                  (item) => (
+                    <div
+                      className={`history-item ${
+                        activeChatId ===
+                        item.id
+                          ? "active"
+                          : ""
+                      }`}
+                      key={item.id}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))
+                      <button
+                        className="history-item-main"
+                        onClick={() =>
+                          openHistoryItem(
+                            item,
+                          )
+                        }
+                      >
+                        <MessageSquare
+                          size={14}
+                        />
+                        <span>
+                          {item.title}
+                        </span>
+                      </button>
+
+                      <button
+                        className="history-delete"
+                        onClick={() =>
+                          deleteHistoryItem(
+                            item.id,
+                          )
+                        }
+                        aria-label={`Delete ${item.title}`}
+                      >
+                        <Trash2
+                          size={14}
+                        />
+                      </button>
+                    </div>
+                  ),
+                )
               )}
             </div>
           </div>
         </div>
 
         <div className="sidebar-footer">
-          <button className="sidebar-nav-item" onClick={() => setSettingsOpen(true)}>
-            <Settings2 size={17} />
-            <span>Settings</span>
+          <button
+            className="sidebar-nav-item"
+            onClick={() =>
+              setSettingsOpen(true)
+            }
+          >
+            <Settings2
+              size={17}
+            />
+            <span>
+              Settings
+            </span>
           </button>
-          <button type="button" className="profile-card" onClick={openAccount} aria-label="Open account settings">
+
+          <button
+            type="button"
+            className="profile-card"
+            onClick={
+              openAccount
+            }
+          >
             <div className="profile-avatar">
-              {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{userInitials}</span>}
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                />
+              ) : (
+                <span>
+                  {userInitials}
+                </span>
+              )}
             </div>
+
             <div className="profile-info">
-              <strong>{userName}</strong>
-              <span>{userEmail}</span>
+              <strong>
+                {userName}
+              </strong>
+              <span>
+                {userEmail}
+              </span>
             </div>
+
             <ChevronRight size={16} />
           </button>
         </div>
@@ -1394,13 +2797,27 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
       <main className="ozlind-main">
         <header className="ozlind-topbar">
           <div className="topbar-left">
-            <button className="icon-button mobile-menu-button" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
+            <button
+              className="icon-button mobile-menu-button"
+              onClick={() =>
+                setSidebarOpen(
+                  true,
+                )
+              }
+              aria-label="Open sidebar"
+            >
               <Menu size={19} />
             </button>
+
             <div className="mobile-brand">
-              <strong>OZLIND</strong>
-              <span>AI</span>
+              <strong>
+                OZLIND
+              </strong>
+              <span>
+                AI
+              </span>
             </div>
+
             <div className="status-badge">
               <span className="status-dot" />
               Online
@@ -1410,18 +2827,45 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
           <div className="topbar-actions">
             <button
               className="icon-button"
-              onClick={() => setIsDark((current) => !current)}
-              aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-              title={isDark ? "Light mode" : "Dark mode"}
+              onClick={() =>
+                setIsDark(
+                  (current) =>
+                    !current,
+                )
+              }
+              aria-label={
+                isDark
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
             >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+              {isDark ? (
+                <Sun size={18} />
+              ) : (
+                <Moon size={18} />
+              )}
             </button>
-            <button className="icon-button" onClick={shareConversation} aria-label="Share conversation" title="Share">
+
+            <button
+              className="icon-button"
+              onClick={
+                shareConversation
+              }
+              aria-label="Share conversation"
+            >
               <Share2 size={18} />
             </button>
-            <button className="clear-chat-button" onClick={clearCurrentChat}>
+
+            <button
+              className="clear-chat-button"
+              onClick={
+                clearCurrentChat
+              }
+            >
               <Trash2 size={16} />
-              <span>Clear chat</span>
+              <span>
+                Clear chat
+              </span>
             </button>
           </div>
         </header>
@@ -1430,134 +2874,347 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
           {!hasMessages ? (
             <div className="welcome-screen">
               <div className="welcome-badge">
-                <Sparkles size={15} />
-                <span>OZLIND AI</span>
+                <Sparkles
+                  size={15}
+                />
+                <span>
+                  OZLIND AI
+                </span>
               </div>
-              <h1>How can I help you today?</h1>
-              <p>Write, research, analyze files and images, or work through a problem with OZLIND AI.</p>
+
+              <h1>
+                How can I help you today?
+              </h1>
+
+              <p>
+                Write, research, analyze
+                files and images, or work
+                through a problem with
+                OZLIND AI.
+              </p>
 
               <div className="suggestion-grid">
-                {SUGGESTIONS.map((suggestion) => {
-                  const Icon = suggestion.icon;
-                  return (
-                    <button
-                      className="suggestion-card"
-                      key={suggestion.title}
-                      onClick={() => selectSuggestion(suggestion.prompt)}
-                    >
-                      <span className="suggestion-icon">
-                        <Icon size={18} />
-                      </span>
-                      <span className="suggestion-content">
-                        <strong>{suggestion.title}</strong>
-                        <span>{suggestion.prompt}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+                {SUGGESTIONS.map(
+                  (suggestion) => {
+                    const Icon =
+                      suggestion.icon;
+
+                    return (
+                      <button
+                        className="suggestion-card"
+                        key={
+                          suggestion.title
+                        }
+                        onClick={() =>
+                          selectSuggestion(
+                            suggestion.prompt,
+                          )
+                        }
+                      >
+                        <span className="suggestion-icon">
+                          <Icon size={18} />
+                        </span>
+
+                        <span className="suggestion-content">
+                          <strong>
+                            {
+                              suggestion.title
+                            }
+                          </strong>
+
+                          <span>
+                            {
+                              suggestion.prompt
+                            }
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
               </div>
             </div>
           ) : (
             <div className="chat-area">
               <div className="messages-list">
-                {messages.map((message, index) => {
-                  const isUser = message.role === "user";
-                  const content = getMessageText(message);
-                  return (
-                    <article className={`message-row ${isUser ? "user" : "assistant"}`} key={message.id || index}>
-                      {!isUser && (
-                        <div className="assistant-avatar">
-                          <Sparkles size={15} />
-                        </div>
-                      )}
-                      <div className="message-column">
-                        <div className="message-meta">
-                          <span>{isUser ? "You" : "Ozlind AI"}</span>
-                        </div>
+                {messages.map(
+                  (
+                    message,
+                    index,
+                  ) => {
+                    const isUser =
+                      message.role ===
+                      "user";
 
-                        <div className="message-bubble">
-                          {message.attachment && (
-                            <div className="message-attachment">
-                              {(message.attachment.dataUrl || message.attachment.thumb) && message.attachment.type?.startsWith("image/") ? (
-                                <img src={message.attachment.dataUrl || message.attachment.thumb} alt={message.attachment.name} />
-                              ) : (
-                                <div className="attachment-file">
-                                  <FileText size={16} />
-                                  <span>{message.attachment.name}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                    const content =
+                      getMessageText(
+                        message,
+                      );
 
-                          {content ? (
-                            isUser ? (
-                              <p>{content}</p>
-                            ) : (
-                              <div className="markdown-content">{renderMarkdown(content, message.sources)}</div>
-                            )
-                          ) : message.streaming ? (
-                            <div className="streaming-indicator">
-                              <span />
-                              <span />
-                              <span />
-                              {message.status ? (
-                                <em style={{ fontStyle: "normal", marginLeft: 10, fontSize: 13, opacity: 0.7, whiteSpace: "nowrap" }}>{message.status}</em>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        {!isUser && !message.streaming && Array.isArray(message.sources) && message.sources.length > 0 && (
-                          <div className="message-sources">
-                            <span className="message-sources-title">Sources</span>
-                            <div className="message-sources-list">
-                              {message.sources.map((source, sourceIndex) => (
-                                <a
-                                  key={`${source.url || source.domain || "src"}-${sourceIndex}`}
-                                  className="source-chip"
-                                  href={source.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  <span className="source-index">{sourceIndex + 1}</span>
-                                  <span className="source-text">
-                                    <strong>{source.title || source.domain}</strong>
-                                    <em>{source.domain}</em>
-                                  </span>
-                                </a>
-                              ))}
-                            </div>
+                    return (
+                      <article
+                        className={`message-row ${
+                          isUser
+                            ? "user"
+                            : "assistant"
+                        }`}
+                        key={
+                          message.id ||
+                          index
+                        }
+                      >
+                        {!isUser && (
+                          <div className="assistant-avatar">
+                            <Sparkles
+                              size={15}
+                            />
                           </div>
                         )}
 
-                        <div className="message-actions">
-                          <button onClick={() => copyMessage(content, index)} aria-label="Copy message">
-                            {copiedMessage === index ? <Check size={14} /> : <Copy size={14} />}
-                          </button>
-                          {isUser && (
-                            <button onClick={() => editMessage(message)} aria-label="Edit message">
-                              <PenLine size={14} />
+                        <div className="message-column">
+                          <div className="message-meta">
+                            <span>
+                              {isUser
+                                ? "You"
+                                : "Ozlind AI"}
+                            </span>
+                          </div>
+
+                          <div className="message-bubble">
+                            {message.attachment && (
+                              <div className="message-attachment">
+                                {(
+                                  message
+                                    .attachment
+                                    .dataUrl ||
+                                  message
+                                    .attachment
+                                    .thumb
+                                ) &&
+                                message
+                                  .attachment
+                                  .type?.startsWith(
+                                    "image/",
+                                  ) ? (
+                                  <img
+                                    src={
+                                      message
+                                        .attachment
+                                        .dataUrl ||
+                                      message
+                                        .attachment
+                                        .thumb
+                                    }
+                                    alt={
+                                      message
+                                        .attachment
+                                        .name
+                                    }
+                                  />
+                                ) : (
+                                  <div className="attachment-file">
+                                    <FileText
+                                      size={
+                                        16
+                                      }
+                                    />
+                                    <span>
+                                      {
+                                        message
+                                          .attachment
+                                          .name
+                                      }
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {content ? (
+                              isUser ? (
+                                <p>
+                                  {content}
+                                </p>
+                              ) : (
+                                <div className="markdown-content">
+                                  <MarkdownRenderer
+                                    content={
+                                      content
+                                    }
+                                    sources={
+                                      message.sources
+                                    }
+                                  />
+                                </div>
+                              )
+                            ) : message.streaming ? (
+                              <div className="streaming-indicator">
+                                <span />
+                                <span />
+                                <span />
+
+                                {message.status ? (
+                                  <em
+                                    style={{
+                                      fontStyle:
+                                        "normal",
+                                      marginLeft:
+                                        10,
+                                      fontSize:
+                                        13,
+                                      opacity:
+                                        0.7,
+                                    }}
+                                  >
+                                    {
+                                      message.status
+                                    }
+                                  </em>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {!isUser &&
+                            !message.streaming &&
+                            Array.isArray(
+                              message.sources,
+                            ) &&
+                            message.sources.length >
+                              0 && (
+                              <div className="message-sources">
+                                <span className="message-sources-title">
+                                  Sources
+                                </span>
+
+                                <div className="message-sources-list">
+                                  {message.sources.map(
+                                    (
+                                      source,
+                                      sourceIndex,
+                                    ) => (
+                                      <a
+                                        key={`${source.url || source.domain || "src"}-${sourceIndex}`}
+                                        className="source-chip"
+                                        href={
+                                          source.url
+                                        }
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        <span className="source-index">
+                                          {sourceIndex +
+                                            1}
+                                        </span>
+
+                                        <span className="source-text">
+                                          <strong>
+                                            {source.title ||
+                                              source.domain}
+                                          </strong>
+                                          <em>
+                                            {
+                                              source.domain
+                                            }
+                                          </em>
+                                        </span>
+                                      </a>
+                                    ),
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                          <div className="message-actions">
+                            <button
+                              onClick={() =>
+                                copyMessage(
+                                  content,
+                                  index,
+                                )
+                              }
+                              aria-label="Copy message"
+                            >
+                              {copiedMessage ===
+                              index ? (
+                                <Check
+                                  size={
+                                    14
+                                  }
+                                />
+                              ) : (
+                                <Copy
+                                  size={
+                                    14
+                                  }
+                                />
+                              )}
                             </button>
-                          )}
-                          {!isUser && index === messages.length - 1 && !isStreaming && (
-                            <button onClick={regenerateLastResponse} aria-label="Regenerate response">
-                              <RefreshCw size={14} />
-                            </button>
-                          )}
+
+                            {isUser && (
+                              <button
+                                onClick={() =>
+                                  editMessage(
+                                    message,
+                                  )
+                                }
+                                aria-label="Edit message"
+                              >
+                                <PenLine
+                                  size={
+                                    14
+                                  }
+                                />
+                              </button>
+                            )}
+
+                            {!isUser &&
+                              index ===
+                                messages.length -
+                                  1 &&
+                              !isStreaming && (
+                                <button
+                                  onClick={
+                                    regenerateLastResponse
+                                  }
+                                  aria-label="Regenerate response"
+                                >
+                                  <RefreshCw
+                                    size={
+                                      14
+                                    }
+                                  />
+                                </button>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
-                <div ref={bottomRef} />
+                      </article>
+                    );
+                  },
+                )}
+
+                <div
+                  ref={bottomRef}
+                />
               </div>
             </div>
           )}
 
           {error && (
-            <div className="error-banner" role="alert">
-              <span>{error}</span>
-              <button onClick={() => setError("")} aria-label="Dismiss error">
+            <div
+              className="error-banner"
+              role="alert"
+            >
+              <span>
+                {error}
+              </span>
+
+              <button
+                onClick={() =>
+                  setError("")
+                }
+                aria-label="Dismiss error"
+              >
                 <X size={15} />
               </button>
             </div>
@@ -1567,17 +3224,48 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
             {selectedFile && (
               <div className="selected-file">
                 <div className="selected-file-info">
-                  {selectedFile.dataUrl && selectedFile.type?.startsWith("image/") ? (
-                    <img src={selectedFile.dataUrl} alt={selectedFile.name} />
+                  {selectedFile.dataUrl &&
+                  selectedFile.type?.startsWith(
+                    "image/",
+                  ) ? (
+                    <img
+                      src={
+                        selectedFile.dataUrl
+                      }
+                      alt={
+                        selectedFile.name
+                      }
+                    />
                   ) : (
-                    <FileText size={18} />
+                    <FileText
+                      size={18}
+                    />
                   )}
+
                   <div>
-                    <strong>{selectedFile.name}</strong>
-                    <span>{formatFileSize(selectedFile.size)}</span>
+                    <strong>
+                      {
+                        selectedFile.name
+                      }
+                    </strong>
+
+                    <span>
+                      {formatFileSize(
+                        selectedFile.size,
+                      )}
+                    </span>
                   </div>
                 </div>
-                <button className="icon-button" onClick={() => setSelectedFile(null)} aria-label="Remove attachment">
+
+                <button
+                  className="icon-button"
+                  onClick={() =>
+                    setSelectedFile(
+                      null,
+                    )
+                  }
+                  aria-label="Remove attachment"
+                >
                   <X size={17} />
                 </button>
               </div>
@@ -1588,75 +3276,174 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
                 <div className="composer-left">
                   <button
                     className="composer-icon-button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() =>
+                      fileInputRef.current?.click()
+                    }
                     aria-label="Attach file"
-                    title="Attach file"
                   >
-                    <Paperclip size={19} />
+                    <Paperclip
+                      size={19}
+                    />
                   </button>
+
                   <input
                     ref={fileInputRef}
                     type="file"
                     hidden
-                    onChange={handleFileChange}
-                    accept={ATTACHMENT_ACCEPT}
+                    onChange={
+                      handleFileChange
+                    }
+                    accept={
+                      ATTACHMENT_ACCEPT
+                    }
                   />
 
-                  <div className="mode-selector" ref={modeRef}>
-                    <button className="mode-button" onClick={() => setModeOpen((c) => !c)} aria-expanded={modeOpen}>
-                      <selectedMode.icon size={16} />
-                      <span>{selectedMode.label}</span>
-                      <ChevronDown size={14} />
+                  <div
+                    className="mode-selector"
+                    ref={modeRef}
+                  >
+                    <button
+                      className="mode-button"
+                      onClick={() =>
+                        setModeOpen(
+                          (current) =>
+                            !current,
+                        )
+                      }
+                      aria-expanded={
+                        modeOpen
+                      }
+                    >
+                      <selectedMode.icon
+                        size={16}
+                      />
+
+                      <span>
+                        {
+                          selectedMode.label
+                        }
+                      </span>
+
+                      <ChevronDown
+                        size={14}
+                      />
                     </button>
+
                     {modeOpen && (
                       <div className="mode-menu">
-                        {MODES.map((item) => {
-                          const Icon = item.icon;
-                          return (
-                            <button
-                              key={item.id}
-                              className={`mode-menu-item ${mode === item.id ? "active" : ""}`}
-                              onClick={() => {
-                                setMode(item.id);
-                                setModeOpen(false);
-                              }}
-                            >
-                              <span className="mode-menu-icon"><Icon size={16} /></span>
-                              <span className="mode-menu-copy">
-                                <strong>{item.label}</strong>
-                                <span>{item.description}</span>
-                              </span>
-                              {mode === item.id && <Check size={15} />}
-                            </button>
-                          );
-                        })}
+                        {MODES.map(
+                          (item) => {
+                            const Icon =
+                              item.icon;
+
+                            return (
+                              <button
+                                key={
+                                  item.id
+                                }
+                                className={`mode-menu-item ${
+                                  mode ===
+                                  item.id
+                                    ? "active"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  setMode(
+                                    item.id,
+                                  );
+                                  setModeOpen(
+                                    false,
+                                  );
+                                }}
+                              >
+                                <span className="mode-menu-icon">
+                                  <Icon
+                                    size={
+                                      16
+                                    }
+                                  />
+                                </span>
+
+                                <span className="mode-menu-copy">
+                                  <strong>
+                                    {
+                                      item.label
+                                    }
+                                  </strong>
+                                  <span>
+                                    {
+                                      item.description
+                                    }
+                                  </span>
+                                </span>
+
+                                {mode ===
+                                  item.id && (
+                                  <Check
+                                    size={
+                                      15
+                                    }
+                                  />
+                                )}
+                              </button>
+                            );
+                          },
+                        )}
                       </div>
                     )}
                   </div>
 
                   <button
-                    className={`research-toggle ${settings.research ? "active" : ""}`}
-                    onClick={() => updateSettings({ research: !settings.research })}
-                    aria-pressed={settings.research}
+                    className={`research-toggle ${
+                      settings.research
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      updateSettings({
+                        research:
+                          !settings.research,
+                      })
+                    }
+                    aria-pressed={
+                      settings.research
+                    }
                   >
-                    <Search size={15} />
-                    <span>Research</span>
+                    <Search
+                      size={15}
+                    />
+                    <span>
+                      Research
+                    </span>
                   </button>
                 </div>
 
                 <div className="composer-right">
                   {isStreaming ? (
-                    <button className="send-button stop" onClick={stopGeneration} aria-label="Stop generation">
+                    <button
+                      className="send-button stop"
+                      onClick={
+                        stopGeneration
+                      }
+                      aria-label="Stop generation"
+                    >
                       <span className="stop-square" />
                     </button>
                   ) : (
                     <button
                       className="send-button"
-                      onClick={() => sendMessage()}
-                      disabled={!input.trim() && !selectedFile}
+                      onClick={() =>
+                        sendMessage()
+                      }
+                      disabled={
+                        !input.trim() &&
+                        !selectedFile
+                      }
                       aria-label="Send message"
                     >
-                      <ArrowUp size={19} />
+                      <ArrowUp
+                        size={19}
+                      />
                     </button>
                   )}
                 </div>
@@ -1666,18 +3453,28 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
                 ref={textareaRef}
                 className="composer-input"
                 value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleTextareaKeyDown}
+                onChange={
+                  handleInputChange
+                }
+                onKeyDown={
+                  handleTextareaKeyDown
+                }
                 placeholder="Message OZLIND AI…"
                 rows={1}
                 aria-label="Message OZLIND AI"
               />
 
               <div className="composer-footer">
-                <span>OZLIND can make mistakes. Verify important information.</span>
+                <span>
+                  OZLIND can make mistakes.
+                  Verify important
+                  information.
+                </span>
+
                 <span className="keyboard-hint">
-                  <kbd>Enter</kbd> send
-                  <kbd>Shift</kbd>+<kbd>Enter</kbd> new line
+                  <kbd>Enter</kbd> send{" "}
+                  <kbd>Shift</kbd>+
+                  <kbd>Enter</kbd> new line
                 </span>
               </div>
             </div>
@@ -1685,337 +3482,316 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
         </section>
       </main>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Account                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
       {accountOpen && (
         <div className="account-overlay">
-          <section className="account-page" aria-label="OZLIND account center">
+          <section
+            className="account-page"
+            aria-label="OZLIND account"
+          >
             <header className="account-page-header">
               <button
                 type="button"
                 className="account-back-button"
-                onClick={() => (accountSection ? setAccountSection(null) : closeAccount())}
-                aria-label={accountSection ? "Back to account" : "Back to OZLIND AI"}
+                onClick={() =>
+                  setAccountOpen(
+                    false,
+                  )
+                }
+                aria-label="Back to OZLIND"
               >
-                <span className="account-back-arrow">‹</span>
+                <span className="account-back-arrow">
+                  ‹
+                </span>
               </button>
+
               <div className="account-header-title">
                 <strong>
-                  {accountSection === "profile" ? "Profile"
-                    : accountSection === "security" ? "Security & login"
-                    : accountSection === "personalization" ? "Personalization"
-                    : accountSection === "memory" ? "Memory"
-                    : accountSection === "research" ? "Web Research"
-                    : accountSection === "appearance" ? "Appearance"
-                    : accountSection === "integrations" ? "Integrations"
-                    : accountSection === "usage" ? "Usage"
-                    : accountSection === "privacy" ? "Privacy Center"
-                    : accountSection === "data" ? "Data Controls"
-                    : accountSection === "support" ? "Help & Support"
-                    : accountSection === "about" ? "About OZLIND"
-                    : "Account"}
+                  Account
                 </strong>
-                <span>OZLIND</span>
+                <span>
+                  OZLIND
+                </span>
               </div>
-              <div className="account-header-spacer" aria-hidden="true" />
+
+              <div
+                className="account-header-spacer"
+                aria-hidden="true"
+              />
             </header>
 
-            {!accountSection && (
-              <div className="account-scroll">
-                <section className="account-profile-hero">
-                  <div className="account-hero-avatar">
-                    {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{userInitials}</span>}
-                  </div>
-                  <strong>{userName}</strong>
-                  <span>{userEmail}</span>
-                  <div className="account-provider-badge">
-                    <span className="account-provider-dot" />OZLIND account
-                  </div>
-                </section>
-
-                <AccountGroup title="OZLIND">
-                  <AccountRow icon={UserRound} title="Profile" subtitle="Account information" onClick={() => setAccountSection("profile")} />
-                  <AccountRow icon={SlidersHorizontal} title="Personalization" subtitle="Response style and AI preferences" onClick={() => setAccountSection("personalization")} />
-                  <AccountRow icon={BrainCircuit} title="Memory" subtitle={settings.memory ? "On" : "Off"} trailing={<AccountSwitch checked={settings.memory} />} onClick={() => setAccountSection("memory")} />
-                  <AccountRow icon={Search} title="Web Research" subtitle={settings.research ? "Enabled" : "Disabled"} trailing={<AccountSwitch checked={settings.research} />} onClick={() => setAccountSection("research")} />
-                  <AccountRow icon={Palette} title="Appearance" subtitle={isDark ? "Dark mode" : "Light mode"} trailing={<AccountSwitch checked={isDark} />} onClick={() => setAccountSection("appearance")} />
-                  <AccountRow icon={Plug} title="Integrations" subtitle="Connected services and tools" onClick={() => setAccountSection("integrations")} />
-                  <AccountRow icon={Zap} title="Usage" subtitle="Workspace activity" onClick={() => setAccountSection("usage")} />
-                </AccountGroup>
-
-                <AccountGroup title="Account">
-                  <AccountRow icon={LockKeyhole} title="Security & login" subtitle="Authentication and account access" onClick={() => setAccountSection("security")} />
-                </AccountGroup>
-
-                <AccountGroup title="Privacy & data">
-                  <AccountRow icon={Shield} title="Privacy Center" subtitle="Privacy and workspace information" onClick={() => setAccountSection("privacy")} />
-                  <AccountRow icon={Database} title="Data Controls" subtitle="Manage your OZLIND data" onClick={() => setAccountSection("data")} />
-                </AccountGroup>
-
-                <AccountGroup title="Support">
-                  <AccountRow icon={CircleHelp} title="Help & Support" subtitle="Get help with OZLIND" onClick={() => setAccountSection("support")} />
-                  <AccountRow icon={Info} title="About OZLIND" subtitle="OZLIND AI and OZLIND Enterprises" onClick={() => setAccountSection("about")} />
-                </AccountGroup>
-
-                <button type="button" className="account-logout-button" onClick={handleLogout} disabled={loggingOut}>
-                  <LogOut size={20} />
-                  <span>{loggingOut ? "Signing out…" : "Log out"}</span>
-                </button>
-                <p className="account-version">OZLIND AI · Your intelligent workspace</p>
-              </div>
-            )}
-
-            {accountSection === "profile" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero">
-                  <div className="account-hero-avatar">
-                    {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{userInitials}</span>}
-                  </div>
-                  <strong>{userName}</strong>
-                  <span>{userEmail}</span>
-                  <small>OZLIND account</small>
-                </section>
-                <div className="account-group-card">
-                  <AccountInfoRow label="Name" value={userName} />
-                  <AccountInfoRow label="Email" value={userEmail} />
-                  <AccountInfoRow label="Organization" value="OZLIND Enterprises" />
-                  <AccountInfoRow label="Product" value="OZLIND AI" />
-                </div>
-                <p className="account-detail-note">Your profile information is used to identify your OZLIND workspace.</p>
-              </div>
-            )}
-
-            {accountSection === "security" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <LockKeyhole size={30} />
-                  <strong>Security & login</strong>
-                  <span>Manage how your OZLIND account is accessed.</span>
-                </section>
-                <div className="account-group-card">
-                  <AccountInfoRow label="Account" value={userEmail} />
-                  <AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Local session"} />
-                  <AccountInfoRow label="Session" value="Active" />
-                </div>
-                <p className="account-detail-note">When authentication is enabled, OZLIND uses the configured authentication system for account access.</p>
-              </div>
-            )}
-
-            {accountSection === "personalization" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <SlidersHorizontal size={30} />
-                  <strong>Personalization</strong>
-                  <span>Control how OZLIND responds to you.</span>
-                </section>
-                <AccountGroup title="Response length">
-                  <AccountRow title="Concise" subtitle="Short and focused answers" trailing={settings.responseLength === "short" ? <Check size={18} /> : null} onClick={() => updateSettings({ responseLength: "short" })} />
-                  <AccountRow title="Balanced" subtitle="Normal detail and clarity" trailing={settings.responseLength === "medium" ? <Check size={18} /> : null} onClick={() => updateSettings({ responseLength: "medium" })} />
-                  <AccountRow title="Detailed" subtitle="More explanation and context" trailing={settings.responseLength === "long" ? <Check size={18} /> : null} onClick={() => updateSettings({ responseLength: "long" })} />
-                </AccountGroup>
-                <AccountGroup title="Response style">
-                  {[["balanced", "Balanced"], ["professional", "Professional"], ["friendly", "Friendly"], ["direct", "Direct"]].map(([value, label]) => (
-                    <AccountRow
-                      key={value}
-                      title={label}
-                      subtitle={`Use ${label.toLowerCase()} response style`}
-                      trailing={settings.responseStyle === value ? <Check size={18} /> : null}
-                      onClick={() => updateSettings({ responseStyle: value })}
+            <div className="account-scroll">
+              <section className="account-profile-hero">
+                <div className="account-hero-avatar">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
                     />
-                  ))}
-                </AccountGroup>
-                <button
-                  type="button"
-                  className="account-primary-action"
-                  onClick={() => {
-                    setAccountSection(null);
-                    setSettingsOpen(true);
-                  }}
-                >
-                  Open advanced settings
-                </button>
-              </div>
-            )}
-
-            {accountSection === "memory" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <BrainCircuit size={30} />
-                  <strong>Memory</strong>
-                  <span>Control whether relevant conversation context is used.</span>
-                </section>
-                <div className="account-group-card">
-                  <AccountRow
-                    icon={BrainCircuit}
-                    title="Memory"
-                    subtitle={settings.memory ? "OZLIND can use relevant conversation context" : "Conversation memory is disabled"}
-                    trailing={<AccountSwitch checked={settings.memory} />}
-                    onClick={() => updateSettings({ memory: !settings.memory })}
-                  />
+                  ) : (
+                    <span>
+                      {userInitials}
+                    </span>
+                  )}
                 </div>
-                <p className="account-detail-note">This setting controls the memory behavior available to the current OZLIND workspace.</p>
-              </div>
-            )}
 
-            {accountSection === "research" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <Search size={30} />
-                  <strong>Web Research</strong>
-                  <span>Allow OZLIND to use web research when enabled.</span>
-                </section>
-                <div className="account-group-card">
-                  <AccountRow
-                    icon={Search}
-                    title="Research mode"
-                    subtitle={settings.research ? "Web research is enabled" : "Web research is disabled"}
-                    trailing={<AccountSwitch checked={settings.research} />}
-                    onClick={() => updateSettings({ research: !settings.research })}
-                  />
+                <strong>
+                  {userName}
+                </strong>
+
+                <span>
+                  {userEmail}
+                </span>
+
+                <div className="account-provider-badge">
+                  <span className="account-provider-dot" />
+                  OZLIND account
                 </div>
-                <p className="account-detail-note">Research can provide current web information when the research feature is available.</p>
-              </div>
-            )}
+              </section>
 
-            {accountSection === "appearance" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  {isDark ? <Moon size={30} /> : <Sun size={30} />}
-                  <strong>Appearance</strong>
-                  <span>Choose how the OZLIND workspace looks.</span>
-                </section>
-                <AccountGroup title="Theme">
-                  <AccountRow icon={Sun} title="Light" subtitle="Use the light workspace" trailing={!isDark ? <Check size={18} /> : null} onClick={() => setIsDark(false)} />
-                  <AccountRow icon={Moon} title="Dark" subtitle="Use the dark workspace" trailing={isDark ? <Check size={18} /> : null} onClick={() => setIsDark(true)} />
-                </AccountGroup>
-              </div>
-            )}
+              <AccountGroup title="OZLIND">
+                <AccountRow
+                  icon={UserRound}
+                  title="Profile"
+                  subtitle="Account information"
+                  onClick={() =>
+                    showNotice(
+                      `${userName} · ${userEmail}`,
+                    )
+                  }
+                />
 
-            {accountSection === "integrations" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <Plug size={30} />
-                  <strong>Integrations</strong>
-                  <span>Connected services used by your workspace.</span>
-                </section>
-                <div className="account-group-card">
-                  <AccountInfoRow label="AI workspace" value="OZLIND AI" />
-                  <AccountInfoRow label="Authentication" value={accountUser ? "Connected" : "Not connected"} />
-                  <AccountInfoRow label="Workspace storage" value={cloudEnabled ? "Your account" : "This device"} />
-                  <AccountInfoRow label="Web Research" value={settings.research ? "Enabled" : "Disabled"} />
-                </div>
-                <p className="account-detail-note">Additional integrations can be connected as OZLIND features become available.</p>
-              </div>
-            )}
+                <AccountRow
+                  icon={BrainCircuit}
+                  title="Memory"
+                  subtitle={
+                    settings.memory
+                      ? "On"
+                      : "Off"
+                  }
+                  trailing={
+                    <Switch
+                      checked={
+                        settings.memory
+                      }
+                    />
+                  }
+                  onClick={() =>
+                    updateSettings({
+                      memory:
+                        !settings.memory,
+                    })
+                  }
+                />
 
-            {accountSection === "usage" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <Zap size={30} />
-                  <strong>Usage</strong>
-                  <span>Overview of your current OZLIND workspace.</span>
-                </section>
-                <div className="account-group-card">
-                  <AccountInfoRow label="Saved conversations" value={String(history.length)} />
-                  <AccountInfoRow label="Current messages" value={String(messages.length)} />
-                  <AccountInfoRow label="Memory" value={settings.memory ? "On" : "Off"} />
-                  <AccountInfoRow label="Research" value={settings.research ? "On" : "Off"} />
-                </div>
-                <p className="account-detail-note">Usage information shown here is based on data currently available to this workspace.</p>
-              </div>
-            )}
+                <AccountRow
+                  icon={Search}
+                  title="Web Research"
+                  subtitle={
+                    settings.research
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                  trailing={
+                    <Switch
+                      checked={
+                        settings.research
+                      }
+                    />
+                  }
+                  onClick={() =>
+                    updateSettings({
+                      research:
+                        !settings.research,
+                    })
+                  }
+                />
 
-            {accountSection === "privacy" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <Shield size={30} />
-                  <strong>Privacy Center</strong>
-                  <span>Understand your current workspace data behavior.</span>
-                </section>
-                <div className="account-group-card">
-                  <AccountInfoRow label="Conversation history" value={cloudEnabled ? "Saved to your account" : "Stored on this device"} />
-                  <AccountInfoRow label="Preferences" value={cloudEnabled ? "Synced to your account" : "Stored on this device"} />
-                  <AccountInfoRow label="Authentication" value={accountUser ? "Account session" : "Not connected"} />
-                </div>
-                <p className="account-detail-note">{cloudEnabled ? "Your conversations and preferences are saved to your OZLIND account and are only visible to you. Chats are sent to the configured AI services to generate replies." : "Your conversations and preferences are kept in this browser. Chats are sent to the configured AI services to generate replies."}</p>
-              </div>
-            )}
+                <AccountRow
+                  icon={Palette}
+                  title="Appearance"
+                  subtitle={
+                    isDark
+                      ? "Dark mode"
+                      : "Light mode"
+                  }
+                  trailing={
+                    <Switch
+                      checked={isDark}
+                    />
+                  }
+                  onClick={() =>
+                    setIsDark(
+                      (current) =>
+                        !current,
+                    )
+                  }
+                />
 
-            {accountSection === "data" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <Database size={30} />
-                  <strong>Data Controls</strong>
-                  <span>Manage the data stored by this workspace.</span>
-                </section>
-                <AccountGroup title="Your data">
-                  <AccountInfoRow label="Conversations" value={`${history.length} saved`} />
-                  <AccountInfoRow label="Preferences" value={cloudEnabled ? "Account" : "This device"} />
-                  <AccountInfoRow label="Theme" value={isDark ? "Dark" : "Light"} />
-                </AccountGroup>
-                <button type="button" className="account-primary-action" onClick={exportOzlindData}>
-                  <Database size={17} />Export OZLIND data
-                </button>
-                <button type="button" className="account-danger-action" onClick={clearAllData}>
-                  <Trash2 size={17} />Delete all my data
-                </button>
-                <p className="account-detail-note">Deletes saved conversations, preferences and theme settings{cloudEnabled ? " from this device and your account" : " from this browser"}. Your sign-in stays active.</p>
-                <button type="button" className="account-danger-action" onClick={deleteAccount}>
-                  <Trash2 size={17} />Delete my account
-                </button>
-                <p className="account-detail-note">Permanently removes your OZLIND account and everything stored in it.</p>
-              </div>
-            )}
+                <AccountRow
+                  icon={Zap}
+                  title="Usage"
+                  subtitle={`${history.length} saved conversations`}
+                  onClick={() =>
+                    showNotice(
+                      `${history.length} saved conversations · ${messages.length} current messages`,
+                    )
+                  }
+                />
+              </AccountGroup>
 
-            {accountSection === "support" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero compact">
-                  <CircleHelp size={30} />
-                  <strong>Help & Support</strong>
-                  <span>Information for using OZLIND AI.</span>
-                </section>
-                <AccountGroup title="Common actions">
-                  <AccountRow icon={MessageSquare} title="Start a new chat" subtitle="Create a fresh conversation" onClick={() => { closeAccount(); startNewChat(); }} />
-                  <AccountRow icon={Settings2} title="Open settings" subtitle="Configure OZLIND behavior" onClick={() => { setAccountSection(null); setSettingsOpen(true); }} />
-                  <AccountRow icon={Trash2} title="Clear current chat" subtitle="Remove the active conversation" onClick={() => { closeAccount(); clearCurrentChat(); }} />
-                </AccountGroup>
-                <p className="account-detail-note">For issues with OZLIND, first check your connection, settings and available API configuration.</p>
-              </div>
-            )}
+              <AccountGroup title="Privacy & data">
+                <AccountRow
+                  icon={Shield}
+                  title="Privacy"
+                  subtitle={
+                    cloudEnabled
+                      ? "Saved to your account"
+                      : "Stored on this device"
+                  }
+                  onClick={() =>
+                    showNotice(
+                      "Your conversation data follows the current OZLIND storage configuration.",
+                    )
+                  }
+                />
 
-            {accountSection === "about" && (
-              <div className="account-scroll account-detail-scroll">
-                <section className="account-detail-hero">
-                  <div className="account-about-mark">O</div>
-                  <strong>OZLIND AI</strong>
-                  <span>Independent AI workspace</span>
-                  <small>Built as part of OZLIND Enterprises</small>
-                </section>
-                <div className="account-group-card">
-                  <AccountInfoRow label="Product" value="OZLIND AI" />
-                  <AccountInfoRow label="Organization" value="OZLIND Enterprises" />
-                  <AccountInfoRow label="Owner / Builder" value="Athul" />
-                  <AccountInfoRow label="Workspace" value="OZLIND AI Platform" />
-                </div>
-                <p className="account-detail-note">OZLIND is owned by Athul and operates under OZLIND Enterprises.</p>
-              </div>
-            )}
+                <AccountRow
+                  icon={Database}
+                  title="Export data"
+                  subtitle="Download your OZLIND data"
+                  onClick={
+                    exportOzlindData
+                  }
+                />
+              </AccountGroup>
+
+              <AccountGroup title="Account">
+                <AccountRow
+                  icon={LockKeyhole}
+                  title="Authentication"
+                  subtitle="Manage your active session"
+                  onClick={() =>
+                    showNotice(
+                      "Your OZLIND session is active.",
+                    )
+                  }
+                />
+              </AccountGroup>
+
+              <button
+                type="button"
+                className="account-primary-action"
+                onClick={() => {
+                  setAccountOpen(
+                    false,
+                  );
+                  setSettingsOpen(
+                    true,
+                  );
+                }}
+              >
+                <Settings2
+                  size={17}
+                />
+                Open settings
+              </button>
+
+              <button
+                type="button"
+                className="account-danger-action"
+                onClick={
+                  clearAllData
+                }
+              >
+                <Trash2 size={17} />
+                Delete all my data
+              </button>
+
+              <button
+                type="button"
+                className="account-danger-action"
+                onClick={
+                  deleteAccount
+                }
+              >
+                <Trash2 size={17} />
+                Delete my account
+              </button>
+
+              <button
+                type="button"
+                className="account-logout-button"
+                onClick={
+                  handleLogout
+                }
+                disabled={
+                  loggingOut
+                }
+              >
+                <LogOut size={20} />
+                <span>
+                  {loggingOut
+                    ? "Signing out…"
+                    : "Log out"}
+                </span>
+              </button>
+
+              <p className="account-version">
+                OZLIND AI · Independent
+                AI workspace
+              </p>
+            </div>
           </section>
         </div>
       )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Settings                                                            */}
+      {/* ------------------------------------------------------------------ */}
 
       {settingsOpen && (
         <div
           className="dialog-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setSettingsOpen(false);
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setSettingsOpen(
+                false,
+              );
+            }
           }}
         >
-          <section className="settings-dialog" role="dialog" aria-modal="true" aria-label="Settings">
+          <section
+            className="settings-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Settings"
+          >
             <div className="dialog-header">
               <div>
-                <span className="dialog-eyebrow">Preferences</span>
-                <h2>Settings</h2>
+                <span className="dialog-eyebrow">
+                  Preferences
+                </span>
+                <h2>
+                  Settings
+                </h2>
               </div>
-              <button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">
+
+              <button
+                className="icon-button"
+                onClick={() =>
+                  setSettingsOpen(
+                    false,
+                  )
+                }
+                aria-label="Close settings"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -2023,33 +3799,78 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
             <div className="settings-content">
               <section className="settings-section">
                 <div className="settings-section-heading">
-                  <strong>AI behavior</strong>
-                  <span>Configure how OZLIND responds.</span>
+                  <strong>
+                    AI behavior
+                  </strong>
+                  <span>
+                    Configure how OZLIND
+                    responds.
+                  </span>
                 </div>
 
                 <div className="setting-row">
                   <div>
-                    <strong>Provider routing</strong>
-                    <span>Automatically select an available provider when possible.</span>
+                    <strong>
+                      Provider routing
+                    </strong>
+                    <span>
+                      Automatically select
+                      the best available
+                      route.
+                    </span>
                   </div>
-                  <select value={mode} onChange={(event) => setMode(event.target.value)}>
-                    <option value="auto">Auto</option>
-                    <option value="fast">Fast</option>
-                    <option value="vision">Vision</option>
-                    <option value="pro">Pro</option>
+
+                  <select
+                    value={mode}
+                    onChange={(event) =>
+                      setMode(
+                        event.target
+                          .value,
+                      )
+                    }
+                  >
+                    <option value="auto">
+                      Auto
+                    </option>
+                    <option value="fast">
+                      Fast
+                    </option>
+                    <option value="vision">
+                      Vision
+                    </option>
+                    <option value="pro">
+                      Pro
+                    </option>
                   </select>
                 </div>
 
                 <div className="setting-row">
                   <div>
-                    <strong>Research</strong>
-                    <span>Allow web research when enabled.</span>
+                    <strong>
+                      Research
+                    </strong>
+                    <span>
+                      Allow web research
+                      when enabled.
+                    </span>
                   </div>
+
                   <button
-                    className={`switch ${settings.research ? "active" : ""}`}
-                    onClick={() => updateSettings({ research: !settings.research })}
+                    className={`switch ${
+                      settings.research
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      updateSettings({
+                        research:
+                          !settings.research,
+                      })
+                    }
                     role="switch"
-                    aria-checked={settings.research}
+                    aria-checked={
+                      settings.research
+                    }
                   >
                     <span />
                   </button>
@@ -2057,14 +3878,31 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
                 <div className="setting-row">
                   <div>
-                    <strong>Memory</strong>
-                    <span>Keep useful conversation context.</span>
+                    <strong>
+                      Memory
+                    </strong>
+                    <span>
+                      Keep useful
+                      conversation context.
+                    </span>
                   </div>
+
                   <button
-                    className={`switch ${settings.memory ? "active" : ""}`}
-                    onClick={() => updateSettings({ memory: !settings.memory })}
+                    className={`switch ${
+                      settings.memory
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      updateSettings({
+                        memory:
+                          !settings.memory,
+                      })
+                    }
                     role="switch"
-                    aria-checked={settings.memory}
+                    aria-checked={
+                      settings.memory
+                    }
                   >
                     <span />
                   </button>
@@ -2073,63 +3911,135 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
 
               <section className="settings-section">
                 <div className="settings-section-heading">
-                  <strong>Response style</strong>
-                  <span>Adjust answer length and writing style.</span>
+                  <strong>
+                    Response style
+                  </strong>
+                  <span>
+                    Adjust answer length
+                    and style.
+                  </span>
                 </div>
 
                 <div className="segmented-control">
-                  {[["short", "Concise"], ["medium", "Balanced"], ["long", "Detailed"]].map(([value, label]) => (
-                    <button
-                      key={value}
-                      className={settings.responseLength === value ? "active" : ""}
-                      onClick={() => updateSettings({ responseLength: value })}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  {[
+                    [
+                      "short",
+                      "Concise",
+                    ],
+                    [
+                      "medium",
+                      "Balanced",
+                    ],
+                    [
+                      "long",
+                      "Detailed",
+                    ],
+                  ].map(
+                    ([
+                      value,
+                      label,
+                    ]) => (
+                      <button
+                        key={
+                          value
+                        }
+                        className={
+                          settings.responseLength ===
+                          value
+                            ? "active"
+                            : ""
+                        }
+                        onClick={() =>
+                          updateSettings(
+                            {
+                              responseLength:
+                                value,
+                            },
+                          )
+                        }
+                      >
+                        {label}
+                      </button>
+                    ),
+                  )}
                 </div>
 
                 <div className="segmented-control">
-                  {[["balanced", "Balanced"], ["professional", "Professional"], ["friendly", "Friendly"], ["direct", "Direct"]].map(([value, label]) => (
-                    <button
-                      key={value}
-                      className={settings.responseStyle === value ? "active" : ""}
-                      onClick={() => updateSettings({ responseStyle: value })}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  {[
+                    [
+                      "balanced",
+                      "Balanced",
+                    ],
+                    [
+                      "professional",
+                      "Professional",
+                    ],
+                    [
+                      "friendly",
+                      "Friendly",
+                    ],
+                    [
+                      "direct",
+                      "Direct",
+                    ],
+                  ].map(
+                    ([
+                      value,
+                      label,
+                    ]) => (
+                      <button
+                        key={
+                          value
+                        }
+                        className={
+                          settings.responseStyle ===
+                          value
+                            ? "active"
+                            : ""
+                        }
+                        onClick={() =>
+                          updateSettings(
+                            {
+                              responseStyle:
+                                value,
+                            },
+                          )
+                        }
+                      >
+                        {label}
+                      </button>
+                    ),
+                  )}
                 </div>
               </section>
 
               <section className="settings-section">
                 <div className="settings-section-heading">
-                  <strong>Custom instructions</strong>
-                  <span>Optional instructions applied to your conversations.</span>
+                  <strong>
+                    Custom instructions
+                  </strong>
+                  <span>
+                    Optional instructions
+                    applied to your
+                    conversations.
+                  </span>
                 </div>
+
                 <textarea
                   className="settings-textarea"
-                  value={settings.customInstructions}
-                  onChange={(event) => updateSettings({ customInstructions: event.target.value })}
+                  value={
+                    settings.customInstructions
+                  }
+                  onChange={(event) =>
+                    updateSettings({
+                      customInstructions:
+                        event.target
+                          .value,
+                    })
+                  }
                   placeholder="Tell OZLIND how you want responses to be written..."
                   rows={5}
                 />
-              </section>
-
-              <section className="settings-section account-section">
-                <div className="settings-section-heading">
-                  <strong>Account</strong>
-                  <span>Your current OZLIND profile.</span>
-                </div>
-                <div className="account-card">
-                  <div className="profile-avatar large">
-                    {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{userInitials}</span>}
-                  </div>
-                  <div>
-                    <strong>{userName}</strong>
-                    <span>{userEmail}</span>
-                  </div>
-                </div>
               </section>
             </div>
 
@@ -2137,17 +4047,26 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
               <button
                 className="secondary-button"
                 onClick={() => {
-                  setSettings(DEFAULT_SETTINGS);
-                  showNotice("Settings reset");
+                  setSettings(
+                    DEFAULT_SETTINGS,
+                  );
+                  showNotice(
+                    "Settings reset",
+                  );
                 }}
               >
                 Reset
               </button>
+
               <button
                 className="primary-button"
                 onClick={() => {
-                  setSettingsOpen(false);
-                  showNotice("Settings saved");
+                  setSettingsOpen(
+                    false,
+                  );
+                  showNotice(
+                    "Settings saved",
+                  );
                 }}
               >
                 Done
@@ -2158,13 +4077,20 @@ export default function OzlindApp({ initialUser = null, initialHistory = null, i
       )}
 
       {notice && (
-        <div className="toast" role="status" aria-live="polite">
+        <div
+          className="toast"
+          role="status"
+          aria-live="polite"
+        >
           <span className="toast-icon">
             <Check size={15} />
           </span>
-          <span>{notice}</span>
+
+          <span>
+            {notice}
+          </span>
         </div>
       )}
     </div>
   );
-  }
+}
