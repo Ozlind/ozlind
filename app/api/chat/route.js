@@ -86,53 +86,15 @@ function normalizeQuery(query) {
 }
 
 function looksLikeNews(query) {
-  return /\b(
-    news|
-    latest|
-    breaking|
-    headlines|
-    today|
-    tonight|
-    this week|
-    happening|
-    happened|
-    story|
-    stories|
-    report|
-    reports|
-    announcement|
-    announcements|
-    score|
-    won|
-    results?
-  )\b/ix.test(query);
+  return /\b(?:news|latest|breaking|headlines|today|tonight|this week|happening|happened|story|stories|report|reports|announcement|announcements|score|won|results?)\b/i.test(
+    query,
+  );
 }
 
 function looksLikeFreshValue(query) {
-  return /\b(
-    current|
-    latest|
-    today|
-    now|
-    live|
-    real[\s-]?time|
-    present|
-    as of|
-    price|
-    rate|
-    value|
-    weather|
-    forecast|
-    status|
-    schedule|
-    result|
-    version|
-    release|
-    stock|
-    bitcoin|
-    crypto|
-    exchange
-  )\b/ix.test(query);
+  return /\b(?:current|latest|today|now|live|real[\s-]?time|present|as of|price|rate|value|weather|forecast|status|schedule|result|version|release|stock|bitcoin|crypto|exchange)\b/i.test(
+    query,
+  );
 }
 
 function isResearchSensitiveQuery(query) {
@@ -236,9 +198,14 @@ function relevanceScore(item, query) {
     return 0;
   }
 
-  const title = String(item?.title || "").toLowerCase();
-  const content = String(item?.content || "").toLowerCase();
-  const url = String(item?.url || "").toLowerCase();
+  const title =
+    String(item?.title || "").toLowerCase();
+
+  const content =
+    String(item?.content || "").toLowerCase();
+
+  const url =
+    String(item?.url || "").toLowerCase();
 
   let score = 0;
 
@@ -260,7 +227,8 @@ function relevanceScore(item, query) {
 }
 
 function domainQuality(domain) {
-  const value = String(domain || "").toLowerCase();
+  const value =
+    String(domain || "").toLowerCase();
 
   if (!value) {
     return 0;
@@ -280,31 +248,9 @@ function domainQuality(domain) {
   }
 
   if (
-    /(^|\.)(
-      reuters\.com|
-      apnews\.com|
-      bbc\.com|
-      bbc\.co\.uk|
-      cnn\.com|
-      nbcnews\.com|
-      cnbc\.com|
-      bloomberg\.com|
-      nytimes\.com|
-      theguardian\.com|
-      euronews\.com|
-      techcrunch\.com|
-      wired\.com|
-      arstechnica\.com|
-      nature\.com|
-      science\.org|
-      microsoft\.com|
-      googleblog\.com|
-      blog\.google|
-      apple\.com|
-      amazon\.com|
-      openai\.com|
-      anthropic\.com
-    )$/ix.test(value)
+    /(^|\.)reuters\.com$|(^|\.)apnews\.com$|(^|\.)bbc\.com$|(^|\.)bbc\.co\.uk$|(^|\.)cnn\.com$|(^|\.)nbcnews\.com$|(^|\.)cnbc\.com$|(^|\.)bloomberg\.com$|(^|\.)nytimes\.com$|(^|\.)theguardian\.com$|(^|\.)euronews\.com$|(^|\.)techcrunch\.com$|(^|\.)wired\.com$|(^|\.)arstechnica\.com$|(^|\.)nature\.com$|(^|\.)science\.org$|(^|\.)microsoft\.com$|(^|\.)googleblog\.com$|(^|\.)blog\.google$|(^|\.)apple\.com$|(^|\.)amazon\.com$|(^|\.)openai\.com$|(^|\.)anthropic\.com$/i.test(
+      value,
+    )
   ) {
     return 3;
   }
@@ -314,18 +260,9 @@ function domainQuality(domain) {
    * patterns. They are not automatically rejected.
    */
   if (
-    /(
-      pinterest|
-      facebook|
-      reddit|
-      quora|
-      medium|
-      blogspot|
-      wordpress|
-      cleverhack|
-      lottery|
-      coupon
-    )/i.test(value)
+    /pinterest|facebook|reddit|quora|medium|blogspot|wordpress|cleverhack|lottery|coupon/i.test(
+      value,
+    )
   ) {
     return -3;
   }
@@ -378,7 +315,8 @@ function freshnessScore(
     return 0;
   }
 
-  const age = daysSince(timestamp);
+  const age =
+    daysSince(timestamp);
 
   if (age === null) {
     return 0;
