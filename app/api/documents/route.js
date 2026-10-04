@@ -11,17 +11,30 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const MAX_DOCUMENT_REQUEST_BYTES = 2_500_000;
+const MAX_DOCUMENT_QUERY_CHARS = 500;
+
+function getRequestContentLength(request) {
+  const raw = request.headers.get("content-length");
+
+  if (!raw) {
+    return null;
+  }
+
+  const value = Number(raw);
+
+  return Number.isFinite(value) && value >= 0
+    ? value
+    : null;
+}
+
 async function getAuthenticatedUser() {
-  const supabase =
-    await createClient();
+  const supabase = await createClient();
 
   const {
-    data: {
-      user,
-    },
+    data: { user },
     error,
-  } =
-    await supabase.auth.getUser();
+  } = await supabase.auth.getUser();
 
   if (error) {
     throw error;
@@ -29,12 +42,9 @@ async function getAuthenticatedUser() {
 
   if (!user) {
     const error =
-      new Error(
-        "Authentication required.",
-      );
+      new Error("Authentication required.");
 
-    error.code =
-      "AUTH_REQUIRED";
+    error.code = "AUTH_REQUIRED";
 
     throw error;
   }
@@ -45,24 +55,56 @@ async function getAuthenticatedUser() {
   };
 }
 
+function isBodyTooLarge(request) {
+  const contentLength =
+    getRequestContentLength(request);
+
+  return (
+    contentLength !== null &&
+    contentLength >
+      MAX_DOCUMENT_REQUEST_BYTES
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* POST — INGEST DOCUMENT                                                     */
 /* -------------------------------------------------------------------------- */
 
-export async function POST(
-  request,
-) {
+export async function POST(request) {
   try {
-    const {
-      user,
-    } =
-      await getAuthenticatedUser();
+    await getAuthenticatedUser();
+
+    if (isBodyTooLarge(request)) {
+      return json(
+        {
+          error:
+            "Document request is too large. The maximum supported document size is 2 MB.",
+        },
+        413,
+      );
+    }
+
+    const contentType =
+      request.headers.get("content-type") || "";
+
+    if (
+      !contentType
+        .toLowerCase()
+        .includes("application/json")
+    ) {
+      return json(
+        {
+          error:
+            "A JSON document request is required.",
+        },
+        415,
+      );
+    }
 
     let body;
 
     try {
-      body =
-        await request.json();
+      body = await request.json();
     } catch {
       return json(
         {
@@ -75,8 +117,7 @@ export async function POST(
 
     if (
       !body ||
-      typeof body !==
-        "object" ||
+      typeof body !== "object" ||
       Array.isArray(body)
     ) {
       return json(
@@ -88,12 +129,6 @@ export async function POST(
       );
     }
 
-    /*
-     * The authenticated user is obtained
-     * from the server session.
-     *
-     * No client-provided user ID is accepted.
-     */
     const document =
       await ingestDocument({
         name: body.name,
@@ -119,7 +154,7 @@ export async function POST(
 
     if (
       error?.code ===
-      "AUTH_REQUIRED" ||
+        "AUTH_REQUIRED" ||
       /authentication required/i.test(
         error?.message || "",
       )
@@ -176,9 +211,7 @@ export async function POST(
 /* GET — LIST DOCUMENTS OR SEARCH DOCUMENTS                                   */
 /* -------------------------------------------------------------------------- */
 
-export async function GET(
-  request,
-) {
+export async function GET(request) {
   try {
     const {
       supabase,
@@ -196,32 +229,51 @@ export async function GET(
         .get("q")
         ?.trim() || "";
 
-    /*
-     * Search mode:
-     *
-     * /api/documents?q=...
-     *
-     * Uses vector retrieval and returns only
-     * chunks belonging to the authenticated user.
-     */
     if (query) {
+      if (
+        query.length >
+        MAX_DOCUMENT_QUERY_CHARS
+      ) {
+        return json(
+          {
+            error:
+              "Document search query is too long. Maximum 500 characters.",
+          },
+          400,
+        );
+      }
+
+      const rawThreshold =
+        Number(
+          url.searchParams.get(
+            "threshold",
+          ),
+        );
+
+      const rawLimit =
+        Number(
+          url.searchParams.get(
+            "limit",
+          ),
+        );
+
       const results =
         await searchDocuments(
           query,
           {
             matchThreshold:
-              Number(
-                url.searchParams.get(
-                  "threshold",
-                ),
-              ) || 0.55,
+              Number.isFinite(
+                rawThreshold,
+              )
+                ? rawThreshold
+                : 0.55,
 
             matchCount:
-              Number(
-                url.searchParams.get(
-                  "limit",
-                ),
-              ) || 8,
+              Number.isFinite(
+                rawLimit,
+              )
+                ? rawLimit
+                : 8,
           },
         );
 
@@ -231,15 +283,6 @@ export async function GET(
       });
     }
 
-    /*
-     * Library mode:
-     *
-     * /api/documents
-     *
-     * Only document metadata is returned.
-     * Document contents and embeddings are never
-     * exposed through this endpoint.
-     */
     const {
       data,
       error,
@@ -317,7 +360,7 @@ export async function GET(
 
     if (
       error?.code ===
-      "AUTH_REQUIRED" ||
+        "AUTH_REQUIRED" ||
       /authentication required/i.test(
         error?.message || "",
       )
@@ -345,9 +388,7 @@ export async function GET(
 /* DELETE — DELETE OWN DOCUMENT                                               */
 /* -------------------------------------------------------------------------- */
 
-export async function DELETE(
-  request,
-) {
+export async function DELETE(request) {
   try {
     await getAuthenticatedUser();
 
@@ -361,10 +402,6 @@ export async function DELETE(
         .get("id")
         ?.trim() || "";
 
-    /*
-     * UUID format validation prevents accidental
-     * malformed database requests.
-     */
     const uuidPattern =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -397,7 +434,7 @@ export async function DELETE(
 
     if (
       error?.code ===
-      "AUTH_REQUIRED" ||
+        "AUTH_REQUIRED" ||
       /authentication required/i.test(
         error?.message || "",
       )
