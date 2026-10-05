@@ -1,101 +1,119 @@
 /*
- * OZLIND AI — Premium UI System
+ * OZLIND AI — Premium UI System v2
  * Visual layer only.
  * No application logic.
+ *
+ * Direction:
+ * Premium / restrained / editorial / mobile-first
+ * Graphite + warm copper
  */
 
 :root {
-  --oz-bg: #f4f3f0;
-  --oz-bg-soft: #eeece8;
+  --oz-bg: #f5f3ef;
+  --oz-bg-soft: #eeece7;
 
-  --oz-surface: #fffefa;
+  --oz-surface: #fffdfa;
   --oz-surface-raised: #ffffff;
-  --oz-surface-soft: #f1f0ec;
-  --oz-surface-hover: #eae8e3;
+  --oz-surface-soft: #f2f0eb;
+  --oz-surface-hover: #e9e6df;
 
-  --oz-text: #17181b;
-  --oz-text-secondary: #64666c;
-  --oz-text-muted: #95979d;
+  --oz-text: #171719;
+  --oz-text-secondary: #66656a;
+  --oz-text-muted: #96949a;
+  --oz-text-faint: #b4b1b5;
 
-  --oz-border: #dedcd7;
-  --oz-border-soft: rgba(20, 20, 20, 0.07);
-  --oz-border-strong: #cbc8c0;
+  --oz-border: #dfdcd5;
+  --oz-border-soft: rgba(24, 22, 19, 0.065);
+  --oz-border-strong: #c9c5bc;
 
   --oz-accent: #a87345;
   --oz-accent-bright: #bd8957;
-  --oz-accent-dark: #82552f;
-  --oz-accent-soft: #f1e7dd;
+  --oz-accent-dark: #81532e;
+  --oz-accent-soft: #f1e6da;
+  --oz-accent-wash: rgba(168, 115, 69, 0.08);
 
-  --oz-danger: #b85d58;
-  --oz-danger-soft: #f7e7e5;
+  --oz-danger: #b75d58;
+  --oz-danger-soft: #f6e5e2;
 
-  --oz-success: #60836d;
+  --oz-success: #63836e;
 
   --oz-radius-xs: 8px;
   --oz-radius-sm: 10px;
   --oz-radius-md: 13px;
   --oz-radius-lg: 17px;
   --oz-radius-xl: 23px;
+  --oz-radius-2xl: 28px;
   --oz-radius-pill: 999px;
 
   --oz-shadow-xs:
-    0 2px 8px rgba(15, 14, 12, 0.035);
+    0 1px 3px rgba(20, 18, 15, 0.035),
+    0 4px 12px rgba(20, 18, 15, 0.025);
 
   --oz-shadow-sm:
-    0 6px 22px rgba(15, 14, 12, 0.055);
+    0 5px 18px rgba(20, 18, 15, 0.045),
+    0 1px 3px rgba(20, 18, 15, 0.025);
 
   --oz-shadow-md:
-    0 14px 42px rgba(15, 14, 12, 0.085);
+    0 12px 34px rgba(20, 18, 15, 0.075),
+    0 2px 7px rgba(20, 18, 15, 0.035);
 
   --oz-shadow-lg:
-    0 28px 90px rgba(12, 11, 10, 0.14);
+    0 28px 80px rgba(15, 13, 11, 0.15),
+    0 5px 18px rgba(15, 13, 11, 0.055);
 
   --oz-ease:
     cubic-bezier(0.22, 1, 0.36, 1);
 
   --oz-ease-standard:
     cubic-bezier(0.4, 0, 0.2, 1);
+
+  --oz-duration-fast: 160ms;
+  --oz-duration-normal: 240ms;
+  --oz-duration-slow: 420ms;
 }
 
 body.dark {
-  --oz-bg: #0a0b0e;
-  --oz-bg-soft: #0e1014;
+  --oz-bg: #090a0c;
+  --oz-bg-soft: #0d0f12;
 
-  --oz-surface: #131519;
+  --oz-surface: #121418;
   --oz-surface-raised: #17191e;
   --oz-surface-soft: #1b1e23;
-  --oz-surface-hover: #202329;
+  --oz-surface-hover: #22252b;
 
-  --oz-text: #f3f2ef;
-  --oz-text-secondary: #a5a6ac;
-  --oz-text-muted: #74777f;
+  --oz-text: #f3f1ed;
+  --oz-text-secondary: #a5a4aa;
+  --oz-text-muted: #74767d;
+  --oz-text-faint: #5d6067;
 
   --oz-border: #292c32;
   --oz-border-soft: rgba(255, 255, 255, 0.055);
-  --oz-border-strong: #393c43;
+  --oz-border-strong: #3a3d44;
 
   --oz-accent: #c69b6b;
-  --oz-accent-bright: #d4a979;
-  --oz-accent-dark: #a9784d;
+  --oz-accent-bright: #d5aa7b;
+  --oz-accent-dark: #a7754b;
   --oz-accent-soft: #292119;
+  --oz-accent-wash: rgba(198, 155, 107, 0.085);
 
   --oz-danger: #dc7870;
   --oz-danger-soft: #321f1d;
 
-  --oz-success: #8bad96;
+  --oz-success: #8eae98;
 
   --oz-shadow-xs:
-    0 2px 9px rgba(0, 0, 0, 0.24);
+    0 2px 9px rgba(0, 0, 0, 0.26);
 
   --oz-shadow-sm:
     0 7px 25px rgba(0, 0, 0, 0.3);
 
   --oz-shadow-md:
-    0 17px 48px rgba(0, 0, 0, 0.42);
+    0 17px 48px rgba(0, 0, 0, 0.43);
 
   --oz-shadow-lg:
-    0 35px 110px rgba(0, 0, 0, 0.62);
+    0 35px 110px rgba(0, 0, 0, 0.64);
 }
+
 
 /* =========================================================
    BASE
@@ -111,8 +129,8 @@ body {
   text-rendering: optimizeLegibility;
 
   transition:
-    background-color 0.3s var(--oz-ease-standard),
-    color 0.3s var(--oz-ease-standard);
+    background-color 0.35s var(--oz-ease-standard),
+    color 0.35s var(--oz-ease-standard);
 }
 
 button,
@@ -125,12 +143,12 @@ select {
 
 button {
   transition:
-    background-color 0.18s var(--oz-ease-standard),
-    border-color 0.18s var(--oz-ease-standard),
-    color 0.18s var(--oz-ease-standard),
-    opacity 0.18s var(--oz-ease-standard),
-    transform 0.2s var(--oz-ease),
-    box-shadow 0.2s var(--oz-ease);
+    background-color var(--oz-duration-fast) var(--oz-ease-standard),
+    border-color var(--oz-duration-fast) var(--oz-ease-standard),
+    color var(--oz-duration-fast) var(--oz-ease-standard),
+    opacity var(--oz-duration-fast) var(--oz-ease-standard),
+    transform var(--oz-duration-normal) var(--oz-ease),
+    box-shadow var(--oz-duration-normal) var(--oz-ease);
 }
 
 button:active:not(:disabled) {
@@ -155,13 +173,14 @@ button:disabled {
     0 0 0 3px
       color-mix(
         in srgb,
-        var(--oz-accent) 16%,
+        var(--oz-accent) 17%,
         transparent
       );
 }
 
+
 /* =========================================================
-   APP
+   APP SHELL
    ========================================================= */
 
 .ozlind-app {
@@ -170,7 +189,7 @@ button:disabled {
 
   background:
     radial-gradient(
-      700px 420px at 85% -12%,
+      760px 440px at 92% -12%,
       color-mix(
         in srgb,
         var(--oz-accent) 6%,
@@ -179,7 +198,7 @@ button:disabled {
       transparent 72%
     ),
     radial-gradient(
-      550px 380px at -12% 100%,
+      620px 430px at -15% 105%,
       color-mix(
         in srgb,
         var(--oz-accent) 3%,
@@ -188,6 +207,33 @@ button:disabled {
       transparent 72%
     ),
     var(--oz-bg);
+
+  transition:
+    background-color 0.35s var(--oz-ease-standard);
+}
+
+.ozlind-app::before {
+  content: "";
+
+  position: fixed;
+  inset: 0;
+
+  z-index: -2;
+
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      420px 280px at 50% 48%,
+      color-mix(
+        in srgb,
+        var(--oz-accent) 2.5%,
+        transparent
+      ),
+      transparent 72%
+    );
+
+  opacity: 0.75;
 }
 
 .ozlind-app::after {
@@ -202,14 +248,15 @@ button:disabled {
 
   background:
     linear-gradient(
-      120deg,
+      115deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.012) 48%,
+      rgba(255, 255, 255, 0.014) 47%,
       transparent 100%
     );
 
   opacity: 0.8;
 }
+
 
 /* =========================================================
    SIDEBAR
@@ -223,7 +270,7 @@ button:disabled {
   background:
     color-mix(
       in srgb,
-      var(--oz-surface) 94%,
+      var(--oz-surface) 93%,
       transparent
     );
 
@@ -231,14 +278,14 @@ button:disabled {
     1px solid var(--oz-border);
 
   box-shadow:
-    10px 0 40px rgba(0, 0, 0, 0.025);
+    12px 0 42px rgba(0, 0, 0, 0.025);
 
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(30px) saturate(115%);
+  -webkit-backdrop-filter: blur(30px) saturate(115%);
 
   animation:
     oz-sidebar-in
-    0.45s
+    0.48s
     var(--oz-ease)
     both;
 }
@@ -246,7 +293,7 @@ button:disabled {
 @keyframes oz-sidebar-in {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(-14px);
   }
 
   to {
@@ -261,7 +308,7 @@ button:disabled {
   padding:
     1px
     2px
-    8px;
+    9px;
 }
 
 .brand-button {
@@ -300,18 +347,18 @@ button:disabled {
       );
 
   transition:
-    transform 0.3s var(--oz-ease),
-    box-shadow 0.3s var(--oz-ease);
+    transform 0.35s var(--oz-ease),
+    box-shadow 0.35s var(--oz-ease);
 }
 
 .brand-button:hover .brand-mark {
   transform:
     translateY(-1px)
     rotate(-2deg)
-    scale(1.03);
+    scale(1.035);
 
   box-shadow:
-    0 11px 30px
+    0 12px 32px
       color-mix(
         in srgb,
         var(--oz-accent-dark) 28%,
@@ -329,18 +376,20 @@ button:disabled {
   color: var(--oz-text-muted);
 
   font-size: 10.5px;
-
   letter-spacing: 0.01em;
 }
 
+
 /* =========================================================
-   SIDEBAR BUTTONS
+   NEW CHAT
    ========================================================= */
 
 .new-chat-button {
+  position: relative;
+
   min-height: 43px;
 
-  margin-bottom: 7px;
+  margin-bottom: 8px;
 
   padding:
     10px
@@ -349,6 +398,8 @@ button:disabled {
   border: 0;
 
   border-radius: 12px;
+
+  overflow: hidden;
 
   background:
     linear-gradient(
@@ -368,11 +419,36 @@ button:disabled {
       );
 }
 
+.new-chat-button::after {
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  background:
+    linear-gradient(
+      115deg,
+      transparent 25%,
+      rgba(255, 255, 255, 0.13),
+      transparent 70%
+    );
+
+  transform: translateX(-110%);
+
+  transition:
+    transform 0.6s var(--oz-ease);
+}
+
+.new-chat-button:hover::after {
+  transform: translateX(110%);
+}
+
 .new-chat-button:hover {
   transform: translateY(-2px);
 
   box-shadow:
-    0 13px 34px
+    0 14px 36px
       color-mix(
         in srgb,
         var(--oz-accent-dark) 25%,
@@ -384,11 +460,18 @@ button:disabled {
   transform: translateY(0) scale(0.985);
 }
 
+
+/* =========================================================
+   SIDEBAR NAV
+   ========================================================= */
+
 .sidebar-nav {
   gap: 3px;
 }
 
 .sidebar-nav-item {
+  position: relative;
+
   min-height: 38px;
 
   padding:
@@ -397,11 +480,33 @@ button:disabled {
 
   border-radius: 10px;
 
-  color: var(--oz-text-secondary);
-
-  position: relative;
-
   overflow: hidden;
+
+  color: var(--oz-text-secondary);
+}
+
+.sidebar-nav-item::before {
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+
+  width: 2px;
+
+  border-radius: 999px;
+
+  background: var(--oz-accent-bright);
+
+  opacity: 0;
+
+  transform: scaleY(0.4);
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s var(--oz-ease);
 }
 
 .sidebar-nav-item:hover {
@@ -418,6 +523,12 @@ button:disabled {
   color: var(--oz-accent-bright);
 }
 
+.sidebar-nav-item.active::before {
+  opacity: 1;
+
+  transform: scaleY(1);
+}
+
 .sidebar-nav-item svg {
   flex-shrink: 0;
 }
@@ -425,6 +536,7 @@ button:disabled {
 .sidebar-nav-item:nth-child(2) {
   display: none;
 }
+
 
 /* =========================================================
    HISTORY
@@ -482,8 +594,8 @@ button:disabled {
 
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s var(--oz-ease);
+    box-shadow 0.25s var(--oz-ease),
+    transform 0.25s var(--oz-ease);
 }
 
 .history-search:focus-within {
@@ -500,7 +612,8 @@ button:disabled {
         in srgb,
         var(--oz-accent) 9%,
         transparent
-      );
+      ),
+    var(--oz-shadow-xs);
 
   transform: translateY(-1px);
 }
@@ -524,7 +637,7 @@ button:disabled {
 
   transition:
     background-color 0.18s ease,
-    transform 0.2s var(--oz-ease);
+    transform 0.22s var(--oz-ease);
 }
 
 .history-item:hover {
@@ -563,12 +676,12 @@ button:disabled {
 
   border-radius: 8px;
 
-  opacity: 0.25;
+  opacity: 0.22;
 }
 
 .history-item:hover .history-delete,
 .history-item.active .history-delete {
-  opacity: 0.75;
+  opacity: 0.72;
 }
 
 .history-delete:hover {
@@ -577,7 +690,10 @@ button:disabled {
   color: var(--oz-danger);
 
   opacity: 1 !important;
+
+  transform: scale(1.04);
 }
+
 
 /* =========================================================
    SIDEBAR FOOTER
@@ -603,7 +719,7 @@ button:disabled {
 
   transition:
     background-color 0.18s ease,
-    transform 0.2s var(--oz-ease);
+    transform 0.22s var(--oz-ease);
 }
 
 .profile-card:hover {
@@ -647,6 +763,7 @@ button:disabled {
   white-space: nowrap;
 }
 
+
 /* =========================================================
    TOP BAR
    ========================================================= */
@@ -661,15 +778,15 @@ button:disabled {
   background:
     color-mix(
       in srgb,
-      var(--oz-bg) 89%,
+      var(--oz-bg) 88%,
       transparent
     );
 
   border-bottom:
     1px solid var(--oz-border);
 
-  backdrop-filter: blur(26px);
-  -webkit-backdrop-filter: blur(26px);
+  backdrop-filter: blur(28px) saturate(120%);
+  -webkit-backdrop-filter: blur(28px) saturate(120%);
 
   z-index: 30;
 }
@@ -688,6 +805,8 @@ button:disabled {
 
 .icon-button:hover {
   background: var(--oz-surface-soft);
+
+  color: var(--oz-text);
 
   transform: translateY(-1px);
 }
@@ -740,7 +859,10 @@ button:disabled {
   background: var(--oz-danger-soft);
 
   color: var(--oz-danger);
+
+  transform: translateY(-1px);
 }
+
 
 /* =========================================================
    WELCOME
@@ -760,8 +882,8 @@ button:disabled {
 
   animation:
     oz-welcome-in
-    0.65s
-    0.04s
+    0.68s
+    0.03s
     var(--oz-ease)
     both;
 }
@@ -771,8 +893,8 @@ button:disabled {
     opacity: 0;
 
     transform:
-      translateY(12px)
-      scale(0.988);
+      translateY(14px)
+      scale(0.987);
   }
 
   to {
@@ -817,6 +939,25 @@ button:disabled {
         var(--oz-accent) 5%,
         transparent
       );
+
+  animation:
+    oz-badge-in
+    0.55s
+    0.12s
+    var(--oz-ease)
+    both;
+}
+
+@keyframes oz-badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .welcome-screen h1 {
@@ -837,6 +978,8 @@ button:disabled {
   letter-spacing: -0.045em;
 
   line-height: 1.07;
+
+  text-wrap: balance;
 }
 
 .welcome-screen p {
@@ -852,7 +995,10 @@ button:disabled {
   font-size: 14.5px;
 
   line-height: 1.62;
+
+  text-wrap: balance;
 }
+
 
 /* =========================================================
    SUGGESTIONS
@@ -893,7 +1039,7 @@ button:disabled {
 
   animation:
     oz-card-in
-    0.55s
+    0.58s
     var(--oz-ease)
     both;
 }
@@ -917,15 +1063,40 @@ button:disabled {
 @keyframes oz-card-in {
   from {
     opacity: 0;
-
-    transform: translateY(9px);
+    transform:
+      translateY(10px)
+      scale(0.985);
   }
 
   to {
     opacity: 1;
-
-    transform: translateY(0);
+    transform:
+      translateY(0)
+      scale(1);
   }
+}
+
+.suggestion-card::before {
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      115deg,
+      transparent 15%,
+      rgba(255, 255, 255, 0.08),
+      transparent 62%
+    );
+
+  transform: translateX(-120%);
+
+  transition:
+    transform 0.7s var(--oz-ease);
 }
 
 .suggestion-card::after {
@@ -974,6 +1145,10 @@ button:disabled {
   box-shadow: var(--oz-shadow-sm);
 }
 
+.suggestion-card:hover::before {
+  transform: translateX(120%);
+}
+
 .suggestion-card:hover::after {
   opacity: 1;
 
@@ -997,13 +1172,13 @@ button:disabled {
   color: var(--oz-accent);
 
   transition:
-    transform 0.25s var(--oz-ease),
+    transform 0.3s var(--oz-ease),
     background-color 0.2s ease;
 }
 
 .suggestion-card:hover .suggestion-icon {
   transform:
-    scale(1.06)
+    scale(1.07)
     rotate(-3deg);
 
   background: var(--oz-surface-hover);
@@ -1033,6 +1208,7 @@ button:disabled {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
 
 /* =========================================================
    CHAT AREA
@@ -1066,14 +1242,16 @@ button:disabled {
 @keyframes oz-message-in {
   from {
     opacity: 0;
-
-    transform: translateY(6px);
+    transform:
+      translateY(7px)
+      scale(0.997);
   }
 
   to {
     opacity: 1;
-
-    transform: translateY(0);
+    transform:
+      translateY(0)
+      scale(1);
   }
 }
 
@@ -1099,6 +1277,22 @@ button:disabled {
       color-mix(
         in srgb,
         var(--oz-accent-dark) 17%,
+        transparent
+      );
+
+  transition:
+    transform 0.25s var(--oz-ease),
+    box-shadow 0.25s var(--oz-ease);
+}
+
+.message-row:hover .assistant-avatar {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 9px 24px
+      color-mix(
+        in srgb,
+        var(--oz-accent-dark) 21%,
         transparent
       );
 }
@@ -1162,6 +1356,15 @@ button:disabled {
   gap: 2px;
 
   margin-top: 5px;
+
+  opacity: 0.72;
+
+  transition:
+    opacity 0.2s ease;
+}
+
+.message-row:hover .message-actions {
+  opacity: 1;
 }
 
 .message-actions button {
@@ -1181,6 +1384,7 @@ button:disabled {
   transform: translateY(-1px);
 }
 
+
 /* =========================================================
    ATTACHMENTS
    ========================================================= */
@@ -1196,6 +1400,8 @@ button:disabled {
   border-radius: 13px;
 
   background: var(--oz-surface);
+
+  box-shadow: var(--oz-shadow-xs);
 }
 
 .message-attachment img {
@@ -1218,6 +1424,7 @@ button:disabled {
   color: var(--oz-text-secondary);
 }
 
+
 /* =========================================================
    MARKDOWN / CODE
    ========================================================= */
@@ -1232,6 +1439,9 @@ button:disabled {
   text-decoration-thickness: 1px;
 
   text-underline-offset: 3px;
+
+  transition:
+    color 0.18s ease;
 }
 
 .markdown-content a:hover {
@@ -1264,6 +1474,7 @@ button:disabled {
   background: var(--oz-surface-hover);
 }
 
+
 /* =========================================================
    SOURCES
    ========================================================= */
@@ -1281,14 +1492,16 @@ button:disabled {
 @keyframes oz-sources-in {
   from {
     opacity: 0;
-
-    transform: translateY(4px);
+    transform:
+      translateY(5px)
+      scale(0.99);
   }
 
   to {
     opacity: 1;
-
-    transform: translateY(0);
+    transform:
+      translateY(0)
+      scale(1);
   }
 }
 
@@ -1326,9 +1539,9 @@ button:disabled {
   box-shadow: var(--oz-shadow-xs);
 
   transition:
-    transform 0.2s var(--oz-ease),
+    transform 0.22s var(--oz-ease),
     border-color 0.18s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.22s var(--oz-ease);
 }
 
 .source-chip:hover {
@@ -1349,6 +1562,7 @@ button:disabled {
 
   color: var(--oz-accent-bright);
 }
+
 
 /* =========================================================
    COMPOSER
@@ -1391,13 +1605,44 @@ button:disabled {
     0 10px 38px
       rgba(15, 14, 12, 0.075);
 
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(26px) saturate(120%);
+  -webkit-backdrop-filter: blur(26px) saturate(120%);
 
   transition:
     border-color 0.25s ease,
     box-shadow 0.3s var(--oz-ease),
     transform 0.3s var(--oz-ease);
+}
+
+.composer-shell::before {
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  border-radius: inherit;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(
+        in srgb,
+        var(--oz-accent) 5%,
+        transparent
+      ),
+      transparent 35%,
+      transparent 70%,
+      color-mix(
+        in srgb,
+        var(--oz-accent) 3%,
+        transparent
+      )
+    );
+
+  opacity: 0.8;
 }
 
 .composer-shell::after {
@@ -1417,7 +1662,7 @@ button:disabled {
       transparent 20%,
       color-mix(
         in srgb,
-        var(--oz-accent) 10%,
+        var(--oz-accent) 11%,
         transparent
       ),
       transparent 80%
@@ -1454,15 +1699,19 @@ button:disabled {
   opacity: 1;
 }
 
-/*
- * Remove the unwanted rectangular textarea border.
- */
+
+/* =========================================================
+   COMPOSER INPUT
+   ========================================================= */
 
 .composer-input,
 .composer-input:hover,
 .composer-input:focus,
 .composer-input:focus-visible,
 .composer-input:active {
+  position: relative;
+  z-index: 2;
+
   display: block;
 
   width: 100%;
@@ -1477,15 +1726,11 @@ button:disabled {
     6px;
 
   border: 0 !important;
-
   border-width: 0 !important;
-
   border-style: none !important;
-
   border-color: transparent !important;
 
   outline: 0 !important;
-
   outline-width: 0 !important;
 
   box-shadow: none !important;
@@ -1497,7 +1742,6 @@ button:disabled {
   resize: none;
 
   appearance: none;
-
   -webkit-appearance: none;
 
   color: var(--oz-text);
@@ -1511,13 +1755,24 @@ button:disabled {
   color: var(--oz-text-muted);
 
   opacity: 1;
+
+  transition:
+    color 0.2s ease;
 }
 
 .composer-input:focus::placeholder {
   color: var(--oz-text-secondary);
 }
 
+
+/* =========================================================
+   COMPOSER TOOLBAR
+   ========================================================= */
+
 .composer-toolbar {
+  position: relative;
+  z-index: 3;
+
   min-height: 36px;
 
   gap: 7px;
@@ -1575,7 +1830,7 @@ button:disabled {
 
 .mode-button svg:last-child {
   transition:
-    transform 0.2s var(--oz-ease);
+    transform 0.25s var(--oz-ease);
 }
 
 .mode-selector:has(.mode-menu)
@@ -1597,7 +1852,14 @@ button:disabled {
   color: var(--oz-accent-bright);
 }
 
+
+/* =========================================================
+   SEND / STOP
+   ========================================================= */
+
 .send-button {
+  position: relative;
+
   width: 38px;
   height: 38px;
 
@@ -1606,6 +1868,8 @@ button:disabled {
   border: 0;
 
   border-radius: 50%;
+
+  overflow: hidden;
 
   background:
     linear-gradient(
@@ -1623,6 +1887,31 @@ button:disabled {
         var(--oz-accent-dark) 20%,
         transparent
       );
+}
+
+.send-button::after {
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  background:
+    linear-gradient(
+      125deg,
+      transparent 25%,
+      rgba(255, 255, 255, 0.2),
+      transparent 70%
+    );
+
+  transform: translateX(-120%);
+
+  transition:
+    transform 0.55s var(--oz-ease);
+}
+
+.send-button:not(:disabled):hover::after {
+  transform: translateX(120%);
 }
 
 .send-button:not(:disabled):hover {
@@ -1648,8 +1937,7 @@ button:disabled {
 }
 
 .send-button.stop {
-  background:
-    var(--oz-surface-soft);
+  background: var(--oz-surface-soft);
 
   border:
     1px solid var(--oz-border);
@@ -1665,6 +1953,7 @@ button:disabled {
 
   background: currentColor;
 }
+
 
 /* =========================================================
    SELECTED FILE
@@ -1688,7 +1977,7 @@ button:disabled {
 
   animation:
     oz-file-in
-    0.3s
+    0.32s
     var(--oz-ease)
     both;
 }
@@ -1698,7 +1987,7 @@ button:disabled {
     opacity: 0;
 
     transform:
-      translateY(5px)
+      translateY(6px)
       scale(0.985);
   }
 
@@ -1719,6 +2008,7 @@ button:disabled {
 
   border-radius: 9px;
 }
+
 
 /* =========================================================
    MODE MENU
@@ -1743,12 +2033,12 @@ button:disabled {
 
   box-shadow: var(--oz-shadow-lg);
 
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(30px) saturate(120%);
+  -webkit-backdrop-filter: blur(30px) saturate(120%);
 
   animation:
     oz-menu-in
-    0.2s
+    0.22s
     var(--oz-ease)
     both;
 
@@ -1761,8 +2051,8 @@ button:disabled {
     opacity: 0;
 
     transform:
-      translateY(6px)
-      scale(0.97);
+      translateY(7px)
+      scale(0.965);
   }
 
   to {
@@ -1785,7 +2075,7 @@ button:disabled {
 
   transition:
     background-color 0.16s ease,
-    transform 0.18s var(--oz-ease);
+    transform 0.2s var(--oz-ease);
 }
 
 .mode-menu-item:hover {
@@ -1796,7 +2086,10 @@ button:disabled {
 
 .mode-menu-item.active {
   background: var(--oz-accent-soft);
+
+  color: var(--oz-accent-bright);
 }
+
 
 /* =========================================================
    STREAMING
@@ -1810,6 +2103,8 @@ button:disabled {
   gap: 4px;
 
   min-height: 24px;
+
+  padding: 0 2px;
 }
 
 .streaming-indicator span {
@@ -1851,6 +2146,7 @@ button:disabled {
   }
 }
 
+
 /* =========================================================
    ERROR
    ========================================================= */
@@ -1884,15 +2180,20 @@ button:disabled {
   from {
     opacity: 0;
 
-    transform: translateY(-4px);
+    transform:
+      translateY(-5px)
+      scale(0.99);
   }
 
   to {
     opacity: 1;
 
-    transform: translateY(0);
+    transform:
+      translateY(0)
+      scale(1);
   }
 }
+
 
 /* =========================================================
    ACCOUNT / SETTINGS
@@ -1901,10 +2202,10 @@ button:disabled {
 .account-overlay,
 .dialog-backdrop {
   background:
-    rgba(4, 5, 7, 0.6);
+    rgba(4, 5, 7, 0.62);
 
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(11px);
+  -webkit-backdrop-filter: blur(11px);
 
   animation:
     oz-backdrop
@@ -1939,8 +2240,8 @@ button:disabled {
     opacity: 0;
 
     transform:
-      translateY(12px)
-      scale(0.975);
+      translateY(14px)
+      scale(0.972);
   }
 
   to {
@@ -2023,7 +2324,8 @@ button:disabled {
   transition:
     transform 0.2s var(--oz-ease),
     background-color 0.18s ease,
-    border-color 0.18s ease;
+    border-color 0.18s ease,
+    box-shadow 0.2s ease;
 }
 
 .account-primary-action:hover {
@@ -2032,6 +2334,8 @@ button:disabled {
   border-color: var(--oz-border-strong);
 
   transform: translateY(-1px);
+
+  box-shadow: var(--oz-shadow-xs);
 }
 
 .account-danger-action:hover {
@@ -2039,6 +2343,7 @@ button:disabled {
 
   color: var(--oz-danger);
 }
+
 
 /* =========================================================
    TOAST
@@ -2059,8 +2364,8 @@ button:disabled {
 
   box-shadow: var(--oz-shadow-md);
 
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 
   animation:
     oz-toast-in
@@ -2074,8 +2379,8 @@ button:disabled {
     opacity: 0;
 
     transform:
-      translateY(10px)
-      scale(0.97);
+      translateY(11px)
+      scale(0.965);
   }
 
   to {
@@ -2093,8 +2398,9 @@ button:disabled {
   color: var(--oz-accent-bright);
 }
 
+
 /* =========================================================
-   MOBILE
+   MOBILE SIDEBAR
    ========================================================= */
 
 @media (max-width: 860px) {
@@ -2110,15 +2416,33 @@ button:disabled {
       10px;
 
     box-shadow:
-      25px 0 80px rgba(0, 0, 0, 0.36);
+      25px 0 80px rgba(0, 0, 0, 0.38);
+
+    animation:
+      oz-mobile-sidebar-in
+      0.35s
+      var(--oz-ease)
+      both;
+  }
+
+  @keyframes oz-mobile-sidebar-in {
+    from {
+      opacity: 0;
+      transform: translateX(-24px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   .mobile-sidebar-backdrop {
     background:
-      rgba(3, 4, 6, 0.62);
+      rgba(3, 4, 6, 0.64);
 
-    backdrop-filter: blur(7px);
-    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 
     animation:
       oz-backdrop
@@ -2288,6 +2612,7 @@ button:disabled {
   }
 }
 
+
 /* =========================================================
    SMALL PHONES
    ========================================================= */
@@ -2378,6 +2703,47 @@ button:disabled {
   }
 }
 
+
+/* =========================================================
+   VERY SMALL DEVICES
+   ========================================================= */
+
+@media (max-width: 360px) {
+  .composer-area {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .composer-shell {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .composer-icon-button {
+    width: 31px;
+    height: 31px;
+  }
+
+  .send-button {
+    width: 35px;
+    height: 35px;
+  }
+
+  .mode-button {
+    max-width: 98px;
+  }
+
+  .welcome-screen h1 {
+    font-size: 25px;
+  }
+
+  .message-row {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}
+
+
 /* =========================================================
    TOUCH DEVICES
    ========================================================= */
@@ -2388,7 +2754,8 @@ button:disabled {
   .sidebar-nav-item:hover,
   .new-chat-button:hover,
   .send-button:hover,
-  .source-chip:hover {
+  .source-chip:hover,
+  .icon-button:hover {
     transform: none;
   }
 
@@ -2397,7 +2764,17 @@ button:disabled {
 
     box-shadow: var(--oz-shadow-xs);
   }
+
+  .suggestion-card:hover::before,
+  .suggestion-card:hover::after {
+    display: none;
+  }
+
+  .message-actions {
+    opacity: 1;
+  }
 }
+
 
 /* =========================================================
    REDUCED MOTION
@@ -2415,4 +2792,65 @@ button:disabled {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+/* =========================================================
+   DARK MODE FINE TUNING
+   ========================================================= */
+
+body.dark .ozlind-app::after {
+  background:
+    linear-gradient(
+      120deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.018) 48%,
+      transparent 100%
+    );
+}
+
+body.dark .composer-shell {
+  box-shadow:
+    0 13px 42px rgba(0, 0, 0, 0.42);
+}
+
+body.dark .suggestion-card {
+  box-shadow:
+    0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+body.dark .message-row.user
+  .message-bubble
+  > p {
+  box-shadow:
+    0 9px 27px rgba(0, 0, 0, 0.3);
+}
+
+body.dark .code-block,
+body.dark .markdown-content pre {
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+
+/* =========================================================
+   SAFETY / OVERFLOW
+   ========================================================= */
+
+.ozlind-app img {
+  max-width: 100%;
+}
+
+.ozlind-app button,
+.ozlind-app a {
+  touch-action: manipulation;
+}
+
+.ozlind-app input,
+.ozlind-app textarea {
+  min-width: 0;
+}
+
+.ozlind-app {
+  overflow-x: hidden;
 }
