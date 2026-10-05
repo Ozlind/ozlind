@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./tokens.css";
+import "./app/premium.css";
 
 export const metadata = {
   title: "OZLIND AI",
@@ -20,7 +21,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0B0C0E",
+  themeColor: "#0A0B0E",
 };
 
 export default function RootLayout({ children }) {
