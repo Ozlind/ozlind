@@ -1,43 +1,115 @@
 /*
  * OZLIND AI
- * Premium visual token layer
+ * Stage 8 — Premium Graphite + Warm Copper
  *
- * This file intentionally overrides the existing visual system
- * without changing application behavior or component structure.
+ * This file is the active visual token layer for the root application.
+ *
+ * IMPORTANT:
+ * - Do not change component behavior here.
+ * - Existing class names from globals.css are intentionally preserved.
+ * - This file is loaded after globals.css, so these values become the
+ *   authoritative visual system without requiring a large component rewrite.
  */
 
 :root {
-  /* Core surfaces */
-  --surface-1: #171914;
-  --surface-2: #1d2019;
-  --surface-3: #25291f;
+  color-scheme: light;
 
-  /* Text */
-  --text-dim: #a5aa9b;
+  /* --------------------------------------------------------------------- */
+  /* Core application surfaces                                             */
+  /* --------------------------------------------------------------------- */
 
-  /* OZLIND accent */
-  --accent: #a6b66a;
-  --accent-hover: #b7c978;
+  --background: #f3f1ed;
+  --surface: #fbfaf7;
+  --surface-soft: #f0eee9;
+  --surface-hover: #e9e6df;
+  --sidebar: #ebe8e1;
 
-  /* Focus */
-  --focus-ring: 0 0 0 3px rgba(166, 182, 106, 0.18);
+  /* --------------------------------------------------------------------- */
+  /* Typography                                                            */
+  /* --------------------------------------------------------------------- */
 
-  /* Premium depth */
+  --text: #171719;
+  --text-soft: #4f4d4a;
+  --text-faint: #85817b;
+
+  /* --------------------------------------------------------------------- */
+  /* Borders                                                               */
+  /* --------------------------------------------------------------------- */
+
+  --border: rgba(38, 34, 29, 0.09);
+  --border-strong: rgba(38, 34, 29, 0.15);
+
+  /* --------------------------------------------------------------------- */
+  /* Warm copper accent                                                    */
+  /* --------------------------------------------------------------------- */
+
+  --primary: #a87345;
+  --primary-dark: #82552f;
+  --primary-soft: rgba(168, 115, 69, 0.105);
+
+  /* --------------------------------------------------------------------- */
+  /* Semantic colors                                                       */
+  /* --------------------------------------------------------------------- */
+
+  --success: #4d8064;
+  --warning: #a8793e;
+  --danger: #b65d5d;
+  --danger-soft: rgba(182, 93, 93, 0.09);
+
+  /* --------------------------------------------------------------------- */
+  /* Shadows                                                               */
+  /* --------------------------------------------------------------------- */
+
+  --shadow-sm:
+    0 5px 18px rgba(30, 25, 20, 0.055);
+
+  --shadow-md:
+    0 16px 48px rgba(30, 25, 20, 0.09);
+
+  --shadow-focus:
+    0 0 0 4px rgba(168, 115, 69, 0.16);
+
+  /* --------------------------------------------------------------------- */
+  /* Geometry                                                              */
+  /* --------------------------------------------------------------------- */
+
+  --radius-sm: 10px;
+  --radius-md: 15px;
+  --radius-lg: 22px;
+
+  --sidebar-width: 278px;
+
+  /* --------------------------------------------------------------------- */
+  /* Premium aliases                                                       */
+  /* --------------------------------------------------------------------- */
+
+  --surface-1: #fbfaf7;
+  --surface-2: #f0eee9;
+  --surface-3: #e9e6df;
+
+  --text-dim: #85817b;
+
+  --accent: #a87345;
+  --accent-hover: #bd8957;
+
+  --focus-ring:
+    0 0 0 3px rgba(168, 115, 69, 0.18);
+
   --premium-shadow-sm:
-    0 6px 24px rgba(0, 0, 0, 0.08);
+    0 6px 24px rgba(30, 25, 20, 0.055);
 
   --premium-shadow-md:
-    0 18px 55px rgba(0, 0, 0, 0.14);
+    0 18px 55px rgba(30, 25, 20, 0.09);
 
   --premium-border:
-    rgba(92, 99, 77, 0.22);
+    rgba(38, 34, 29, 0.09);
 
   --premium-border-strong:
-    rgba(112, 120, 91, 0.34);
+    rgba(38, 34, 29, 0.15);
 
   --premium-glow:
-    0 0 0 1px rgba(166, 182, 106, 0.08),
-    0 10px 35px rgba(76, 86, 42, 0.08);
+    0 0 0 1px rgba(168, 115, 69, 0.08),
+    0 12px 36px rgba(120, 75, 39, 0.08);
 
   --premium-radius-sm: 11px;
   --premium-radius-md: 16px;
@@ -46,17 +118,78 @@
 }
 
 body.dark {
-  /* Graphite / olive dark system */
-  --surface-1: #151712;
-  --surface-2: #1b1e17;
-  --surface-3: #24281e;
+  color-scheme: dark;
 
-  --text-dim: #aeb4a4;
+  /* --------------------------------------------------------------------- */
+  /* Graphite surfaces                                                     */
+  /* --------------------------------------------------------------------- */
 
-  --accent: #a6b66a;
-  --accent-hover: #bdcf79;
+  --background: #0a0b0e;
+  --surface: #151619;
+  --surface-soft: #111216;
+  --surface-hover: #1c1e22;
+  --sidebar: #0f1013;
 
-  --focus-ring: 0 0 0 3px rgba(166, 182, 106, 0.2);
+  /* --------------------------------------------------------------------- */
+  /* Typography                                                            */
+  /* --------------------------------------------------------------------- */
+
+  --text: #f1f0ed;
+  --text-soft: #cfcdc8;
+  --text-faint: #8d8b8b;
+
+  /* --------------------------------------------------------------------- */
+  /* Borders                                                               */
+  /* --------------------------------------------------------------------- */
+
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.13);
+
+  /* --------------------------------------------------------------------- */
+  /* Warm copper accent                                                    */
+  /* --------------------------------------------------------------------- */
+
+  --primary: #c69b6b;
+  --primary-dark: #a87b4d;
+  --primary-soft: rgba(198, 155, 107, 0.12);
+
+  /* --------------------------------------------------------------------- */
+  /* Semantic colors                                                       */
+  /* --------------------------------------------------------------------- */
+
+  --success: #75a98b;
+  --warning: #c79b5c;
+  --danger: #d47a7a;
+  --danger-soft: rgba(212, 122, 122, 0.105);
+
+  /* --------------------------------------------------------------------- */
+  /* Shadows                                                               */
+  /* --------------------------------------------------------------------- */
+
+  --shadow-sm:
+    0 7px 25px rgba(0, 0, 0, 0.22);
+
+  --shadow-md:
+    0 20px 55px rgba(0, 0, 0, 0.32);
+
+  --shadow-focus:
+    0 0 0 4px rgba(198, 155, 107, 0.18);
+
+  /* --------------------------------------------------------------------- */
+  /* Premium aliases                                                       */
+  /* --------------------------------------------------------------------- */
+
+  --surface-1: #151619;
+  --surface-2: #111216;
+  --surface-3: #1c1e22;
+
+  --text-dim: #8d8b8b;
+
+  --accent: #c69b6b;
+  --accent-hover: #d4aa79;
+
+  --focus-ring:
+    0 0 0 3px rgba(198, 155, 107, 0.2);
 
   --premium-shadow-sm:
     0 8px 28px rgba(0, 0, 0, 0.28);
@@ -65,19 +198,36 @@ body.dark {
     0 24px 70px rgba(0, 0, 0, 0.42);
 
   --premium-border:
-    rgba(105, 112, 87, 0.2);
+    rgba(255, 255, 255, 0.075);
 
   --premium-border-strong:
-    rgba(126, 135, 101, 0.32);
+    rgba(255, 255, 255, 0.13);
 
   --premium-glow:
-    0 0 0 1px rgba(166, 182, 106, 0.07),
-    0 14px 42px rgba(70, 79, 39, 0.12);
+    0 0 0 1px rgba(198, 155, 107, 0.07),
+    0 14px 42px rgba(120, 79, 43, 0.12);
+
+  --premium-radius-sm: 11px;
+  --premium-radius-md: 16px;
+  --premium-radius-lg: 22px;
+  --premium-radius-pill: 999px;
 }
 
-/* -------------------------------------------------------------
-   Global premium treatment
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Active OZLIND surfaces                                                  */
+/* ----------------------------------------------------------------------- */
+
+.ozlind-sidebar,
+.ozlind-topbar,
+.composer-shell,
+.mode-menu,
+.account-page-header {
+  border-color: var(--premium-border);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Focus system                                                           */
+/* ----------------------------------------------------------------------- */
 
 :where(
   button,
@@ -91,17 +241,127 @@ body.dark {
   box-shadow: var(--focus-ring);
 }
 
-/* -------------------------------------------------------------
-   Existing OZLIND surfaces
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Brand                                                                  */
+/* ----------------------------------------------------------------------- */
 
-.ozlind-sidebar,
-.ozlind-topbar,
-.composer-shell,
-.mode-menu,
-.account-page-header {
-  border-color: var(--premium-border);
+.brand-button {
+  border-radius: var(--premium-radius-sm);
 }
+
+.brand-button:hover {
+  background: var(--primary-soft);
+}
+
+.brand-mark {
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--primary-dark)
+    );
+
+  box-shadow:
+    0 6px 20px rgba(120, 79, 43, 0.2);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Sidebar navigation                                                     */
+/* ----------------------------------------------------------------------- */
+
+.sidebar-nav-item.active,
+.history-item.active {
+  background: var(--primary-soft);
+  color: var(--accent-hover);
+}
+
+.sidebar-nav-item:hover,
+.history-item:hover {
+  background: rgba(198, 155, 107, 0.055);
+}
+
+.new-chat-button {
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--primary-dark)
+    );
+
+  box-shadow:
+    0 7px 22px rgba(120, 79, 43, 0.18);
+}
+
+.new-chat-button:hover {
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent-hover),
+      var(--accent)
+    );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Welcome                                                                 */
+/* ----------------------------------------------------------------------- */
+
+.welcome-badge {
+  background: var(--primary-soft);
+  color: var(--accent-hover);
+}
+
+.suggestion-card {
+  border-color: var(--premium-border);
+  border-radius: var(--premium-radius-md);
+  box-shadow: none;
+}
+
+.suggestion-card:hover {
+  border-color: var(--premium-border-strong);
+  background: rgba(198, 155, 107, 0.035);
+  box-shadow: var(--premium-shadow-sm);
+}
+
+.suggestion-icon {
+  background: var(--primary-soft);
+  color: var(--accent);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Assistant identity                                                      */
+/* ----------------------------------------------------------------------- */
+
+.assistant-avatar {
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--primary-dark)
+    );
+
+  box-shadow:
+    0 5px 18px rgba(120, 79, 43, 0.18);
+}
+
+/* ----------------------------------------------------------------------- */
+/* User messages                                                           */
+/* ----------------------------------------------------------------------- */
+
+.message-row.user .message-bubble > p {
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--primary-dark)
+    );
+
+  box-shadow:
+    0 5px 18px rgba(120, 79, 43, 0.13);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Composer                                                                */
+/* ----------------------------------------------------------------------- */
 
 .composer-shell {
   border-radius: var(--premium-radius-lg);
@@ -109,7 +369,7 @@ body.dark {
 }
 
 .composer-shell:focus-within {
-  border-color: rgba(166, 182, 106, 0.55);
+  border-color: rgba(198, 155, 107, 0.55);
   box-shadow: var(--premium-glow);
 }
 
@@ -123,125 +383,14 @@ body.dark {
   border-color: var(--premium-border-strong);
 }
 
-/* -------------------------------------------------------------
-   Brand
-   ------------------------------------------------------------- */
-
-.brand-button {
-  border-radius: var(--premium-radius-sm);
-}
-
-.brand-button:hover {
-  background: rgba(166, 182, 106, 0.06);
-}
-
-.brand-mark {
-  background: linear-gradient(
-    135deg,
-    #a6b66a,
-    #77864a
-  );
-  box-shadow:
-    0 6px 20px rgba(94, 108, 52, 0.2);
-}
-
-/* -------------------------------------------------------------
-   Navigation
-   ------------------------------------------------------------- */
-
-.sidebar-nav-item.active,
-.history-item.active {
-  background: rgba(166, 182, 106, 0.1);
+.composer-icon-button:hover {
+  background: var(--primary-soft);
   color: var(--accent-hover);
 }
 
-.sidebar-nav-item:hover,
-.history-item:hover {
-  background: rgba(166, 182, 106, 0.055);
-}
-
-.new-chat-button {
-  background: linear-gradient(
-    135deg,
-    #a6b66a,
-    #879951
-  );
-  box-shadow:
-    0 7px 22px rgba(91, 105, 48, 0.18);
-}
-
-.new-chat-button:hover {
-  background: linear-gradient(
-    135deg,
-    #b4c575,
-    #91a45a
-  );
-}
-
-/* -------------------------------------------------------------
-   Welcome
-   ------------------------------------------------------------- */
-
-.welcome-badge {
-  background: rgba(166, 182, 106, 0.1);
-  color: var(--accent-hover);
-}
-
-.suggestion-card {
-  border-color: var(--premium-border);
-  border-radius: var(--premium-radius-md);
-  box-shadow: none;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.suggestion-card:hover {
-  border-color: rgba(166, 182, 106, 0.35);
-  background: rgba(166, 182, 106, 0.035);
-  box-shadow: var(--premium-shadow-sm);
-}
-
-.suggestion-icon {
-  background: rgba(166, 182, 106, 0.1);
-  color: var(--accent);
-}
-
-/* -------------------------------------------------------------
-   Assistant identity
-   ------------------------------------------------------------- */
-
-.assistant-avatar {
-  background: linear-gradient(
-    135deg,
-    #a6b66a,
-    #6e7c43
-  );
-
-  box-shadow:
-    0 5px 18px rgba(79, 91, 43, 0.18);
-}
-
-/* -------------------------------------------------------------
-   User messages
-   ------------------------------------------------------------- */
-
-.message-row.user .message-bubble > p {
-  background: linear-gradient(
-    135deg,
-    #899953,
-    #748344
-  );
-
-  box-shadow:
-    0 5px 18px rgba(73, 85, 40, 0.13);
-}
-
-/* -------------------------------------------------------------
-   Markdown / code
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Markdown / code                                                        */
+/* ----------------------------------------------------------------------- */
 
 .code-block,
 .table-scroll,
@@ -257,7 +406,7 @@ body.dark {
 }
 
 .code-block-header {
-  background: rgba(166, 182, 106, 0.045);
+  background: rgba(198, 155, 107, 0.045);
   border-color: var(--premium-border);
 }
 
@@ -265,19 +414,23 @@ body.dark {
   color: var(--accent-hover);
 }
 
+.markdown-content a:hover {
+  color: #e0b98c;
+}
+
 .source-chip:hover {
   border-color: var(--premium-border-strong);
-  background: rgba(166, 182, 106, 0.045);
+  background: rgba(198, 155, 107, 0.045);
 }
 
 .source-index {
-  background: rgba(166, 182, 106, 0.1);
+  background: var(--primary-soft);
   color: var(--accent-hover);
 }
 
-/* -------------------------------------------------------------
-   Account
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Account                                                                */
+/* ----------------------------------------------------------------------- */
 
 .account-profile-hero,
 .account-group-card,
@@ -287,7 +440,7 @@ body.dark {
 }
 
 .account-provider-badge {
-  background: rgba(166, 182, 106, 0.1);
+  background: var(--primary-soft);
   color: var(--accent-hover);
 }
 
@@ -296,31 +449,34 @@ body.dark {
 }
 
 .account-row-icon {
-  background: rgba(166, 182, 106, 0.09);
+  background: var(--primary-soft);
   color: var(--accent);
 }
 
 .account-primary-action {
-  background: linear-gradient(
-    135deg,
-    #a6b66a,
-    #84944e
-  );
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent),
+      var(--primary-dark)
+    );
+
   box-shadow:
-    0 7px 22px rgba(84, 97, 43, 0.16);
+    0 7px 22px rgba(120, 79, 43, 0.16);
 }
 
 .account-primary-action:hover {
-  background: linear-gradient(
-    135deg,
-    #b4c575,
-    #91a45a
-  );
+  background:
+    linear-gradient(
+      135deg,
+      var(--accent-hover),
+      var(--accent)
+    );
 }
 
-/* -------------------------------------------------------------
-   Loading / error surfaces
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Loading / error surfaces                                                */
+/* ----------------------------------------------------------------------- */
 
 .ozlind-loading-mark {
   border-color: var(--premium-border);
@@ -332,12 +488,12 @@ body.dark {
 }
 
 .ozlind-loading-line {
-  background: rgba(166, 182, 106, 0.08);
+  background: var(--primary-soft);
 }
 
-/* -------------------------------------------------------------
-   Mobile refinement
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Mobile                                                                  */
+/* ----------------------------------------------------------------------- */
 
 @media (max-width: 480px) {
   .composer-shell {
@@ -354,9 +510,9 @@ body.dark {
   }
 }
 
-/* -------------------------------------------------------------
-   Accessibility
-   ------------------------------------------------------------- */
+/* ----------------------------------------------------------------------- */
+/* Reduced motion                                                          */
+/* ----------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *,
