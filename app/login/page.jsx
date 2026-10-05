@@ -35,8 +35,16 @@ function GoogleIcon() {
 
 function OzlindMark() {
   return (
-    <div className="login-brand-mark" aria-hidden="true">
-      <span className="login-brand-letter">O</span>
+    <div
+      className="login-brand-mark"
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 96 96"
+        role="presentation"
+      >
+        <use href="/ozlind-icons.svg#ozl-mark" />
+      </svg>
     </div>
   );
 }
@@ -45,12 +53,16 @@ function getCallbackErrorMessage(code) {
   switch (code) {
     case "missing_code":
       return "Google did not return a valid sign-in code. Please try again.";
+
     case "oauth_callback":
       return "Google sign-in could not be completed. Please try again.";
+
     case "callback_failed":
       return "Authentication could not be completed. Please try again.";
+
     case "auth_init":
       return "Authentication could not be initialized. Please try again.";
+
     default:
       return "";
   }
@@ -69,7 +81,9 @@ export default function LoginPage() {
     async function checkSession() {
       try {
         const queryError = getCallbackErrorMessage(
-          new URLSearchParams(window.location.search).get("error")
+          new URLSearchParams(window.location.search).get(
+            "error"
+          )
         );
 
         if (queryError && mounted) {
@@ -82,7 +96,9 @@ export default function LoginPage() {
           data: { user },
         } = await supabase.auth.getUser();
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         if (user) {
           router.replace("/");
@@ -91,10 +107,14 @@ export default function LoginPage() {
 
         setChecking(false);
       } catch (err) {
-        console.error("Supabase session check failed:", err);
+        console.error(
+          "Supabase session check failed:",
+          err
+        );
 
         if (mounted) {
           setChecking(false);
+
           setError(
             "Unable to initialize authentication. Please try again."
           );
@@ -110,7 +130,9 @@ export default function LoginPage() {
   }, [router]);
 
   async function handleGoogleLogin() {
-    if (loading) return;
+    if (loading) {
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -118,7 +140,8 @@ export default function LoginPage() {
     try {
       const supabase = await createClient();
 
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const redirectTo =
+        `${window.location.origin}/auth/callback`;
 
       const { error: authError } =
         await supabase.auth.signInWithOAuth({
@@ -142,7 +165,10 @@ export default function LoginPage() {
         setLoading(false);
       }
     } catch (err) {
-      console.error("Google sign-in failed:", err);
+      console.error(
+        "Google sign-in failed:",
+        err
+      );
 
       setError(
         "Unable to start Google sign-in. Please try again."
@@ -154,12 +180,19 @@ export default function LoginPage() {
 
   if (checking) {
     return (
-      <main className="login-page" aria-busy="true">
+      <main
+        className="login-page"
+        aria-busy="true"
+      >
         <section className="login-card login-loading-card">
           <OzlindMark />
 
           <div className="login-loading-copy">
-            <span className="login-loading-spinner" />
+            <span
+              className="login-loading-spinner"
+              aria-hidden="true"
+            />
+
             <p>Checking your session…</p>
           </div>
         </section>
@@ -169,8 +202,15 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <div className="login-background-glow login-background-glow-one" />
-      <div className="login-background-glow login-background-glow-two" />
+      <div
+        className="login-background-glow login-background-glow-one"
+        aria-hidden="true"
+      />
+
+      <div
+        className="login-background-glow login-background-glow-two"
+        aria-hidden="true"
+      />
 
       <section
         className="login-card"
@@ -180,7 +220,7 @@ export default function LoginPage() {
           <OzlindMark />
 
           <div className="login-brand-name">
-            <span>Ozlind</span>
+            <span>OZLIND</span>
             <strong>AI</strong>
           </div>
 
@@ -203,7 +243,10 @@ export default function LoginPage() {
             role="alert"
             aria-live="polite"
           >
-            <span className="login-error-icon">
+            <span
+              className="login-error-icon"
+              aria-hidden="true"
+            >
               !
             </span>
 
@@ -218,7 +261,10 @@ export default function LoginPage() {
           disabled={loading}
           aria-busy={loading}
         >
-          <span className="google-login-icon">
+          <span
+            className="google-login-icon"
+            aria-hidden="true"
+          >
             <GoogleIcon />
           </span>
 
