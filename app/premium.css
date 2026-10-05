@@ -1262,7 +1262,7 @@ textarea[placeholder*="message"] {
 
 .ozlind-sidebar,
 .sidebar {
-  z-index: 40;
+  z-index: 50;
 }
 
 .ozlind-topbar,
