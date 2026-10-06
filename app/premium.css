@@ -1,1301 +1,20 @@
-/* =========================================================
-   OZLIND AI — PREMIUM UI SYSTEM
-   Stage 8 — UI/UX Polish
-   Complete replacement
-   ========================================================= */
-
-:root {
-  --oz-bg: #f4f2ee;
-  --oz-bg-soft: #eeece7;
-  --oz-surface: rgba(255, 254, 250, 0.92);
-  --oz-surface-solid: #fffefa;
-  --oz-surface-soft: #f7f5f1;
-  --oz-surface-raised: #ffffff;
-
-  --oz-text: #17181b;
-  --oz-text-soft: #34363a;
-  --oz-muted: #74767b;
-  --oz-faint: #a5a6aa;
-
-  --oz-border: rgba(30, 28, 25, 0.085);
-  --oz-border-strong: rgba(30, 28, 25, 0.13);
-
-  --oz-accent: #a87345;
-  --oz-accent-bright: #bd8957;
-  --oz-accent-dark: #82552f;
-  --oz-accent-soft: rgba(168, 115, 69, 0.11);
-  --oz-accent-ring: rgba(168, 115, 69, 0.22);
-
-  --oz-success: #4d8064;
-  --oz-danger: #b65d5d;
-  --oz-warning: #a8793e;
-
-  --oz-shadow-xs:
-    0 1px 2px rgba(20, 18, 15, 0.04);
-
-  --oz-shadow-sm:
-    0 5px 18px rgba(25, 22, 18, 0.055);
-
-  --oz-shadow-md:
-    0 14px 40px rgba(25, 22, 18, 0.08);
-
-  --oz-shadow-lg:
-    0 25px 75px rgba(25, 22, 18, 0.12);
-
-  --oz-radius-xs: 8px;
-  --oz-radius-sm: 12px;
-  --oz-radius-md: 16px;
-  --oz-radius-lg: 21px;
-  --oz-radius-xl: 27px;
-  --oz-radius-pill: 999px;
-
-  --oz-sidebar-width: 280px;
-  --oz-content-width: 880px;
-
-  --oz-fast: 140ms;
-  --oz-normal: 220ms;
-  --oz-slow: 360ms;
-
-  --oz-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --oz-ease-soft: cubic-bezier(0.2, 0.75, 0.25, 1);
-}
-
-body.dark {
-  --oz-bg: #0a0b0e;
-  --oz-bg-soft: #101114;
-  --oz-surface: rgba(20, 21, 24, 0.94);
-  --oz-surface-solid: #151619;
-  --oz-surface-soft: #111216;
-  --oz-surface-raised: #1a1b1f;
-
-  --oz-text: #f1f0ed;
-  --oz-text-soft: #d0cec9;
-  --oz-muted: #929198;
-  --oz-faint: #606168;
-
-  --oz-border: rgba(255, 255, 255, 0.075);
-  --oz-border-strong: rgba(255, 255, 255, 0.12);
-
-  --oz-accent: #c69b6b;
-  --oz-accent-bright: #d4aa79;
-  --oz-accent-dark: #a87b4d;
-  --oz-accent-soft: rgba(198, 155, 107, 0.12);
-  --oz-accent-ring: rgba(198, 155, 107, 0.2);
-
-  --oz-success: #75a98b;
-  --oz-danger: #d47a7a;
-  --oz-warning: #c79b5c;
-
-  --oz-shadow-xs:
-    0 1px 2px rgba(0, 0, 0, 0.2);
-
-  --oz-shadow-sm:
-    0 7px 25px rgba(0, 0, 0, 0.22);
-
-  --oz-shadow-md:
-    0 18px 50px rgba(0, 0, 0, 0.3);
-
-  --oz-shadow-lg:
-    0 30px 90px rgba(0, 0, 0, 0.4);
-}
-
-/* =========================================================
-   GLOBAL APP SURFACE
-   ========================================================= */
-
-.ozlind-app,
-.ozlind-shell,
-.ozlind-root {
-  color: var(--oz-text);
-}
+/*
+ * OZLIND AI — Final interaction/polish layer
+ *
+ * This file intentionally stays small. Core tokens and structural styling
+ * live in tokens.css so there is one authoritative visual system.
+ */
 
 .ozlind-app {
-  min-height: 100dvh;
-  background:
-    radial-gradient(
-      circle at 50% -10%,
-      var(--oz-accent-soft),
-      transparent 32rem
-    ),
-    var(--oz-bg);
-  transition:
-    background-color var(--oz-slow) var(--oz-ease),
-    color var(--oz-normal) var(--oz-ease);
+  isolation: isolate;
 }
 
 .ozlind-app button,
+.ozlind-app a,
 .ozlind-app input,
 .ozlind-app textarea,
 .ozlind-app select {
-  font: inherit;
-}
-
-.ozlind-app button {
   -webkit-tap-highlight-color: transparent;
-}
-
-.ozlind-app button:focus-visible,
-.ozlind-app input:focus-visible,
-.ozlind-app textarea:focus-visible,
-.ozlind-app select:focus-visible {
-  outline: 2px solid var(--oz-accent);
-  outline-offset: 3px;
-}
-
-/* =========================================================
-   SIDEBAR
-   ========================================================= */
-
-.ozlind-sidebar,
-.sidebar {
-  background:
-    linear-gradient(
-      180deg,
-      var(--oz-surface-solid),
-      var(--oz-surface-soft)
-    );
-  border-right: 1px solid var(--oz-border);
-  box-shadow: 12px 0 35px rgba(20, 18, 15, 0.025);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  transition:
-    transform var(--oz-slow) var(--oz-ease),
-    width var(--oz-slow) var(--oz-ease),
-    background var(--oz-normal) var(--oz-ease);
-}
-
-body.dark .ozlind-sidebar,
-body.dark .sidebar {
-  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.16);
-}
-
-.ozlind-sidebar button,
-.sidebar button {
-  transition:
-    background var(--oz-fast) var(--oz-ease),
-    color var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
-}
-
-.ozlind-sidebar button:hover,
-.sidebar button:hover {
-  background: var(--oz-accent-soft);
-}
-
-.ozlind-sidebar button:active,
-.sidebar button:active {
-  transform: scale(0.975);
-}
-
-/* =========================================================
-   BRAND
-   ========================================================= */
-
-.ozlind-brand,
-.brand,
-.brand-button {
-  color: var(--oz-text);
-}
-
-.ozlind-brand {
-  letter-spacing: -0.035em;
-  font-weight: 760;
-}
-
-.ozlind-brand svg,
-.brand svg {
-  transition:
-    transform var(--oz-normal) var(--oz-ease),
-    filter var(--oz-normal) var(--oz-ease);
-}
-
-.ozlind-brand:hover svg,
-.brand:hover svg {
-  transform: scale(1.035);
-  filter: drop-shadow(0 5px 14px var(--oz-accent-ring));
-}
-
-/* =========================================================
-   NEW CHAT
-   ========================================================= */
-
-.new-chat,
-.new-chat-button,
-[data-action="new-chat"] {
-  border: 1px solid var(--oz-border);
-  background: var(--oz-surface-solid);
-  color: var(--oz-text);
-  border-radius: var(--oz-radius-md);
-  box-shadow: var(--oz-shadow-xs);
-  transition:
-    transform var(--oz-fast) var(--oz-ease),
-    box-shadow var(--oz-normal) var(--oz-ease),
-    border-color var(--oz-normal) var(--oz-ease),
-    background var(--oz-normal) var(--oz-ease);
-}
-
-.new-chat:hover,
-.new-chat-button:hover,
-[data-action="new-chat"]:hover {
-  border-color: var(--oz-accent-ring);
-  box-shadow: var(--oz-shadow-sm);
-  transform: translateY(-1px);
-}
-
-.new-chat:active,
-.new-chat-button:active,
-[data-action="new-chat"]:active {
-  transform: translateY(0) scale(0.985);
-}
-
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
-
-.ozlind-nav-item,
-.sidebar-nav-item,
-.nav-item {
-  border-radius: 12px;
-  color: var(--oz-muted);
-  transition:
-    background var(--oz-fast) var(--oz-ease),
-    color var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
-}
-
-.ozlind-nav-item:hover,
-.sidebar-nav-item:hover,
-.nav-item:hover {
-  color: var(--oz-text);
-  background: var(--oz-accent-soft);
-}
-
-.ozlind-nav-item.active,
-.sidebar-nav-item.active,
-.nav-item.active {
-  color: var(--oz-text);
-  background: var(--oz-accent-soft);
-}
-
-.ozlind-nav-item:active,
-.sidebar-nav-item:active,
-.nav-item:active {
-  transform: scale(0.985);
-}
-
-/* =========================================================
-   HISTORY
-   ========================================================= */
-
-.history-section,
-.history-list {
-  scrollbar-width: thin;
-  scrollbar-color: var(--oz-border-strong) transparent;
-}
-
-.history-item,
-.conversation-item {
-  position: relative;
-  border-radius: 12px;
-  color: var(--oz-muted);
-  transition:
-    background var(--oz-fast) var(--oz-ease),
-    color var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
-}
-
-.history-item:hover,
-.conversation-item:hover {
-  background: var(--oz-accent-soft);
-  color: var(--oz-text);
-}
-
-.history-item:active,
-.conversation-item:active {
-  transform: scale(0.99);
-}
-
-.history-item.active,
-.conversation-item.active {
-  background: var(--oz-accent-soft);
-  color: var(--oz-text);
-}
-
-/* =========================================================
-   TOP BAR
-   ========================================================= */
-
-.ozlind-topbar,
-.topbar,
-.chat-header {
-  background: color-mix(
-    in srgb,
-    var(--oz-bg) 82%,
-    transparent
-  );
-  border-bottom: 1px solid var(--oz-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-.ozlind-topbar button,
-.topbar button,
-.chat-header button {
-  border-radius: 12px;
-  transition:
-    background var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
-}
-
-.ozlind-topbar button:hover,
-.topbar button:hover,
-.chat-header button:hover {
-  background: var(--oz-accent-soft);
-}
-
-.ozlind-topbar button:active,
-.topbar button:active,
-.chat-header button:active {
-  transform: scale(0.94);
-}
-
-/* =========================================================
-   MAIN CHAT AREA
-   ========================================================= */
-
-.chat-main,
-.chat-area,
-.ozlind-chat {
-  min-width: 0;
-}
-
-.chat-content,
-.messages-container,
-.message-list {
-  width: min(100%, var(--oz-content-width));
-  margin-inline: auto;
-}
-
-.message-list {
-  scroll-behavior: smooth;
-}
-
-/* =========================================================
-   WELCOME
-   ========================================================= */
-
-.welcome,
-.welcome-screen,
-.empty-state {
-  animation:
-    ozlindWelcome
-    650ms
-    var(--oz-ease)
-    both;
-}
-
-.welcome h1,
-.welcome-screen h1,
-.empty-state h1 {
-  letter-spacing: -0.045em;
-  text-wrap: balance;
-}
-
-.welcome p,
-.welcome-screen p,
-.empty-state p {
-  color: var(--oz-muted);
-  text-wrap: pretty;
-}
-
-@keyframes ozlindWelcome {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.99);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* =========================================================
-   SUGGESTION CARDS
-   ========================================================= */
-
-.suggestion-grid {
-  gap: 12px;
-}
-
-.suggestion-card,
-.suggestion-button {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--oz-border);
-  border-radius: var(--oz-radius-lg);
-  background: var(--oz-surface);
-  color: var(--oz-text);
-  box-shadow: var(--oz-shadow-xs);
-  transition:
-    transform var(--oz-normal) var(--oz-ease),
-    box-shadow var(--oz-normal) var(--oz-ease),
-    border-color var(--oz-normal) var(--oz-ease),
-    background var(--oz-normal) var(--oz-ease);
-}
-
-.suggestion-card::after,
-.suggestion-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      120deg,
-      transparent 25%,
-      rgba(255, 255, 255, 0.34),
-      transparent 70%
-    );
-  transform: translateX(-120%);
-  transition: transform 700ms var(--oz-ease);
-  pointer-events: none;
-}
-
-.suggestion-card:hover,
-.suggestion-button:hover {
-  transform: translateY(-3px);
-  border-color: var(--oz-accent-ring);
-  box-shadow: var(--oz-shadow-md);
-}
-
-.suggestion-card:hover::after,
-.suggestion-button:hover::after {
-  transform: translateX(120%);
-}
-
-.suggestion-card:active,
-.suggestion-button:active {
-  transform: translateY(-1px) scale(0.99);
-}
-
-/* =========================================================
-   MESSAGES
-   ========================================================= */
-
-.message,
-.chat-message {
-  animation:
-    ozlindMessageIn
-    260ms
-    var(--oz-ease)
-    both;
-}
-
-@keyframes ozlindMessageIn {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.user-message,
-.message-user {
-  color: var(--oz-text);
-}
-
-.assistant-message,
-.message-assistant {
-  color: var(--oz-text);
-}
-
-.assistant-message p,
-.message-assistant p {
-  line-height: 1.72;
-}
-
-.user-message p,
-.message-user p {
-  line-height: 1.6;
-}
-
-/* =========================================================
-   MESSAGE AVATARS
-   ========================================================= */
-
-.message-avatar,
-.avatar {
-  flex-shrink: 0;
-  border-radius: 50%;
-  transition:
-    transform var(--oz-normal) var(--oz-ease),
-    box-shadow var(--oz-normal) var(--oz-ease);
-}
-
-.message-avatar:hover,
-.avatar:hover {
-  transform: scale(1.035);
-}
-
-/* =========================================================
-   MARKDOWN
-   ========================================================= */
-
-.markdown-body,
-.message-markdown {
-  color: var(--oz-text);
-}
-
-.markdown-body h1,
-.markdown-body h2,
-.markdown-body h3,
-.message-markdown h1,
-.message-markdown h2,
-.message-markdown h3 {
-  letter-spacing: -0.025em;
-  color: var(--oz-text);
-}
-
-.markdown-body a,
-.message-markdown a {
-  color: var(--oz-accent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-.markdown-body a:hover,
-.message-markdown a:hover {
-  color: var(--oz-accent-bright);
-}
-
-.markdown-body blockquote,
-.message-markdown blockquote {
-  margin-block: 1rem;
-  padding: 0.65rem 0.9rem;
-  border-left: 3px solid var(--oz-accent);
-  border-radius: 0 10px 10px 0;
-  background: var(--oz-accent-soft);
-  color: var(--oz-text-soft);
-}
-
-/* =========================================================
-   CODE
-   ========================================================= */
-
-.markdown-body pre,
-.message-markdown pre {
-  position: relative;
-  overflow-x: auto;
-  border: 1px solid var(--oz-border);
-  border-radius: var(--oz-radius-md);
-  background: #111216;
-  box-shadow: var(--oz-shadow-sm);
-}
-
-.markdown-body code,
-.message-markdown code {
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    monospace;
-}
-
-.markdown-body :not(pre) > code,
-.message-markdown :not(pre) > code {
-  padding: 0.14em 0.4em;
-  border-radius: 6px;
-  background: var(--oz-accent-soft);
-  color: var(--oz-accent-dark);
-}
-
-body.dark .markdown-body :not(pre) > code,
-body.dark .message-markdown :not(pre) > code {
-  color: var(--oz-accent-bright);
-}
-
-.code-copy-button,
-.copy-code-button {
-  transition:
-    opacity var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease),
-    background var(--oz-fast) var(--oz-ease);
-}
-
-.code-copy-button:hover,
-.copy-code-button:hover {
-  transform: translateY(-1px);
-  background: var(--oz-accent-soft);
-}
-
-/* =========================================================
-   SOURCES / RESEARCH
-   ========================================================= */
-
-.source-card,
-.sources-card,
-.research-source {
-  border: 1px solid var(--oz-border);
-  border-radius: var(--oz-radius-md);
-  background: var(--oz-surface);
-  box-shadow: var(--oz-shadow-xs);
-  transition:
-    transform var(--oz-normal) var(--oz-ease),
-    border-color var(--oz-normal) var(--oz-ease),
-    box-shadow var(--oz-normal) var(--oz-ease);
-}
-
-.source-card:hover,
-.sources-card:hover,
-.research-source:hover {
-  transform: translateY(-2px);
-  border-color: var(--oz-accent-ring);
-  box-shadow: var(--oz-shadow-sm);
-}
-
-/* =========================================================
-   COMPOSER
-   ========================================================= */
-
-.composer,
-.chat-composer,
-.message-composer {
-  position: relative;
-}
-
-.composer-container,
-.composer-wrapper {
-  position: relative;
-}
-
-.composer textarea,
-.chat-composer textarea,
-.message-composer textarea,
-.composer input {
-  min-height: 54px;
-  border: 1px solid var(--oz-border) !important;
-  border-radius: 26px !important;
-  background:
-    linear-gradient(
-      180deg,
-      var(--oz-surface-solid),
-      var(--oz-surface)
-    ) !important;
-  color: var(--oz-text) !important;
-  box-shadow:
-    var(--oz-shadow-sm),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transition:
-    border-color var(--oz-normal) var(--oz-ease),
-    box-shadow var(--oz-normal) var(--oz-ease),
-    transform var(--oz-normal) var(--oz-ease),
-    background var(--oz-normal) var(--oz-ease);
-}
-
-body.dark .composer textarea,
-body.dark .chat-composer textarea,
-body.dark .message-composer textarea,
-body.dark .composer input {
-  box-shadow:
-    0 10px 35px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.035);
-}
-
-.composer textarea:hover,
-.chat-composer textarea:hover,
-.message-composer textarea:hover {
-  border-color: var(--oz-border-strong) !important;
-}
-
-.composer textarea:focus,
-.chat-composer textarea:focus,
-.message-composer textarea:focus {
-  border-color: var(--oz-accent-ring) !important;
-  box-shadow:
-    0 0 0 4px var(--oz-accent-soft),
-    var(--oz-shadow-md) !important;
-  outline: none !important;
-}
-
-.composer textarea::placeholder,
-.chat-composer textarea::placeholder,
-.message-composer textarea::placeholder {
-  color: var(--oz-faint);
-}
-
-/* =========================================================
-   COMPOSER ACTION BUTTONS
-   ========================================================= */
-
-.composer button,
-.chat-composer button,
-.message-composer button {
-  transition:
-    transform var(--oz-fast) var(--oz-ease),
-    background var(--oz-fast) var(--oz-ease),
-    color var(--oz-fast) var(--oz-ease),
-    box-shadow var(--oz-fast) var(--oz-ease);
-}
-
-.composer button:hover,
-.chat-composer button:hover,
-.message-composer button:hover {
-  background: var(--oz-accent-soft);
-}
-
-.composer button:active,
-.chat-composer button:active,
-.message-composer button:active {
-  transform: scale(0.91);
-}
-
-/* Send button */
-
-.composer button[type="submit"],
-.chat-composer button[type="submit"],
-.message-composer button[type="submit"] {
-  border-radius: 50%;
-  background: var(--oz-text);
-  color: var(--oz-bg);
-  box-shadow: var(--oz-shadow-sm);
-}
-
-.composer button[type="submit"]:hover,
-.chat-composer button[type="submit"]:hover,
-.message-composer button[type="submit"]:hover {
-  background: var(--oz-accent);
-  color: #fff;
-  transform: scale(1.045);
-  box-shadow: 0 8px 25px var(--oz-accent-ring);
-}
-
-/* Stop button */
-
-.composer button[aria-label*="Stop"],
-.chat-composer button[aria-label*="Stop"],
-.message-composer button[aria-label*="Stop"] {
-  background: var(--oz-danger);
-  color: #fff;
-}
-
-.composer button[aria-label*="Stop"]:hover,
-.chat-composer button[aria-label*="Stop"]:hover,
-.message-composer button[aria-label*="Stop"]:hover {
-  background: #a94f4f;
-}
-
-/* =========================================================
-   ATTACHMENT PREVIEW
-   ========================================================= */
-
-.attachment-preview,
-.file-preview,
-.composer-attachment {
-  border: 1px solid var(--oz-border);
-  border-radius: 14px;
-  background: var(--oz-surface-soft);
-  box-shadow: var(--oz-shadow-xs);
-  animation:
-    ozlindAttachment
-    250ms
-    var(--oz-ease)
-    both;
-}
-
-@keyframes ozlindAttachment {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* =========================================================
-   MODE SELECTOR
-   ========================================================= */
-
-.mode-selector,
-.mode-menu,
-.model-menu,
-.research-menu {
-  border: 1px solid var(--oz-border);
-  border-radius: var(--oz-radius-md);
-  background: var(--oz-surface-solid);
-  box-shadow: var(--oz-shadow-lg);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  animation:
-    ozlindMenu
-    180ms
-    var(--oz-ease)
-    both;
-  transform-origin: bottom center;
-}
-
-@keyframes ozlindMenu {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.mode-option,
-.mode-menu button,
-.research-menu button {
-  border-radius: 10px;
-  transition:
-    background var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
-}
-
-.mode-option:hover,
-.mode-menu button:hover,
-.research-menu button:hover {
-  background: var(--oz-accent-soft);
-}
-
-.mode-option:active,
-.mode-menu button:active,
-.research-menu button:active {
-  transform: scale(0.98);
-}
-
-.mode-option.active,
-.mode-menu button[aria-selected="true"] {
-  background: var(--oz-accent-soft);
-}
-
-/* =========================================================
-   STREAMING
-   ========================================================= */
-
-.streaming-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.streaming-indicator span {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--oz-accent);
-  animation: ozlindDot 1.1s infinite ease-in-out;
-}
-
-.streaming-indicator span:nth-child(2) {
-  animation-delay: 120ms;
-}
-
-.streaming-indicator span:nth-child(3) {
-  animation-delay: 240ms;
-}
-
-@keyframes ozlindDot {
-  0%,
-  60%,
-  100% {
-    opacity: 0.3;
-    transform: translateY(0);
-  }
-
-  30% {
-    opacity: 1;
-    transform: translateY(-4px);
-  }
-}
-
-/* =========================================================
-   ERROR
-   ========================================================= */
-
-.error-message,
-.chat-error,
-.error-banner {
-  border: 1px solid rgba(182, 93, 93, 0.2);
-  border-radius: 14px;
-  background: rgba(182, 93, 93, 0.07);
-  color: var(--oz-danger);
-  animation:
-    ozlindError
-    220ms
-    var(--oz-ease)
-    both;
-}
-
-@keyframes ozlindError {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* =========================================================
-   ACCOUNT / SETTINGS
-   ========================================================= */
-
-.account-dialog,
-.settings-dialog,
-.account-modal,
-.settings-modal {
-  border: 1px solid var(--oz-border);
-  border-radius: var(--oz-radius-xl);
-  background: var(--oz-surface-solid);
-  box-shadow: var(--oz-shadow-lg);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  animation:
-    ozlindDialog
-    260ms
-    var(--oz-ease)
-    both;
-}
-
-@keyframes ozlindDialog {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.975);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.account-dialog button,
-.settings-dialog button,
-.account-modal button,
-.settings-modal button {
-  transition:
-    background var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
-}
-
-.account-dialog button:hover,
-.settings-dialog button:hover,
-.account-modal button:hover,
-.settings-modal button:hover {
-  background: var(--oz-accent-soft);
-}
-
-.account-dialog button:active,
-.settings-dialog button:active,
-.account-modal button:active,
-.settings-modal button:active {
-  transform: scale(0.97);
-}
-
-/* =========================================================
-   TOAST
-   ========================================================= */
-
-.toast,
-.ozlind-toast {
-  border: 1px solid var(--oz-border);
-  border-radius: 14px;
-  background: var(--oz-surface-solid);
-  color: var(--oz-text);
-  box-shadow: var(--oz-shadow-lg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation:
-    ozlindToast
-    320ms
-    var(--oz-ease)
-    both;
-}
-
-@keyframes ozlindToast {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* =========================================================
-   SCROLLBARS
-   ========================================================= */
-
-.ozlind-app * {
-  scrollbar-width: thin;
-  scrollbar-color:
-    var(--oz-border-strong)
-    transparent;
-}
-
-.ozlind-app *::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-
-.ozlind-app *::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ozlind-app *::-webkit-scrollbar-thumb {
-  background: var(--oz-border-strong);
-  border-radius: 999px;
-}
-
-.ozlind-app *::-webkit-scrollbar-thumb:hover {
-  background: var(--oz-muted);
-}
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 900px) {
-  :root {
-    --oz-sidebar-width: 275px;
-    --oz-content-width: 100%;
-  }
-
-  .ozlind-sidebar,
-  .sidebar {
-    box-shadow: 18px 0 55px rgba(0, 0, 0, 0.16);
-  }
-
-  .chat-content,
-  .messages-container,
-  .message-list {
-    padding-inline: 14px;
-  }
-
-  .suggestion-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .ozlind-app {
-    min-height: 100svh;
-  }
-
-  .chat-content,
-  .messages-container,
-  .message-list {
-    padding-inline: 10px;
-  }
-
-  .suggestion-grid {
-    grid-template-columns: 1fr;
-    gap: 9px;
-  }
-
-  .suggestion-card,
-  .suggestion-button {
-    min-height: 58px;
-    border-radius: 16px;
-  }
-
-  .welcome h1,
-  .welcome-screen h1,
-  .empty-state h1 {
-    font-size: clamp(2rem, 9vw, 2.8rem);
-    line-height: 1.04;
-  }
-
-  .composer textarea,
-  .chat-composer textarea,
-  .message-composer textarea {
-    min-height: 50px;
-    border-radius: 23px !important;
-  }
-
-  .mode-selector,
-  .mode-menu,
-  .model-menu,
-  .research-menu {
-    max-width: calc(100vw - 20px);
-  }
-}
-
-@media (max-width: 420px) {
-  .chat-content,
-  .messages-container,
-  .message-list {
-    padding-inline: 7px;
-  }
-
-  .composer textarea,
-  .chat-composer textarea,
-  .message-composer textarea {
-    min-height: 48px;
-    border-radius: 22px !important;
-  }
-
-  .suggestion-card,
-  .suggestion-button {
-    border-radius: 15px;
-  }
-}
-
-/* =========================================================
-   TOUCH DEVICES
-   ========================================================= */
-
-@media (hover: none) and (pointer: coarse) {
-  .suggestion-card:hover,
-  .suggestion-button:hover,
-  .source-card:hover,
-  .sources-card:hover,
-  .research-source:hover {
-    transform: none;
-    box-shadow: var(--oz-shadow-xs);
-  }
-
-  .suggestion-card:hover::after,
-  .suggestion-button:hover::after {
-    transform: translateX(-120%);
-  }
-
-  .ozlind-sidebar button:hover,
-  .sidebar button:hover,
-  .composer button:hover,
-  .chat-composer button:hover {
-    background: transparent;
-  }
-
-  .composer button,
-  .chat-composer button,
-  .message-composer button,
-  .ozlind-sidebar button,
-  .sidebar button {
-    min-width: 42px;
-    min-height: 42px;
-  }
-}
-
-/* =========================================================
-   REDUCED MOTION
-   ========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
-  }
-}
-
-/* =========================================================
-   SAFE DARK MODE
-   ========================================================= */
-
-body.dark .ozlind-app {
-  background:
-    radial-gradient(
-      circle at 50% -15%,
-      rgba(198, 155, 107, 0.08),
-      transparent 34rem
-    ),
-    var(--oz-bg);
-}
-
-body.dark .suggestion-card,
-body.dark .suggestion-button,
-body.dark .source-card,
-body.dark .sources-card,
-body.dark .research-source {
-  background: rgba(22, 23, 27, 0.9);
-}
-
-body.dark .composer textarea,
-body.dark .chat-composer textarea,
-body.dark .message-composer textarea {
-  background:
-    linear-gradient(
-      180deg,
-      #17181c,
-      #131418
-    ) !important;
-}
-
-/* =========================================================
-   PREVENT ACCIDENTAL RECTANGULAR COMPOSER STYLING
-   ========================================================= */
-
-.composer textarea,
-.chat-composer textarea,
-.message-composer textarea,
-textarea[data-composer],
-textarea[placeholder*="Message"],
-textarea[placeholder*="message"] {
-  outline: none;
-  resize: none;
-  border-radius: 26px !important;
-}
-
-/* =========================================================
-   Z-INDEX / OVERLAY SAFETY
-   ========================================================= */
-
-.ozlind-sidebar,
-.sidebar {
-  z-index: 50;
-}
-
-.ozlind-topbar,
-.topbar,
-.chat-header {
-  z-index: 30;
-}
-
-.mode-selector,
-.mode-menu,
-.model-menu,
-.research-menu {
-  z-index: 60;
-}
-
-.account-dialog,
-.settings-dialog,
-.account-modal,
-.settings-modal {
-  z-index: 100;
-}
-
-.toast,
-.ozlind-toast {
-  z-index: 120;
-}
-
-/* =========================================================
-   FINAL POLISH
-   ========================================================= */
-
-.ozlind-app img {
-  max-width: 100%;
 }
 
 .ozlind-app button,
@@ -1305,37 +24,186 @@ textarea[placeholder*="message"] {
 }
 
 .ozlind-app ::selection {
-  background: var(--oz-accent-soft);
-  color: var(--oz-text);
+  background: rgba(93, 216, 255, 0.22);
+  color: var(--text);
 }
 
-.ozlind-app hr {
-  border: 0;
-  border-top: 1px solid var(--oz-border);
+/* Soft entrance transitions. */
+.welcome-screen,
+.message-row,
+.selected-file,
+.error-banner,
+.toast,
+.settings-dialog,
+.account-page {
+  animation-duration: 220ms;
+  animation-timing-function: var(--oz-ease);
+  animation-fill-mode: both;
+}
+
+.welcome-screen {
+  animation-name: ozlind-ui-enter;
+}
+
+.message-row {
+  animation-name: ozlind-message-enter;
+}
+
+.selected-file {
+  animation-name: ozlind-item-enter;
+}
+
+.error-banner {
+  animation-name: ozlind-item-enter;
+}
+
+.settings-dialog {
+  animation-name: ozlind-dialog-enter;
+}
+
+.account-page {
+  animation-name: ozlind-page-enter;
+}
+
+@keyframes ozlind-ui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ozlind-message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ozlind-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ozlind-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ozlind-page-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Better hover/focus treatment without adding visual noise. */
+.suggestion-card,
+.history-item,
+.mode-menu-item,
+.source-chip,
+.account-row,
+.profile-card,
+.new-chat-button {
+  transition:
+    background-color var(--oz-fast) var(--oz-ease),
+    border-color var(--oz-fast) var(--oz-ease),
+    color var(--oz-fast) var(--oz-ease),
+    box-shadow var(--oz-fast) var(--oz-ease),
+    transform var(--oz-fast) var(--oz-ease);
+}
+
+.send-button,
+.composer-icon-button,
+.icon-button {
+  transition:
+    background-color var(--oz-fast) var(--oz-ease),
+    color var(--oz-fast) var(--oz-ease),
+    box-shadow var(--oz-fast) var(--oz-ease),
+    transform var(--oz-fast) var(--oz-ease);
+}
+
+.send-button:active:not(:disabled),
+.composer-icon-button:active,
+.icon-button:active,
+.mode-button:active {
+  transform: scale(0.96);
+}
+
+/* Keep the app clean on touch devices. */
+@media (hover: none) and (pointer: coarse) {
+  .suggestion-card:hover,
+  .history-item:hover,
+  .source-chip:hover,
+  .account-row:hover,
+  .profile-card:hover {
+    transform: none;
+  }
+
+  .message-actions {
+    opacity: 1;
+  }
+
+  .new-chat-button,
+  .history-item-main,
+  .composer-icon-button,
+  .mode-button,
+  .send-button,
+  .icon-button {
+    min-height: 40px;
+  }
+}
+
+/* Prevent ugly horizontal overflow from long AI output. */
+.markdown-content,
+.message-column,
+.source-text,
+.account-row-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.markdown-content img,
+.markdown-content video,
+.message-attachment img {
+  max-width: 100%;
 }
 
 .ozlind-app table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  overflow: hidden;
-  border: 1px solid var(--oz-border);
-  border-radius: 14px;
+  display: block;
+  overflow-x: auto;
 }
 
-.ozlind-app th,
-.ozlind-app td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--oz-border);
-  text-align: left;
-}
+/* Keep dialogs usable on short phone screens. */
+@media (max-height: 740px) and (max-width: 700px) {
+  .settings-dialog {
+    max-height: calc(100dvh - 20px);
+    border-radius: 20px;
+  }
 
-.ozlind-app th {
-  background: var(--oz-accent-soft);
-  color: var(--oz-text);
-  font-weight: 650;
-}
-
-.ozlind-app tr:last-child td {
-  border-bottom: 0;
+  .account-scroll {
+    padding-bottom:
+      calc(24px + env(safe-area-inset-bottom, 0px));
+  }
 }
