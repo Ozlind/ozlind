@@ -5,6 +5,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/auth/callback",
   "/api/supabase/config",
+  "/api/v1/health",
 ];
 
 function isPublicPath(pathname) {
@@ -130,14 +131,22 @@ export async function middleware(request) {
    */
   if (!user) {
     if (pathname.startsWith("/api/")) {
+      const requestId = crypto.randomUUID();
       const apiResponse =
         NextResponse.json(
           {
-            error:
-              "Authentication required.",
+            error: {
+              code: "AUTH_REQUIRED",
+              message: "Authentication required.",
+              requestId,
+            },
           },
           {
             status: 401,
+            headers: {
+              "Cache-Control": "no-store",
+              "X-OZLIND-Request-ID": requestId,
+            },
           }
         );
 
