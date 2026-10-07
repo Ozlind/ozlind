@@ -24,7 +24,6 @@ import {
   PanelLeftClose,
   PenLine,
   Palette,
-  RefreshCw,
   Search,
   Settings2,
   Shield,
@@ -640,6 +639,16 @@ export default function OzlindApp({
   const [isListening, setIsListening] =
     useState(false);
 
+  const [pullRefreshDistance, setPullRefreshDistance] =
+    useState(0);
+
+  const pullRefreshRef = useRef({
+    active: false,
+    startY: 0,
+    distance: 0,
+    target: null,
+  });
+
   const accountUser = initialUser;
   const userId = accountUser?.id || "anon";
   const cloudEnabled =
@@ -731,6 +740,146 @@ export default function OzlindApp({
     return () => {
       speechRecognitionRef.current?.abort?.();
       speechRecognitionRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const state = pullRefreshRef.current;
+
+    const reset = () => {
+      state.active = false;
+      state.startY = 0;
+      state.distance = 0;
+      state.target = null;
+      setPullRefreshDistance(0);
+    };
+
+    const onTouchStart = (event) => {
+      if (
+        window.innerWidth > 768 ||
+        event.touches.length !== 1
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        target?.closest?.(
+          "textarea, input, button, [role="dialog"], .account-overlay, .dialog-backdrop, .mobile-sidebar-backdrop",
+        )
+      ) {
+        return;
+      }
+
+      const workspace = target?.closest?.(".workspace");
+      const scrollContainer = target?.closest?.(".messages-list");
+
+      if (!workspace) return;
+
+      if (
+        scrollContainer &&
+        scrollContainer.scrollTop > 0
+      ) {
+        return;
+      }
+
+      state.active = true;
+      state.startY = event.touches[0].clientY;
+      state.distance = 0;
+      state.target = scrollContainer || workspace;
+    };
+
+    const onTouchMove = (event) => {
+      if (
+        !state.active ||
+        event.touches.length !== 1
+      ) {
+        return;
+      }
+
+      const distance =
+        event.touches[0].clientY - state.startY;
+
+      if (distance <= 0) {
+        reset();
+        return;
+      }
+
+      const target = state.target;
+      if (
+        target &&
+        "scrollTop" in target &&
+        target.scrollTop > 0
+      ) {
+        reset();
+        return;
+      }
+
+      const damped = Math.min(112, distance * 0.52);
+      state.distance = damped;
+      setPullRefreshDistance(damped);
+
+      if (damped > 4) {
+        event.preventDefault();
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (!state.active) return;
+
+      const shouldRefresh =
+        state.distance >= 76;
+
+      reset();
+
+      if (shouldRefresh) {
+        window.location.reload();
+      }
+    };
+
+    document.addEventListener(
+      "touchstart",
+      onTouchStart,
+      { passive: true },
+    );
+
+    document.addEventListener(
+      "touchmove",
+      onTouchMove,
+      { passive: false },
+    );
+
+    document.addEventListener(
+      "touchend",
+      onTouchEnd,
+      { passive: true },
+    );
+
+    document.addEventListener(
+      "touchcancel",
+      reset,
+      { passive: true },
+    );
+
+    return () => {
+      document.removeEventListener(
+        "touchstart",
+        onTouchStart,
+      );
+      document.removeEventListener(
+        "touchmove",
+        onTouchMove,
+      );
+      document.removeEventListener(
+        "touchend",
+        onTouchEnd,
+      );
+      document.removeEventListener(
+        "touchcancel",
+        reset,
+      );
     };
   }, []);
 
@@ -2969,16 +3118,6 @@ export default function OzlindApp({
           </div>
 
           <div className="topbar-actions">
-            <button
-              type="button"
-              className="icon-button"
-              onClick={() => window.location.reload()}
-              aria-label="Refresh workspace"
-              title="Refresh"
-            >
-              <RefreshCw size={18} />
-            </button>
-
             <button type="button"
               className="icon-button"
               onClick={() =>
@@ -3022,6 +3161,33 @@ export default function OzlindApp({
             </button>
           </div>
         </header>
+
+        <div
+          className="pull-refresh-indicator"
+          style={{
+            transform: `translate(-50%, ${Math.min(
+              96,
+              pullRefreshDistance,
+            ) - 52}px)`,
+            opacity: pullRefreshDistance > 4 ? 1 : 0,
+          }}
+          aria-hidden="true"
+        >
+          <span
+            className={
+              pullRefreshDistance >= 76
+                ? "pull-refresh-icon ready"
+                : "pull-refresh-icon"
+            }
+          >
+            ↻
+          </span>
+          <span>
+            {pullRefreshDistance >= 76
+              ? "Release to refresh"
+              : "Pull to refresh"}
+          </span>
+        </div>
 
         <section className="workspace">
           {!hasMessages ? (
