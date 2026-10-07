@@ -1829,7 +1829,7 @@ export default function OzlindApp({
       if (navigator.share) {
         await navigator.share({
           title:
-            "OZLIND AI conversation",
+            "Conversation",
           text,
         });
         return;
@@ -2721,7 +2721,7 @@ export default function OzlindApp({
                 OZLIND
               </strong>
               <span>
-                Intelligent workspace
+                Workspace
               </span>
             </span>
           </button>
@@ -2966,11 +2966,6 @@ export default function OzlindApp({
                 AI
               </span>
             </div>
-
-            <div className="status-badge">
-              <span className="status-dot" />
-              Online
-            </div>
           </div>
 
           <div className="topbar-actions">
@@ -3025,9 +3020,7 @@ export default function OzlindApp({
                 <Sparkles
                   size={15}
                 />
-                <span>
-                  OZLIND AI
-                </span>
+                <span>Assistant</span>
               </div>
 
               <h1>
@@ -3035,8 +3028,7 @@ export default function OzlindApp({
               </h1>
 
               <p>
-                Chat, research, analyze files and images,
-                and turn ideas into clear next steps with OZLIND AI.
+                Chat, research, analyze files and images, and turn ideas into clear next steps.
               </p>
 
               <div className="suggestion-grid">
@@ -3122,7 +3114,7 @@ export default function OzlindApp({
                             <span>
                               {isUser
                                 ? "You"
-                                : "Ozlind AI"}
+                                : "Assistant"}
                             </span>
                           </div>
 
