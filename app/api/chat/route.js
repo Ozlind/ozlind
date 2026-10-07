@@ -28,13 +28,14 @@ import {
   searchDocuments,
 } from "@/lib/rag";
 
+import { writeUsageLog } from "@/lib/backend/usage";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const MAX_CHAT_REQUEST_BYTES = 5_000_000;
 
-import { writeUsageLog } from "@/lib/backend/usage";
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
