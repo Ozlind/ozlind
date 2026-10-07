@@ -60,7 +60,7 @@ const nextConfig: NextConfig = {
             value: "max-age=63072000; includeSubDomains",
           },
           {
-            // Microphone is allowed for same-origin (voice input, coming soon).
+            // Microphone is allowed only for the same-origin dictation control.
             key: "Permissions-Policy",
             value: "camera=(), microphone=(self), geolocation=()",
           },

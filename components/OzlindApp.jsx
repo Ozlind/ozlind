@@ -1475,6 +1475,7 @@ export default function OzlindApp({
 
   function clearHistory() {
     if (!history.length) return;
+    if (!window.confirm("Clear all saved conversations? This cannot be undone.")) return;
 
     setHistory([]);
     syncedRef.current.clear();
@@ -1498,6 +1499,7 @@ export default function OzlindApp({
   }
 
   function clearCurrentChat() {
+    if (messages.length && !window.confirm("Delete this conversation? This cannot be undone.")) return;
     abortControllerRef.current?.abort();
 
     setMessages([]);
@@ -2663,6 +2665,7 @@ export default function OzlindApp({
                   ? "active"
                   : ""
               }`}
+              aria-pressed={settings.research}
               onClick={() => {
                 const next =
                   !settings.research;
@@ -2893,9 +2896,8 @@ export default function OzlindApp({
 
             <button
               className="clear-chat-button"
-              onClick={
-                clearCurrentChat
-              }
+              onClick={clearCurrentChat}
+              aria-label="Delete current conversation"
             >
               <Trash2 size={16} />
               <span>
@@ -3362,6 +3364,7 @@ export default function OzlindApp({
                       aria-expanded={
                         modeOpen
                       }
+                      aria-haspopup="menu"
                     >
                       <selectedMode.icon
                         size={16}
@@ -3615,7 +3618,7 @@ export default function OzlindApp({
 
                 <AccountRow
                   icon={BrainCircuit}
-                  title="Memory"
+                  title="Conversation context"
                   subtitle={
                     settings.memory
                       ? "On"
@@ -3860,12 +3863,11 @@ export default function OzlindApp({
                 <div className="setting-row">
                   <div>
                     <strong>
-                      Provider routing
+                      AI mode
                     </strong>
                     <span>
-                      Automatically select
-                      the best available
-                      route.
+                      Choose how OZLIND balances
+                      speed, depth and visual input.
                     </span>
                   </div>
 
@@ -3928,11 +3930,11 @@ export default function OzlindApp({
                 <div className="setting-row">
                   <div>
                     <strong>
-                      Memory
+                      Conversation context
                     </strong>
                     <span>
-                      Keep useful
-                      conversation context.
+                      Use earlier messages
+                      from this chat when responding.
                     </span>
                   </div>
 

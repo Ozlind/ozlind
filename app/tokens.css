@@ -21,7 +21,7 @@
   /* Compatibility aliases used by existing selectors */
   --oz-electric-purple: var(--oz-olive);
   --oz-signal-cyan: var(--oz-sage);
-  --oz-clay-orange: #C98A42;
+  --oz-clay-orange: #E26F4A;
 
   /* Surfaces */
   --background: #FFFCF4;
@@ -44,7 +44,7 @@
   /* Accent */
   --primary: var(--oz-olive);
   --primary-dark: var(--oz-olive-dark);
-  --primary-soft: rgba(127, 140, 75, 0.115);
+  --primary-soft: rgba(226, 111, 74, 0.12);
   --accent: var(--oz-olive);
   --accent-hover: var(--oz-olive-light);
 
@@ -58,7 +58,7 @@
   --shadow-sm: 0 7px 22px rgba(69,46,36,.065);
   --shadow-md: 0 22px 58px rgba(69,46,36,.11);
   --shadow-focus:
-    0 0 0 3px rgba(169, 182, 107, 0.28),
+    0 0 0 3px rgba(226, 111, 74, 0.20),
     0 0 0 1px rgba(226,111,74,.16);
 
   /* Geometry */
@@ -98,8 +98,8 @@
   --premium-border: var(--border);
   --premium-border-strong: var(--border-strong);
   --premium-glow:
-    0 0 0 1px rgba(127, 140, 75, 0.08),
-    0 14px 36px rgba(127, 140, 75, 0.10);
+    0 0 0 1px rgba(226, 111, 74, 0.08),
+    0 14px 36px rgba(226, 111, 74, 0.10);
   --premium-radius-sm: 11px;
   --premium-radius-md: 16px;
   --premium-radius-lg: 24px;
@@ -160,7 +160,7 @@ body.dark {
   --primary-dark: #C95836;
   --primary-soft: rgba(238,138,104,.15);
   --accent: var(--oz-olive-light);
-  --accent-hover: #bac783;
+  --accent-hover: #F2B29C;
 
   --success: #67b788;
   --warning: #d19455;
@@ -171,7 +171,7 @@ body.dark {
   --shadow-md: 0 26px 72px rgba(0, 0, 0, 0.34);
   --shadow-focus:
     0 0 0 3px rgba(226,111,74,.18),
-    0 0 0 1px rgba(169, 182, 107, 0.17);
+    0 0 0 1px rgba(226, 111, 74, 0.17);
 
   --oz-surface: rgba(19, 24, 19, 0.95);
   --oz-surface-raised: #352720;
