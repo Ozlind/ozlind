@@ -6,6 +6,8 @@ import {
   shouldResearch,
   systemPrompt,
   validateMessages,
+  isTrustedSameOrigin,
+  isUuid,
 } from "@/lib/server";
 
 import {
@@ -17,7 +19,10 @@ import {
   checkUserRateLimit,
 } from "@/lib/rate-limit";
 
-import { createClient } from "@/lib/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+} from "@/lib/supabase/server";
 
 import {
   searchDocuments,
@@ -29,6 +34,69 @@ export const maxDuration = 60;
 
 const MAX_CHAT_REQUEST_BYTES = 5_000_000;
 const USAGE_LOG_TIMEOUT_MS = 600;
+
+function writeUsageLog({
+  userId,
+  conversationId,
+  mode,
+  provider,
+  model,
+  latencyMs,
+  ok,
+  error = null,
+}) {
+  if (!isUuid(userId)) {
+    return Promise.resolve();
+  }
+
+  return (async () => {
+    try {
+      const supabase = await createClient();
+
+      const insert = supabase
+        .from("usage_logs")
+        .insert({
+          user_id: userId,
+          conversation_id: isUuid(conversationId)
+            ? conversationId
+            : null,
+          mode: String(mode || "").slice(0, 32) || null,
+          provider: String(provider || "").slice(0, 64) || null,
+          model: String(model || "").slice(0, 160) || null,
+          latency_ms: Number.isFinite(Number(latencyMs))
+            ? Math.max(0, Math.round(Number(latencyMs)))
+            : null,
+          ok: Boolean(ok),
+          error:
+            typeof error === "string"
+              ? error.slice(0, 1000)
+              : null,
+        });
+
+      let timeoutHandle = null;
+
+      await Promise.race([
+        insert,
+        new Promise((resolve) => {
+          timeoutHandle = setTimeout(
+            resolve,
+            USAGE_LOG_TIMEOUT_MS,
+          );
+        }),
+      ]);
+
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    } catch (logError) {
+      console.error(
+        "OZLIND usage logging failed:",
+        logError,
+      );
+    }
+  })();
+}
+
 
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -872,6 +940,14 @@ export async function POST(
   let rateUserId = null;
 
   try {
+    if (!isTrustedSameOrigin(request)) {
+      return json(
+        { error: "Invalid request origin." },
+        403,
+        { "X-OZLIND-Request-ID": requestId },
+      );
+    }
+
     const contentLength = Number(request.headers.get("content-length") || 0);
     if (Number.isFinite(contentLength) && contentLength > MAX_CHAT_REQUEST_BYTES) {
       return json(
@@ -901,6 +977,21 @@ export async function POST(
             "Your session has expired. Please sign in again.",
         },
         401,
+      );
+    }
+
+    if (rate.unavailable) {
+      return json(
+        {
+          error:
+            "The request protection service is temporarily unavailable. Please try again shortly.",
+        },
+        503,
+        {
+          "Retry-After": "5",
+          "X-RateLimit-Remaining": "0",
+          "X-OZLIND-Request-ID": requestId,
+        },
       );
     }
 
@@ -997,10 +1088,34 @@ export async function POST(
       );
 
     const conversationId =
-      typeof body.conversationId === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.conversationId)
+      isUuid(body.conversationId)
         ? body.conversationId
         : null;
+
+    if (conversationId) {
+      const admin = createAdminClient();
+      const { data: ownedConversation, error: ownershipError } =
+        await admin
+          .from("conversations")
+          .select("id, user_id")
+          .eq("id", conversationId)
+          .maybeSingle();
+
+      if (ownershipError) {
+        throw ownershipError;
+      }
+
+      if (
+        ownedConversation &&
+        ownedConversation.user_id !== rate.userId
+      ) {
+        return json(
+          { error: "This conversation is not available." },
+          403,
+          { "X-OZLIND-Request-ID": requestId },
+        );
+      }
+    }
 
     const research =
       shouldResearch(
@@ -1114,7 +1229,14 @@ export async function POST(
               buildSearchQuery(messages);
 
             const documentPromise =
-              performDocumentRetrieval(searchQuery);
+              body.memory === false
+                ? Promise.resolve({
+                    results: [],
+                    notice: null,
+                  })
+                : performDocumentRetrieval(
+                    searchQuery,
+                  );
 
             const researchPromise = research
               ? performResearch(searchQuery, request.signal)
@@ -1329,6 +1451,7 @@ export async function POST(
           "X-Accel-Buffering":
             "no",
           "X-OZLIND-Request-ID": requestId,
+          "X-Content-Type-Options": "nosniff",
           "X-RateLimit-Remaining":
             String(
               rate.remaining,
