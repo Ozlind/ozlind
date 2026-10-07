@@ -3319,7 +3319,25 @@ export default function OzlindApp({
                     />
                   </button>
 
-                  <button type="button" className={`composer-icon-button voice-input-button ${isListening ? "recording" : ""}`} onClick={toggleVoiceInput} aria-label={isListening ? "Stop voice input" : "Start voice input"} aria-pressed={isListening}>\n                    <Mic size={19} />\n                  </button>\n\n                  <input\n                    ref={fileInputRef}\n                    type="file"
+                  <button
+                    type="button"
+                    className={`composer-icon-button voice-input-button ${
+                      isListening ? "recording" : ""
+                    }`}
+                    onClick={toggleVoiceInput}
+                    aria-label={
+                      isListening
+                        ? "Stop voice input"
+                        : "Start voice input"
+                    }
+                    aria-pressed={isListening}
+                  >
+                    <Mic size={19} />
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
                     hidden
                     onChange={
                       handleFileChange
