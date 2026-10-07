@@ -767,7 +767,7 @@ export default function OzlindApp({
       const target = event.target;
       if (
         target?.closest?.(
-          "textarea, input, button, [role="dialog"], .account-overlay, .dialog-backdrop, .mobile-sidebar-backdrop",
+          'textarea, input, button, [role="dialog"], .account-overlay, .dialog-backdrop, .mobile-sidebar-backdrop',
         )
       ) {
         return;
