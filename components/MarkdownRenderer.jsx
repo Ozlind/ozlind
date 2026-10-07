@@ -4,10 +4,7 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
-function linkifyCitations(
-  content,
-  sources,
-) {
+function linkifyCitations(content, sources) {
   if (
     typeof content !== "string" ||
     !Array.isArray(sources) ||
@@ -26,10 +23,7 @@ function linkifyCitations(
       return part.replace(
         /\[(\d{1,2})\](?!\()/g,
         (match, number) => {
-          const url =
-            sources[
-              Number(number) - 1
-            ]?.url;
+          const url = sources[Number(number) - 1]?.url;
 
           if (
             typeof url !== "string" ||
@@ -39,14 +33,8 @@ function linkifyCitations(
           }
 
           return `[[${number}]](${url
-            .replace(
-              /\(/g,
-              "%28",
-            )
-            .replace(
-              /\)/g,
-              "%29",
-            )})`;
+            .replace(/\(/g, "%28")
+            .replace(/\)/g, "%29")})`;
         },
       );
     })
@@ -54,25 +42,18 @@ function linkifyCitations(
 }
 
 function CodeBlock({ children }) {
-  const [copied, setCopied] =
-    useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const codeElement =
-    Array.isArray(children)
-      ? children[0]
-      : children;
+  const codeElement = Array.isArray(children)
+    ? children[0]
+    : children;
 
-  const className =
-    codeElement?.props
-      ?.className || "";
+  const className = codeElement?.props?.className || "";
 
   const language =
-    (/language-([\w-]+)/.exec(
-      className,
-    ) || [])[1] || "";
+    (/language-([\w-]+)/.exec(className) || [])[1] || "";
 
-  const raw =
-    codeElement?.props?.children;
+  const raw = codeElement?.props?.children;
 
   const code = String(
     Array.isArray(raw)
@@ -82,34 +63,31 @@ function CodeBlock({ children }) {
 
   async function copyCode() {
     try {
-      await navigator.clipboard.writeText(
-        code,
-      );
+      await navigator.clipboard.writeText(code);
 
       setCopied(true);
 
-      setTimeout(
-        () => setCopied(false),
-        1600,
-      );
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1600);
     } catch {
-      // ignore
+      // Clipboard access can be unavailable in restricted contexts.
     }
   }
 
   return (
     <div className="code-block">
       <div className="code-block-header">
-        <span>
-          {language || "code"}
-        </span>
+        <span>{language || "code"}</span>
 
         <button
           type="button"
-          onClick={
-            copyCode
+          onClick={copyCode}
+          aria-label={
+            copied
+              ? "Code copied"
+              : "Copy code"
           }
-          aria-label="Copy code"
         >
           {copied ? (
             <Check size={13} />
@@ -118,17 +96,13 @@ function CodeBlock({ children }) {
           )}
 
           <span>
-            {copied
-              ? "Copied"
-              : "Copy"}
+            {copied ? "Copied" : "Copy"}
           </span>
         </button>
       </div>
 
       <pre>
-        <code
-          className={className}
-        >
+        <code className={className}>
           {code}
         </code>
       </pre>
@@ -143,14 +117,11 @@ export default function MarkdownRenderer({
   return (
     <ReactMarkdown
       components={{
-        a: ({
-          children,
-          ...props
-        }) => (
+        a: ({ children, ...props }) => (
           <a
             {...props}
             target="_blank"
-            rel="noreferrer"
+            rel="noreferrer noopener"
           >
             {children}
           </a>
@@ -162,9 +133,7 @@ export default function MarkdownRenderer({
           </CodeBlock>
         ),
 
-        table: ({
-          children,
-        }) => (
+        table: ({ children }) => (
           <div className="table-scroll">
             <table>
               {children}
@@ -173,10 +142,7 @@ export default function MarkdownRenderer({
         ),
       }}
     >
-      {linkifyCitations(
-        content,
-        sources,
-      )}
+      {linkifyCitations(content, sources)}
     </ReactMarkdown>
   );
 }
