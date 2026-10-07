@@ -2429,7 +2429,7 @@ export default function OzlindApp({
       const payload = {
         exportedAt:
           new Date().toISOString(),
-        product: "OZLIND AI",
+        product: "OZLIND",
         account:
           accountUser?.email ||
           null,
@@ -3614,9 +3614,9 @@ export default function OzlindApp({
                 onKeyDown={
                   handleTextareaKeyDown
                 }
-                placeholder="Message OZLIND AI…"
+                placeholder="Message…"
                 rows={1}
-                aria-label="Message OZLIND AI"
+                aria-label="Message assistant"
               />
 
               <div className="composer-footer">
@@ -3898,8 +3898,7 @@ export default function OzlindApp({
               </button>
 
               <p className="account-version">
-                OZLIND AI · Independent
-                AI workspace
+                OZLIND · AI workspace
               </p>
             </div>
           </section>
