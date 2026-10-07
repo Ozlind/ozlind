@@ -607,6 +607,15 @@ export default function OzlindApp({
   const [historySearch, setHistorySearch] =
     useState("");
 
+  const [historySearchResults, setHistorySearchResults] =
+    useState(null);
+
+  const [historySearchLoading, setHistorySearchLoading] =
+    useState(false);
+
+  const historySearchControllerRef =
+    useRef(null);
+
   const [notice, setNotice] =
     useState("");
 
@@ -674,7 +683,7 @@ export default function OzlindApp({
     [mode],
   );
 
-  const filteredHistory = useMemo(() => {
+  const localFilteredHistory = useMemo(() => {
     const query = historySearch
       .trim()
       .toLowerCase();
@@ -687,6 +696,12 @@ export default function OzlindApp({
         .includes(query),
     );
   }, [history, historySearch]);
+
+  const filteredHistory =
+    historySearch.trim().length >= 2 &&
+    historySearchResults !== null
+      ? historySearchResults
+      : localFilteredHistory;
 
   const userName =
     accountUser?.user_metadata?.full_name ||
@@ -718,6 +733,66 @@ export default function OzlindApp({
       speechRecognitionRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const query = historySearch.trim();
+
+    historySearchControllerRef.current?.abort();
+    historySearchControllerRef.current = null;
+
+    if (!cloudEnabled || query.length < 2) {
+      setHistorySearchResults(null);
+      setHistorySearchLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    historySearchControllerRef.current = controller;
+    setHistorySearchLoading(true);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          "/api/history/search?q=" + encodeURIComponent(query),
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("History search failed.");
+        }
+
+        const data = await response.json();
+
+        if (!controller.signal.aborted) {
+          setHistorySearchResults(
+            Array.isArray(data?.results)
+              ? data.results
+              : [],
+          );
+        }
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          console.error("OZLIND history search failed:", error);
+          if (!controller.signal.aborted) {
+            setHistorySearchResults(null);
+          }
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setHistorySearchLoading(false);
+        }
+      }
+    }, 280);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [cloudEnabled, historySearch]);
 
   /* ---------------------------------------------------------------------- */
   /* Persistence                                                            */
@@ -2721,8 +2796,9 @@ export default function OzlindApp({
                         .value,
                     )
                   }
-                  placeholder="Search history"
-                  aria-label="Search history"
+                  placeholder="Search chats and messages"
+                  aria-label="Search chats and messages"
+                  aria-busy={historySearchLoading}
                 />
               </div>
             )}
@@ -2732,7 +2808,11 @@ export default function OzlindApp({
               0 ? (
                 <div className="history-empty">
                   <span>
-                    No conversations yet.
+                    {historySearch.trim()
+                      ? historySearchLoading
+                        ? "Searching…"
+                        : "No matching conversations."
+                      : "No conversations yet."}
                   </span>
                 </div>
               ) : (
