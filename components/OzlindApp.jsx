@@ -1219,6 +1219,8 @@ export default function OzlindApp({
       if (event.key === "Escape") {
         setModeOpen(false);
         setSettingsOpen(false);
+        setAccountOpen(false);
+        setSidebarOpen(false);
       }
     };
 
@@ -1243,6 +1245,31 @@ export default function OzlindApp({
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const shouldLock =
+      settingsOpen ||
+      accountOpen ||
+      (sidebarOpen &&
+        window.matchMedia?.("(max-width: 860px)")?.matches);
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    if (shouldLock) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+    };
+  }, [
+    settingsOpen,
+    accountOpen,
+    sidebarOpen,
+  ]);
+
 
   /* ---------------------------------------------------------------------- */
   /* Helpers                                                                */
@@ -2655,7 +2682,7 @@ export default function OzlindApp({
   return (
     <div className="ozlind-app">
       {sidebarOpen && (
-        <button
+        <button type="button"
           className="mobile-sidebar-backdrop"
           aria-label="Close sidebar"
           onClick={() =>
@@ -2672,7 +2699,7 @@ export default function OzlindApp({
         }`}
       >
         <div className="sidebar-header">
-          <button
+          <button type="button"
             className="brand-button"
             onClick={startNewChat}
             aria-label="OZLIND home"
@@ -2696,7 +2723,7 @@ export default function OzlindApp({
             </span>
           </button>
 
-          <button
+          <button type="button"
             className="icon-button sidebar-close"
             onClick={() =>
               setSidebarOpen(false)
@@ -2710,7 +2737,7 @@ export default function OzlindApp({
         </div>
 
         <div className="sidebar-content">
-          <button
+          <button type="button"
             className="new-chat-button"
             onClick={startNewChat}
           >
@@ -2721,7 +2748,7 @@ export default function OzlindApp({
           </button>
 
           <nav className="sidebar-nav">
-            <button
+            <button type="button"
               className="sidebar-nav-item active"
               onClick={
                 startNewChat
@@ -2735,7 +2762,7 @@ export default function OzlindApp({
               </span>
             </button>
 
-            <button
+            <button type="button"
               className={`sidebar-nav-item ${
                 settings.research
                   ? "active"
@@ -2771,7 +2798,7 @@ export default function OzlindApp({
               </span>
 
               {history.length > 0 && (
-                <button
+                <button type="button"
                   className="text-button"
                   onClick={
                     clearHistory
@@ -2827,7 +2854,7 @@ export default function OzlindApp({
                       }`}
                       key={item.id}
                     >
-                      <button
+                      <button type="button"
                         className="history-item-main"
                         onClick={() =>
                           openHistoryItem(
@@ -2843,7 +2870,7 @@ export default function OzlindApp({
                         </span>
                       </button>
 
-                      <button
+                      <button type="button"
                         className="history-delete"
                         onClick={() =>
                           deleteHistoryItem(
@@ -2865,7 +2892,7 @@ export default function OzlindApp({
         </div>
 
         <div className="sidebar-footer">
-          <button
+          <button type="button"
             className="sidebar-nav-item"
             onClick={() =>
               setSettingsOpen(true)
@@ -2916,7 +2943,7 @@ export default function OzlindApp({
       <main className="ozlind-main">
         <header className="ozlind-topbar">
           <div className="topbar-left">
-            <button
+            <button type="button"
               className="icon-button mobile-menu-button"
               onClick={() =>
                 setSidebarOpen(
@@ -2944,7 +2971,7 @@ export default function OzlindApp({
           </div>
 
           <div className="topbar-actions">
-            <button
+            <button type="button"
               className="icon-button"
               onClick={() =>
                 setIsDark(
@@ -2965,7 +2992,7 @@ export default function OzlindApp({
               )}
             </button>
 
-            <button
+            <button type="button"
               className="icon-button"
               onClick={
                 shareConversation
@@ -2975,7 +3002,7 @@ export default function OzlindApp({
               <Share2 size={18} />
             </button>
 
-            <button
+            <button type="button"
               className="clear-chat-button"
               onClick={clearCurrentChat}
               aria-label="Delete current conversation"
@@ -3016,7 +3043,7 @@ export default function OzlindApp({
                       suggestion.icon;
 
                     return (
-                      <button
+                      <button type="button"
                         className="suggestion-card"
                         key={
                           suggestion.title
@@ -3242,7 +3269,7 @@ export default function OzlindApp({
                             )}
 
                           <div className="message-actions">
-                            <button
+                            <button type="button"
                               onClick={() =>
                                 copyMessage(
                                   content,
@@ -3268,7 +3295,7 @@ export default function OzlindApp({
                             </button>
 
                             {isUser && (
-                              <button
+                              <button type="button"
                                 onClick={() =>
                                   editMessage(
                                     message,
@@ -3289,7 +3316,7 @@ export default function OzlindApp({
                                 messages.length -
                                   1 &&
                               !isStreaming && (
-                                <button
+                                <button type="button"
                                   onClick={
                                     regenerateLastResponse
                                   }
@@ -3325,7 +3352,7 @@ export default function OzlindApp({
                 {error}
               </span>
 
-              <button
+              <button type="button"
                 onClick={() =>
                   setError("")
                 }
@@ -3373,7 +3400,7 @@ export default function OzlindApp({
                   </div>
                 </div>
 
-                <button
+                <button type="button"
                   className="icon-button"
                   onClick={() =>
                     setSelectedFile(
@@ -3390,7 +3417,7 @@ export default function OzlindApp({
             <div className="composer-shell">
               <div className="composer-toolbar">
                 <div className="composer-left">
-                  <button
+                  <button type="button"
                     className="composer-icon-button"
                     onClick={() =>
                       fileInputRef.current?.click()
@@ -3434,7 +3461,7 @@ export default function OzlindApp({
                     className="mode-selector"
                     ref={modeRef}
                   >
-                    <button
+                    <button type="button"
                       className="mode-button"
                       onClick={() =>
                         setModeOpen(
@@ -3470,7 +3497,7 @@ export default function OzlindApp({
                               item.icon;
 
                             return (
-                              <button
+                              <button type="button"
                                 key={
                                   item.id
                                 }
@@ -3526,7 +3553,7 @@ export default function OzlindApp({
                     )}
                   </div>
 
-                  <button
+                  <button type="button"
                     className={`research-toggle ${
                       settings.research
                         ? "active"
@@ -3553,7 +3580,7 @@ export default function OzlindApp({
 
                 <div className="composer-right">
                   {isStreaming ? (
-                    <button
+                    <button type="button"
                       className="send-button stop"
                       onClick={
                         stopGeneration
@@ -3563,7 +3590,7 @@ export default function OzlindApp({
                       <span className="stop-square" />
                     </button>
                   ) : (
-                    <button
+                    <button type="button"
                       className="send-button"
                       onClick={() =>
                         sendMessage()
@@ -3623,6 +3650,8 @@ export default function OzlindApp({
         <div className="account-overlay">
           <section
             className="account-page"
+            role="dialog"
+            aria-modal="true"
             aria-label="OZLIND account"
           >
             <header className="account-page-header">
@@ -3916,7 +3945,7 @@ export default function OzlindApp({
                 </h2>
               </div>
 
-              <button
+              <button type="button"
                 className="icon-button"
                 onClick={() =>
                   setSettingsOpen(
@@ -3987,7 +4016,7 @@ export default function OzlindApp({
                     </span>
                   </div>
 
-                  <button
+                  <button type="button"
                     className={`switch ${
                       settings.research
                         ? "active"
@@ -4019,7 +4048,7 @@ export default function OzlindApp({
                     </span>
                   </div>
 
-                  <button
+                  <button type="button"
                     className={`switch ${
                       settings.memory
                         ? "active"
@@ -4071,7 +4100,7 @@ export default function OzlindApp({
                       value,
                       label,
                     ]) => (
-                      <button
+                      <button type="button"
                         key={
                           value
                         }
@@ -4119,7 +4148,7 @@ export default function OzlindApp({
                       value,
                       label,
                     ]) => (
-                      <button
+                      <button type="button"
                         key={
                           value
                         }
@@ -4176,7 +4205,7 @@ export default function OzlindApp({
             </div>
 
             <div className="dialog-footer">
-              <button
+              <button type="button"
                 className="secondary-button"
                 onClick={() => {
                   setSettings(
@@ -4190,7 +4219,7 @@ export default function OzlindApp({
                 Reset
               </button>
 
-              <button
+              <button type="button"
                 className="primary-button"
                 onClick={() => {
                   setSettingsOpen(
