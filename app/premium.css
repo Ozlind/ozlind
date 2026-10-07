@@ -2829,3 +2829,28 @@ body.dark .settings-dialog {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* OZLIND FINAL LAYOUT STABILITY */
+:root{--oz-sidebar-final:272px;--oz-chat-max:920px;--oz-composer-max:900px}
+html,body{overscroll-behavior:none}
+.ozlind-app{isolation:isolate}
+.ozlind-sidebar{flex:0 0 var(--oz-sidebar-final)!important;width:var(--oz-sidebar-final)!important;min-width:var(--oz-sidebar-final)!important;max-width:var(--oz-sidebar-final)!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;box-sizing:border-box!important;background:var(--sidebar)!important;border-right:1px solid var(--border)!important;filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.sidebar-content{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important}
+.sidebar-footer{flex:0 0 auto!important}
+.ozlind-main{display:flex!important;flex-direction:column!important;min-width:0!important;overflow:hidden!important;background:var(--background)!important}
+.ozlind-topbar{flex:0 0 60px!important;height:60px!important;min-height:60px!important;border-bottom:1px solid var(--border)!important;background:var(--background)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.workspace{display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}
+.chat-area{display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}
+.messages-list{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-gutter:stable}
+.message-row{width:100%;box-sizing:border-box}
+.message-bubble{max-width:min(760px,100%);overflow-wrap:anywhere;word-break:break-word}
+.markdown-content{overflow-wrap:anywhere;word-break:break-word}
+.markdown-content pre{max-width:100%;overflow:auto;border-radius:12px}
+.markdown-content table{display:block;max-width:100%;overflow-x:auto;white-space:nowrap}
+.composer-area{flex:0 0 auto!important;z-index:10!important;background:linear-gradient(to top,var(--background) 70%,transparent)!important}
+.composer-shell{max-width:var(--oz-composer-max)!important;width:100%!important}
+.mobile-sidebar-backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.ozlind-app,.ozlind-app *{min-width:0}
+.ozlind-app :where(button,input,textarea,select,[role=button]):focus-visible{outline:2px solid var(--primary)!important;outline-offset:2px!important;box-shadow:0 0 0 4px var(--primary-soft)!important}
+@media(max-width:860px){.ozlind-sidebar{width:min(304px,84vw)!important;min-width:min(304px,84vw)!important;max-width:min(304px,84vw)!important}.ozlind-topbar{flex-basis:56px!important;height:56px!important;min-height:56px!important}.messages-list{scrollbar-width:none}.messages-list::-webkit-scrollbar,.sidebar-content::-webkit-scrollbar{display:none}.composer-area{padding-bottom:max(10px,env(safe-area-inset-bottom))!important}}
+@media(max-width:520px){.ozlind-sidebar{width:86vw!important;min-width:86vw!important;max-width:86vw!important}.message-row{padding-inline:10px!important}.message-row.user{padding-left:24px!important}.message-row.assistant{padding-right:6px!important}.message-bubble{max-width:calc(100vw - 48px)}.composer-shell{border-radius:20px!important}}
