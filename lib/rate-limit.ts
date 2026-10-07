@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/backend/auth";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -24,9 +24,12 @@ const DATABASE_TIMEOUT_MS = 2_500;
  */
 export async function checkUserRateLimit(): Promise<RateLimitResult> {
   let supabase;
+  let user;
 
   try {
-    supabase = await createClient();
+    const auth = await getAuthenticatedUser();
+    supabase = auth.supabase;
+    user = auth.user;
   } catch {
     return {
       allowed: false,
@@ -36,12 +39,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
     };
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  if (!user) {
     return {
       allowed: false,
       remaining: 0,
