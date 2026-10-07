@@ -1,0 +1,203 @@
+/*
+ * OZLIND — Neutral Baseline
+ * Purpose: temporarily remove strong brand/premium visual bias while
+ * preserving the existing application structure and functionality.
+ * This layer is intentionally monochrome and can be replaced later
+ * by the final OZLIND visual identity.
+ */
+
+:root {
+  color-scheme: light;
+
+  --oz-clay: #4b5563;
+  --oz-clay-dark: #374151;
+  --oz-clay-light: #6b7280;
+  --oz-peach: #cbd5e1;
+
+  --oz-olive: #4b5563;
+  --oz-olive-dark: #374151;
+  --oz-olive-light: #64748b;
+  --oz-sage: #94a3b8;
+
+  --oz-electric-purple: #4b5563;
+  --oz-signal-cyan: #94a3b8;
+  --oz-clay-orange: #4b5563;
+
+  --background: #f6f7f8;
+  --surface: #ffffff;
+  --surface-soft: #f1f3f5;
+  --surface-hover: #e8ebee;
+  --sidebar: #f1f3f5;
+  --surface-raised: #ffffff;
+
+  --text: #171a1f;
+  --text-soft: #59636e;
+  --text-faint: #7b8490;
+  --text-dim: #68727d;
+
+  --border: rgba(23, 26, 31, 0.10);
+  --border-strong: rgba(23, 26, 31, 0.17);
+
+  --primary: #47515d;
+  --primary-dark: #343d48;
+  --primary-soft: rgba(71, 81, 93, 0.10);
+  --accent: #47515d;
+  --accent-hover: #343d48;
+
+  --shadow-sm: 0 4px 18px rgba(15, 23, 42, 0.055);
+  --shadow-md: 0 18px 48px rgba(15, 23, 42, 0.09);
+  --shadow-focus: 0 0 0 3px rgba(71, 81, 93, 0.16);
+
+  --focus-ring: 0 0 0 3px rgba(71, 81, 93, 0.16);
+
+  --oz-bg: var(--background);
+  --oz-bg-soft: var(--surface-soft);
+  --oz-surface: var(--surface);
+  --oz-surface-solid: var(--surface);
+  --oz-surface-soft: var(--surface-soft);
+  --oz-surface-raised: var(--surface-raised);
+  --oz-text: var(--text);
+  --oz-text-soft: var(--text-soft);
+  --oz-muted: var(--text-soft);
+  --oz-faint: var(--text-faint);
+  --oz-border: var(--border);
+  --oz-border-strong: var(--border-strong);
+  --oz-accent: var(--primary);
+  --oz-accent-bright: #64748b;
+  --oz-accent-dark: var(--primary-dark);
+  --oz-accent-soft: var(--primary-soft);
+  --oz-accent-ring: rgba(71, 81, 93, 0.16);
+}
+
+body.dark {
+  color-scheme: dark;
+
+  --background: #111315;
+  --surface: #191c20;
+  --surface-soft: #20242a;
+  --surface-hover: #292e35;
+  --sidebar: #171a1e;
+  --surface-raised: #23272d;
+
+  --text: #f3f4f6;
+  --text-soft: #b5bcc5;
+  --text-faint: #858d97;
+  --text-dim: #9aa2ac;
+
+  --border: rgba(243, 244, 246, 0.085);
+  --border-strong: rgba(243, 244, 246, 0.14);
+
+  --primary: #c3c9d1;
+  --primary-dark: #e5e7eb;
+  --primary-soft: rgba(195, 201, 209, 0.12);
+  --accent: #c3c9d1;
+  --accent-hover: #e5e7eb;
+
+  --shadow-sm: 0 7px 24px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 24px 68px rgba(0, 0, 0, 0.32);
+  --shadow-focus: 0 0 0 3px rgba(195, 201, 209, 0.16);
+
+  --oz-surface: var(--surface);
+  --oz-surface-raised: var(--surface-raised);
+  --oz-muted: var(--text-soft);
+  --oz-accent: var(--primary);
+  --oz-accent-bright: #e5e7eb;
+  --oz-accent-dark: #aeb5bf;
+  --oz-accent-soft: var(--primary-soft);
+  --oz-accent-ring: rgba(195, 201, 209, 0.16);
+}
+
+html,
+body {
+  background: var(--background);
+}
+
+body {
+  color: var(--text);
+}
+
+.ozlind-app,
+.ozlind-main,
+.workspace {
+  background: var(--background) !important;
+  color: var(--text);
+}
+
+.ozlind-sidebar {
+  background: var(--sidebar) !important;
+  border-color: var(--border) !important;
+}
+
+.brand-mark,
+.profile-avatar {
+  background: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.new-chat-button,
+.send-button {
+  background: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.new-chat-button:hover,
+.send-button:hover:not(:disabled) {
+  background: var(--primary-dark) !important;
+}
+
+.sidebar-nav-item.active,
+.history-item.active,
+.welcome-badge,
+.mode-menu-item.active,
+.segmented-control button.active {
+  background: var(--primary-soft) !important;
+  color: var(--text) !important;
+}
+
+.sidebar-nav-item:hover,
+.history-item:hover,
+.mode-menu-item:hover,
+.account-row:hover {
+  background: var(--surface-hover) !important;
+}
+
+.composer-shell,
+.mode-menu,
+.selected-file,
+.message-bubble,
+.settings-dialog,
+.account-profile-hero,
+.account-group-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: none;
+}
+
+.composer-shell:focus-within {
+  border-color: var(--border-strong) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+.account-row-icon,
+.dialog-eyebrow {
+  color: var(--primary) !important;
+}
+
+.account-row-icon {
+  background: var(--primary-soft) !important;
+}
+
+.profile-card > svg {
+  color: var(--text-faint) !important;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(71, 81, 93, 0.18);
+  color: var(--text);
+}
