@@ -12,8 +12,8 @@ interface ModeDefinition {
 export const MODES: readonly ModeDefinition[] = [
   {
     id: "auto",
-    label: "Auto",
-    description: "Picks the best model for each question",
+    label: "Balanced",
+    description: "Balanced handling for general tasks",
     iconName: "sparkles",
   },
   {
