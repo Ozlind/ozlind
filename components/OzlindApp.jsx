@@ -2258,15 +2258,18 @@ export default function OzlindApp({
           return;
         }
 
+        let event;
         try {
-          handleEvent(
-            JSON.parse(
-              payload,
-            ),
-          );
+          event = JSON.parse(payload);
         } catch {
-          // Ignore malformed stream fragments.
+          // Ignore malformed/incomplete JSON payloads.
+          return;
         }
+
+        // Stream events are trusted only after JSON parsing. Do not
+        // swallow server/provider errors: handleEvent intentionally throws
+        // so the outer request handler can surface the failure to the user.
+        handleEvent(event);
       };
 
       while (true) {
