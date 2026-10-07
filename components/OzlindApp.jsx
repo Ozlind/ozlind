@@ -1814,7 +1814,7 @@ export default function OzlindApp({
     const text = messages
       .map(
         (message) =>
-          `${message.role === "user" ? "You" : "Ozlind AI"}:\n${getMessageText(message)}`,
+          `${message.role === "user" ? "You" : "Assistant"}:\n${getMessageText(message)}`,
       )
       .join("\n\n");
 
