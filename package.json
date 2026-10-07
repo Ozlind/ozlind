@@ -1,12 +1,13 @@
 {
   "name": "ozlind-ai",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "engines": {
     "node": ">=20.9.0 <25"
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node tests/verify.mjs",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
