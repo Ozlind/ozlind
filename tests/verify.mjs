@@ -90,6 +90,15 @@ for (const name of [
   }
 }
 
+const tokenText = fs.readFileSync(path.join(root, "app/tokens.css"), "utf8");
+if (!tokenText.includes("--oz-clay: #E26F4A")) problems.push("Clay Orange token missing");
+if (!tokenText.includes("--background: #FFFCF4")) problems.push("Warm Ivory token missing");
+if (tokenText.includes("#7057f7") || tokenText.includes("#927eff")) problems.push("Legacy purple token remains");
+const appText = fs.readFileSync(path.join(root, "components/OzlindApp.jsx"), "utf8");
+if (!appText.includes("SpeechRecognition") || !appText.includes("voice-input-button")) problems.push("Voice input control missing");
+const chatText = fs.readFileSync(path.join(root, "app/api/chat/route.js"), "utf8");
+if (!chatText.includes("MAX_CHAT_REQUEST_BYTES") || !chatText.includes("X-OZLIND-Request-ID")) problems.push("Chat hardening missing");
+
 if (problems.length) {
   console.error("OZLIND verification FAILED:\n");
   for (const problem of problems) console.error(` - ${problem}`);

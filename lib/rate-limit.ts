@@ -50,19 +50,23 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
   }
 
   try {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
     const result = await Promise.race([
       supabase.rpc("check_rate_limit", {
         p_limit: MAX_REQUESTS,
         p_window_seconds: WINDOW_SECONDS,
       }),
 
-      new Promise<never>((_, reject) =>
-        setTimeout(
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
           () => reject(new Error("rate limit timeout")),
           DATABASE_TIMEOUT_MS,
-        ),
-      ),
-    ]);
+        );
+      }),
+    ]).finally(() => {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    });
 
     if (result.error) {
       return {

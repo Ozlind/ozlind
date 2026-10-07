@@ -14,6 +14,7 @@ import {
   FileText,
   Lightbulb,
   LogOut,
+  Mic,
   LockKeyhole,
   Map,
   Menu,
@@ -627,6 +628,9 @@ export default function OzlindApp({
   const [loggingOut, setLoggingOut] =
     useState(false);
 
+  const [isListening, setIsListening] =
+    useState(false);
+
   const accountUser = initialUser;
   const userId = accountUser?.id || "anon";
   const cloudEnabled =
@@ -660,6 +664,7 @@ export default function OzlindApp({
   const modeRef = useRef(null);
   const noticeTimerRef = useRef(null);
   const copiedTimerRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
 
   const selectedMode = useMemo(
     () =>
@@ -707,7 +712,7 @@ export default function OzlindApp({
       .join("")
       .toUpperCase() || "O";
 
-  /* ---------------------------------------------------------------------- */
+  useEffect(() => {\n    return () => { speechRecognitionRef.current?.abort?.(); speechRecognitionRef.current = null; };\n  }, []);\n\n  /* ---------------------------------------------------------------------- */
   /* Persistence                                                            */
   /* ---------------------------------------------------------------------- */
 
@@ -1520,6 +1525,29 @@ export default function OzlindApp({
     setActiveChatId(null);
 
     showNotice("Chat cleared");
+  }
+
+  function toggleVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { showNotice("Voice input is not supported in this browser. You can still type normally."); return; }
+    if (isListening) { speechRecognitionRef.current?.stop?.(); return; }
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || "en-IN";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onstart = () => { setIsListening(true); setError(""); showNotice("Listening…"); };
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results || []).map((result) => result?.[0]?.transcript || "").join(" ").trim();
+      if (!transcript) return;
+      setInput((current) => current ? current.trimEnd() + " " + transcript : transcript);
+      requestAnimationFrame(() => autoResizeTextarea());
+    };
+    recognition.onerror = (event) => {
+      if (event?.error !== "aborted" && event?.error !== "no-speech") showNotice("Voice input could not be started. Try again.");
+    };
+    recognition.onend = () => { setIsListening(false); speechRecognitionRef.current = null; };
+    speechRecognitionRef.current = recognition;
+    try { recognition.start(); } catch { setIsListening(false); speechRecognitionRef.current = null; showNotice("Voice input could not be started. Try again."); }
   }
 
   /* ---------------------------------------------------------------------- */
@@ -2883,14 +2911,12 @@ export default function OzlindApp({
               </div>
 
               <h1>
-                How can I help you today?
+                What are you working on today?
               </h1>
 
               <p>
-                Write, research, analyze
-                files and images, or work
-                through a problem with
-                OZLIND AI.
+                Chat, research, analyze files and images,
+                and turn ideas into clear next steps with OZLIND AI.
               </p>
 
               <div className="suggestion-grid">
@@ -3286,9 +3312,7 @@ export default function OzlindApp({
                     />
                   </button>
 
-                  <input
-                    ref={fileInputRef}
-                    type="file"
+                  <button type="button" className={`composer-icon-button voice-input-button ${isListening ? "recording" : ""}`} onClick={toggleVoiceInput} aria-label={isListening ? "Stop voice input" : "Start voice input"} aria-pressed={isListening}>\n                    <Mic size={19} />\n                  </button>\n\n                  <input\n                    ref={fileInputRef}\n                    type="file"
                     hidden
                     onChange={
                       handleFileChange

@@ -25,6 +25,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const MAX_CHAT_REQUEST_BYTES = 5_000_000;
+
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
@@ -862,7 +864,27 @@ Do not expose internal document IDs, chunk IDs, embeddings or retrieval scores t
 export async function POST(
   request,
 ) {
+  const requestId = crypto.randomUUID();
+
   try {
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_CHAT_REQUEST_BYTES) {
+      return json(
+        { error: "Chat request is too large. Please reduce the attachment size and try again." },
+        413,
+        { "X-OZLIND-Request-ID": requestId },
+      );
+    }
+
+    const contentType = request.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return json(
+        { error: "A JSON chat request is required." },
+        415,
+        { "X-OZLIND-Request-ID": requestId },
+      );
+    }
+
     const rate =
       await checkUserRateLimit();
 
@@ -1068,92 +1090,41 @@ export async function POST(
               {
                 type: "status",
                 message:
-                  "Checking your saved documents…",
+                  research
+                    ? "Gathering your documents and live sources…"
+                    : "Checking your saved documents…",
               },
             );
 
             const searchQuery =
-              buildSearchQuery(
-                messages,
-              );
+              buildSearchQuery(messages);
 
-            const documentResult =
-              await performDocumentRetrieval(
-                searchQuery,
-              );
+            const documentPromise =
+              performDocumentRetrieval(searchQuery);
 
-            documentResults =
-              documentResult.results;
+            const researchPromise = research
+              ? performResearch(searchQuery, request.signal)
+              : Promise.resolve({ sources: [], notice: null });
 
-            documentNotice =
-              documentResult.notice;
+            const [documentResult, researchResult] =
+              await Promise.all([documentPromise, researchPromise]);
 
-            if (
-              documentNotice
-            ) {
-              send(
-                "notice",
-                {
-                  type:
-                    "notice",
-                  message:
-                    documentNotice,
-                },
-              );
+            documentResults = documentResult.results;
+            documentNotice = documentResult.notice;
+            sources = researchResult.sources;
+            researchNotice = researchResult.notice;
+
+            if (documentNotice) {
+              send("notice", { type: "notice", message: documentNotice });
             }
-
-            if (research) {
-              send(
-                "status",
-                {
-                  type:
-                    "status",
-                  message:
-                    "Searching for current information…",
-                },
-              );
-
-              const result =
-                await performResearch(
-                  searchQuery,
-                  request.signal,
-                );
-
-              sources =
-                result.sources;
-
-              researchNotice =
-                result.notice;
-
-              if (
-                sources.length
-              ) {
-                send(
-                  "sources",
-                  {
-                    type:
-                      "sources",
-                    sources:
-                      publicSources(
-                        sources,
-                      ),
-                  },
-                );
-              }
-
-              if (
-                researchNotice
-              ) {
-                send(
-                  "notice",
-                  {
-                    type:
-                      "notice",
-                    message:
-                      researchNotice,
-                  },
-                );
-              }
+            if (sources.length) {
+              send("sources", {
+                type: "sources",
+                sources: publicSources(sources),
+              });
+            }
+            if (researchNotice) {
+              send("notice", { type: "notice", message: researchNotice });
             }
 
             if (
@@ -1311,6 +1282,7 @@ export async function POST(
             "keep-alive",
           "X-Accel-Buffering":
             "no",
+          "X-OZLIND-Request-ID": requestId,
           "X-RateLimit-Remaining":
             String(
               rate.remaining,
@@ -1319,12 +1291,7 @@ export async function POST(
       },
     );
   } catch (error) {
-    return json(
-      {
-        error:
-          safeError(error),
-      },
-      500,
-    );
+    console.error("OZLIND chat request failed:", { requestId, error });
+    return json({ error: safeError(error) }, 500, { "X-OZLIND-Request-ID": requestId });
   }
 }

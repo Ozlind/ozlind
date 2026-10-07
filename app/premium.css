@@ -77,7 +77,7 @@ body.dark .ozlind-sidebar {
     var(--oz-olive),
     var(--oz-olive-dark)
   );
-  box-shadow: 0 8px 20px rgba(127, 140, 75, 0.20);
+  box-shadow: 0 8px 20px rgba(226,111,74,.20);
 }
 
 .brand-mark svg {
@@ -104,14 +104,14 @@ body.dark .ozlind-sidebar {
 .new-chat-button {
   min-height: 44px;
   justify-content: center;
-  border: 1px solid rgba(127, 140, 75, 0.24);
+  border: 1px solid rgba(226,111,74,.24);
   border-radius: 13px;
   background: linear-gradient(
     145deg,
     var(--oz-olive),
     var(--oz-olive-dark)
   );
-  box-shadow: 0 9px 22px rgba(127, 140, 75, 0.16);
+  box-shadow: 0 9px 22px rgba(226,111,74,.16);
 }
 
 .new-chat-button:hover {
@@ -121,7 +121,7 @@ body.dark .ozlind-sidebar {
     var(--oz-olive)
   );
   transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(127, 140, 75, 0.20);
+  box-shadow: 0 12px 26px rgba(226,111,74,.20);
 }
 
 .sidebar-nav {
@@ -237,7 +237,7 @@ body.dark .ozlind-sidebar {
     var(--oz-olive),
     var(--oz-olive-dark)
   );
-  box-shadow: 0 5px 14px rgba(127, 140, 75, 0.16);
+  box-shadow: 0 5px 14px rgba(226,111,74,.16);
 }
 
 .ozlind-topbar {
@@ -276,7 +276,7 @@ body.dark .ozlind-sidebar {
   background:
     radial-gradient(
       720px 360px at 50% 0%,
-      rgba(127, 140, 75, 0.045),
+      rgba(226,111,74,.045),
       transparent 72%
     ),
     var(--background);
@@ -318,7 +318,7 @@ body.dark .ozlind-sidebar {
     var(--oz-olive),
     var(--oz-olive-dark)
   );
-  box-shadow: 0 5px 15px rgba(127, 140, 75, 0.17);
+  box-shadow: 0 5px 15px rgba(226,111,74,.17);
 }
 
 .message-column {
@@ -364,11 +364,11 @@ body.dark .ozlind-sidebar {
     color-mix(in srgb, var(--primary-dark) 94%, #000 0%)
   );
   color: #fff;
-  box-shadow: 0 8px 22px rgba(35, 43, 19, 0.10);
+  box-shadow: 0 8px 22px rgba(69,46,36,.10);
 }
 
 body.dark .message-row.user .message-bubble > p {
-  color: #10140e;
+  color: #241713;
 }
 
 .message-attachment {
@@ -390,7 +390,7 @@ body.dark .message-row.user .message-bubble > p {
   border-radius: 13px;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 5px 17px rgba(20, 25, 18, 0.035);
+  box-shadow: 0 5px 17px rgba(69,46,36,.035);
 }
 
 .markdown-content {
@@ -1164,7 +1164,7 @@ body.dark .settings-dialog {
 
 .switch.active {
   background: var(--primary);
-  box-shadow: 0 5px 12px rgba(127, 140, 75, 0.20);
+  box-shadow: 0 5px 12px rgba(226,111,74,.20);
 }
 
 .switch.active span {
@@ -1288,7 +1288,7 @@ body.dark .settings-dialog {
   background:
     radial-gradient(
       900px 500px at 50% 0%,
-      rgba(127, 140, 75, 0.045),
+      rgba(226,111,74,.045),
       transparent 72%
     ),
     var(--background);
@@ -1439,7 +1439,7 @@ body.dark .settings-dialog {
   font-size: 27px;
   font-weight: 800;
   box-shadow:
-    0 11px 28px rgba(127, 140, 75, 0.20),
+    0 11px 28px rgba(226,111,74,.20),
     0 0 0 7px rgba(127, 140, 75, 0.05);
 }
 
@@ -1608,7 +1608,7 @@ body.dark .settings-dialog {
     var(--oz-olive-dark)
   );
   color: #fff;
-  box-shadow: 0 9px 22px rgba(127, 140, 75, 0.16);
+  box-shadow: 0 9px 22px rgba(226,111,74,.16);
 }
 
 .account-primary-action:hover {
@@ -2110,3 +2110,4 @@ body.dark .settings-dialog {
     transition: none !important;
   }
 }
+.voice-input-button{position:relative}.voice-input-button.recording{color:var(--primary);background:var(--primary-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 22%,transparent)}.voice-input-button.recording::after{content:"";position:absolute;inset:3px;border:1px solid color-mix(in srgb,var(--primary) 22%,transparent);border-radius:999px;animation:ozlind-voice-pulse 1.3s ease-out infinite}@keyframes ozlind-voice-pulse{0%{opacity:.8;transform:scale(.82)}70%,100%{opacity:0;transform:scale(1.18)}}@media(max-width:640px){.composer-area{padding-inline:12px;padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}.composer-shell{border-radius:22px;padding:9px 10px 8px}.composer-icon-button,.mode-button,.research-toggle{min-height:36px}.composer-input{min-height:46px;max-height:160px}.keyboard-hint{display:none}}
