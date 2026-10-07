@@ -201,3 +201,113 @@ a {
   background: rgba(71, 81, 93, 0.18);
   color: var(--text);
 }
+
+
+/*
+ * Deep neutral baseline overrides.
+ * These rules intentionally remove brand-forward gradients, status claims,
+ * promotional language, and decorative emphasis without changing behavior.
+ */
+
+.ozlind-app {
+  --neutral-transition: 140ms ease;
+}
+
+.ozlind-app *,
+.ozlind-app *::before,
+.ozlind-app *::after {
+  text-shadow: none !important;
+}
+
+.ozlind-sidebar,
+.ozlind-main,
+.workspace,
+.ozlind-topbar,
+.account-overlay {
+  background-image: none !important;
+}
+
+.ozlind-topbar {
+  background: var(--background) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.ozlind-sidebar {
+  box-shadow: none !important;
+}
+
+.brand-mark,
+.profile-avatar,
+.new-chat-button,
+.send-button {
+  box-shadow: none !important;
+}
+
+.brand-mark {
+  filter: grayscale(1);
+}
+
+.status-badge,
+.status-dot {
+  display: none !important;
+}
+
+.welcome-badge {
+  box-shadow: none !important;
+  background: var(--surface-soft) !important;
+  border-color: var(--border) !important;
+}
+
+.suggestion-card,
+.message-bubble,
+.composer-shell,
+.settings-dialog,
+.account-profile-hero,
+.account-group-card,
+.mode-menu {
+  box-shadow: none !important;
+}
+
+.composer-shell {
+  background: var(--surface) !important;
+}
+
+.suggestion-card:hover,
+.new-chat-button:hover,
+.account-primary-action:hover,
+.primary-button:hover,
+.document:hover,
+.result:hover {
+  transform: none !important;
+}
+
+.sidebar-nav-item.active,
+.history-item.active,
+.mode-menu-item.active,
+.segmented-control button.active {
+  box-shadow: inset 2px 0 0 var(--primary) !important;
+}
+
+.sidebar-nav-item,
+.history-item,
+.suggestion-card,
+.account-row,
+.composer-icon-button,
+.mode-button,
+.research-toggle,
+.icon-button,
+.clear-chat-button {
+  transition:
+    background-color var(--neutral-transition),
+    border-color var(--neutral-transition),
+    color var(--neutral-transition);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ozlind-app *,
+  .ozlind-app *::before,
+  .ozlind-app *::after {
+    transition: none !important;
+  }
+}
