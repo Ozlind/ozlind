@@ -2969,6 +2969,16 @@ export default function OzlindApp({
           </div>
 
           <div className="topbar-actions">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => window.location.reload()}
+              aria-label="Refresh workspace"
+              title="Refresh"
+            >
+              <RefreshCw size={18} />
+            </button>
+
             <button type="button"
               className="icon-button"
               onClick={() =>
