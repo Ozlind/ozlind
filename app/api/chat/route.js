@@ -869,6 +869,7 @@ export async function POST(
 ) {
   const requestId = crypto.randomUUID();
   const requestStartedAt = Date.now();
+  let rateUserId = null;
 
   try {
     const contentLength = Number(request.headers.get("content-length") || 0);
@@ -891,6 +892,7 @@ export async function POST(
 
     const rate =
       await checkUserRateLimit();
+    rateUserId = rate.userId || null;
 
     if (rate.unauthorized) {
       return json(
@@ -1337,7 +1339,7 @@ export async function POST(
   } catch (error) {
     console.error("OZLIND chat request failed:", { requestId, error });
     await writeUsageLog({
-      userId: rate?.userId,
+      userId: rateUserId,
       conversationId: null,
       mode: "unknown",
       latencyMs: Date.now() - requestStartedAt,
