@@ -2111,3 +2111,721 @@ body.dark .settings-dialog {
   }
 }
 .voice-input-button{position:relative}.voice-input-button.recording{color:var(--primary);background:var(--primary-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 22%,transparent)}.voice-input-button.recording::after{content:"";position:absolute;inset:3px;border:1px solid color-mix(in srgb,var(--primary) 22%,transparent);border-radius:999px;animation:ozlind-voice-pulse 1.3s ease-out infinite}@keyframes ozlind-voice-pulse{0%{opacity:.8;transform:scale(.82)}70%,100%{opacity:0;transform:scale(1.18)}}@media(max-width:640px){.composer-area{padding-inline:12px;padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}.composer-shell{border-radius:22px;padding:9px 10px 8px}.composer-icon-button,.mode-button,.research-toggle{min-height:36px}.composer-input{min-height:46px;max-height:160px}.keyboard-hint{display:none}}
+
+
+/* ==========================================================================
+   OZLIND — PRODUCTION UI REFINEMENT
+   Mobile-first workspace pass.
+   Keeps application behavior intact; fixes alignment, overflow, hierarchy,
+   touch targets, drawer proportions, account/avatar rendering and composer UX.
+   ========================================================================== */
+
+/* ---- shared interaction primitives ---- */
+.ozlind-app button,
+.ozlind-app a,
+.ozlind-app input,
+.ozlind-app textarea,
+.ozlind-app select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ozlind-app button:disabled {
+  cursor: not-allowed;
+}
+
+.ozlind-app img {
+  max-width: 100%;
+}
+
+/* ---- brand / sidebar ---- */
+.ozlind-sidebar {
+  width: 272px;
+  padding: 16px 12px 12px;
+  gap: 14px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--sidebar) 98%, transparent),
+      var(--sidebar)
+    );
+}
+
+.sidebar-header {
+  min-height: 42px;
+}
+
+.brand-button {
+  min-width: 0;
+  flex: 1;
+  min-height: 42px;
+  padding: 5px 7px;
+}
+
+.sidebar-content {
+  gap: 13px;
+}
+
+.new-chat-button {
+  min-height: 46px;
+  border-radius: 14px;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-nav-item {
+  min-height: 42px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.sidebar-section-heading {
+  min-height: 28px;
+  align-items: center;
+}
+
+.history-search {
+  min-height: 40px;
+  border-radius: 12px;
+  margin-inline: 1px;
+}
+
+.history-item {
+  min-height: 40px;
+  border-radius: 11px;
+}
+
+.history-item-main {
+  min-height: 40px;
+}
+
+.sidebar-footer {
+  gap: 4px;
+  padding-top: 10px;
+}
+
+.profile-card {
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 8px;
+  gap: 10px;
+  border-radius: 13px;
+  text-align: left;
+}
+
+.profile-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.profile-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: inherit;
+}
+
+.profile-avatar span {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.profile-info {
+  overflow: hidden;
+}
+
+.profile-info strong,
+.profile-info span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-card > svg {
+  margin-left: auto;
+  color: var(--text-faint);
+}
+
+/* ---- mobile drawer ---- */
+.mobile-sidebar-backdrop {
+  z-index: 149;
+}
+
+@media (max-width: 860px) {
+  .ozlind-sidebar {
+    width: min(304px, 82vw);
+    max-width: 304px;
+    padding:
+      max(14px, env(safe-area-inset-top, 0px))
+      12px
+      max(12px, env(safe-area-inset-bottom, 0px));
+    box-shadow: 24px 0 70px rgba(0, 0, 0, 0.28);
+  }
+
+  .sidebar-header {
+    padding-top: 2px;
+  }
+
+  .sidebar-close {
+    display: flex;
+  }
+}
+
+/* ---- main top bar ---- */
+.ozlind-topbar {
+  height: 60px;
+  padding-inline: 18px;
+  background: color-mix(
+    in srgb,
+    var(--background) 92%,
+    transparent
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.mobile-brand {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.mobile-brand span {
+  letter-spacing: 0.08em;
+}
+
+.icon-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+}
+
+.clear-chat-button {
+  min-height: 38px;
+}
+
+/* ---- welcome hierarchy ---- */
+.welcome-screen {
+  width: min(100%, 760px);
+  padding:
+    clamp(28px, 6vh, 64px)
+    22px
+    150px;
+}
+
+.welcome-badge {
+  margin-bottom: 20px;
+  padding: 7px 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  box-shadow: 0 8px 24px rgba(226, 111, 74, 0.07);
+}
+
+.welcome-screen h1 {
+  max-width: 720px;
+  margin-bottom: 14px;
+  font-size: clamp(30px, 4vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.welcome-screen p {
+  max-width: 560px;
+  margin-bottom: 30px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.suggestion-grid {
+  gap: 11px;
+  max-width: 700px;
+}
+
+.suggestion-card {
+  min-height: 88px;
+  padding: 16px;
+  border-radius: 17px;
+  border-color: color-mix(in srgb, var(--border-strong) 75%, transparent);
+}
+
+.suggestion-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 11px;
+}
+
+.suggestion-content {
+  gap: 4px;
+}
+
+.suggestion-content strong {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.suggestion-content span {
+  line-height: 1.45;
+}
+
+/* ---- composer ---- */
+.composer-area {
+  padding-inline: 18px;
+  padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
+}
+
+.composer-shell {
+  width: min(100%, 880px);
+  margin-inline: auto;
+  padding: 9px 10px 9px;
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 99%, transparent),
+      var(--surface)
+    );
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.09),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+.composer-shell:focus-within {
+  border-color: color-mix(
+    in srgb,
+    var(--primary) 60%,
+    var(--border-strong)
+  );
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent),
+    0 14px 36px rgba(0, 0, 0, 0.11);
+}
+
+.composer-toolbar {
+  min-height: 38px;
+}
+
+.composer-left {
+  gap: 5px;
+}
+
+.composer-icon-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.mode-button,
+.research-toggle {
+  min-height: 36px;
+  border-radius: 12px;
+}
+
+.send-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+
+.send-button:disabled {
+  opacity: 0.38;
+  transform: none;
+  box-shadow: none;
+}
+
+.composer-input {
+  min-height: 48px;
+  padding: 10px 6px 5px;
+  line-height: 1.5;
+}
+
+.composer-footer {
+  padding-inline: 6px;
+  color: var(--text-faint);
+}
+
+/* ---- chat messages ---- */
+.messages-list {
+  width: min(100%, 920px);
+  margin-inline: auto;
+  padding-inline: 10px;
+}
+
+.message-row {
+  animation: ozlind-message-in 180ms var(--oz-ease) both;
+}
+
+.message-bubble {
+  border-radius: 18px;
+}
+
+.message-row.user .message-bubble {
+  border-radius: 18px 18px 6px 18px;
+}
+
+.message-row.assistant .message-bubble {
+  border-radius: 6px 18px 18px 18px;
+}
+
+.assistant-avatar {
+  flex: 0 0 30px;
+}
+
+/* ---- account surface ---- */
+.account-overlay {
+  z-index: 500;
+  padding: 0;
+  background:
+    radial-gradient(
+      900px 500px at 50% 0%,
+      color-mix(in srgb, var(--primary) 7%, transparent),
+      transparent 72%
+    ),
+    var(--background);
+}
+
+.account-page {
+  width: min(100%, 720px);
+  max-width: 720px;
+}
+
+.account-page-header {
+  min-height: 62px;
+  padding:
+    max(10px, env(safe-area-inset-top, 0px))
+    16px
+    10px;
+}
+
+.account-back-button,
+.account-header-spacer {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+}
+
+.account-back-button {
+  border-radius: 13px;
+}
+
+.account-header-title strong {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.account-scroll {
+  width: min(100%, 680px);
+  margin-inline: auto;
+  padding:
+    20px
+    16px
+    max(38px, env(safe-area-inset-bottom, 0px));
+}
+
+.account-profile-hero {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 30px 18px 25px;
+  border-radius: 24px;
+}
+
+.account-hero-avatar {
+  width: 84px;
+  height: 84px;
+  flex: 0 0 84px;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  border-width: 3px;
+}
+
+.account-hero-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: inherit;
+}
+
+.account-hero-avatar span {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.account-profile-hero strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.account-provider-badge {
+  min-height: 28px;
+  box-sizing: border-box;
+}
+
+.account-group-card {
+  overflow: hidden;
+  border-radius: 17px;
+}
+
+.account-row {
+  min-height: 62px;
+  padding: 10px 13px;
+}
+
+.account-row-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+}
+
+.account-row-copy {
+  min-width: 0;
+}
+
+.account-row-copy strong,
+.account-row-copy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row-chevron {
+  flex: 0 0 auto;
+}
+
+.account-primary-action,
+.account-secondary-action,
+.account-danger-action,
+.account-logout-button {
+  min-height: 48px;
+  border-radius: 14px;
+}
+
+/* ---- dialogs / settings ---- */
+.settings-dialog {
+  width: min(680px, calc(100vw - 24px));
+  max-height: min(760px, calc(100dvh - 24px));
+  border-radius: 24px;
+}
+
+.dialog-header {
+  min-height: 62px;
+}
+
+.dialog-footer {
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+
+/* ---- responsive mobile ---- */
+@media (max-width: 640px) {
+  .ozlind-topbar {
+    height: 56px;
+    padding-inline: 8px 10px;
+  }
+
+  .workspace {
+    min-height: 0;
+  }
+
+  .welcome-screen {
+    justify-content: flex-start;
+    padding:
+      34px
+      16px
+      148px;
+  }
+
+  .welcome-badge {
+    margin-bottom: 18px;
+  }
+
+  .welcome-screen h1 {
+    font-size: clamp(29px, 8vw, 35px);
+    line-height: 1.08;
+  }
+
+  .welcome-screen p {
+    margin-bottom: 24px;
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+
+  .suggestion-grid {
+    width: 100%;
+    gap: 9px;
+  }
+
+  .suggestion-card {
+    min-height: 82px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .suggestion-icon {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .composer-area {
+    padding-inline: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .composer-shell {
+    border-radius: 22px;
+    padding: 8px 9px 8px;
+  }
+
+  .composer-input {
+    min-height: 48px;
+    padding-inline: 5px;
+    font-size: 16px;
+  }
+
+  .composer-footer {
+    padding-inline: 5px;
+  }
+
+  .composer-footer > span:first-child {
+    max-width: 72%;
+    line-height: 1.35;
+  }
+
+  .mode-button {
+    max-width: 116px;
+  }
+
+  .research-toggle {
+    display: none;
+  }
+
+  .account-page-header {
+    min-height: 58px;
+    padding-inline: 12px;
+  }
+
+  .account-scroll {
+    padding-inline: 12px;
+    padding-top: 14px;
+  }
+
+  .account-profile-hero {
+    padding: 26px 14px 22px;
+    border-radius: 21px;
+  }
+
+  .account-hero-avatar {
+    width: 78px;
+    height: 78px;
+    flex-basis: 78px;
+  }
+
+  .account-group-card {
+    border-radius: 16px;
+  }
+
+  .account-row {
+    min-height: 60px;
+    padding-inline: 11px;
+  }
+}
+
+@media (max-width: 390px) {
+  .ozlind-sidebar {
+    width: min(294px, 84vw);
+  }
+
+  .welcome-screen {
+    padding-top: 28px;
+  }
+
+  .welcome-screen h1 {
+    font-size: 29px;
+  }
+
+  .suggestion-card {
+    min-height: 78px;
+    padding: 12px;
+  }
+
+  .suggestion-content strong {
+    font-size: 13.5px;
+  }
+
+  .suggestion-content span {
+    font-size: 11.5px;
+  }
+
+  .composer-left {
+    gap: 2px;
+  }
+
+  .composer-icon-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mode-button {
+    padding-inline: 8px;
+  }
+
+  .account-row-copy strong {
+    font-size: 12.5px;
+  }
+
+  .account-row-copy span {
+    font-size: 10.5px;
+  }
+}
+
+/* ---- keyboard / accessibility ---- */
+.ozlind-app :where(
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  [role="button"]
+):focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .ozlind-app button,
+  .ozlind-app a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .suggestion-card:hover,
+  .new-chat-button:hover,
+  .primary-button:hover,
+  .account-primary-action:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ozlind-app *,
+  .ozlind-app *::before,
+  .ozlind-app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
