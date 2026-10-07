@@ -477,3 +477,60 @@ body {
     display: none !important;
   }
 }
+
+
+/* Mobile pull-to-refresh */
+.pull-refresh-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 80ms ease;
+}
+
+.pull-refresh-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 17px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+}
+
+.pull-refresh-icon.ready {
+  transform: rotate(180deg);
+}
+
+@media (min-width: 769px) {
+  .pull-refresh-indicator {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .pull-refresh-indicator {
+    max-width: calc(100vw - 32px);
+    white-space: nowrap;
+  }
+
+  .workspace,
+  .messages-list {
+    overscroll-behavior-y: contain;
+  }
+}
