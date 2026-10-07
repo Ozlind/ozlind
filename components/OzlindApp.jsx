@@ -712,7 +712,14 @@ export default function OzlindApp({
       .join("")
       .toUpperCase() || "O";
 
-  useEffect(() => {\n    return () => { speechRecognitionRef.current?.abort?.(); speechRecognitionRef.current = null; };\n  }, []);\n\n  /* ---------------------------------------------------------------------- */
+  useEffect(() => {
+    return () => {
+      speechRecognitionRef.current?.abort?.();
+      speechRecognitionRef.current = null;
+    };
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
   /* Persistence                                                            */
   /* ---------------------------------------------------------------------- */
 
