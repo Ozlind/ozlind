@@ -8,20 +8,15 @@ export const metadata = {
     "OZLIND AI — an intelligent workspace for chat, research, writing and planning.",
   applicationName: "OZLIND AI",
   authors: [{ name: "OZLIND" }],
-  icons: {
-    icon: "/ozlind-icons.svg",
-  },
-  robots: {
-    index: false,
-    follow: false,
-  },
+  icons: { icon: "/ozlind-icons.svg" },
+  robots: { index: false, follow: false },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0B0815",
+  themeColor: "#0c100d",
   colorScheme: "light dark",
 };
 
