@@ -3117,6 +3117,14 @@ export default function OzlindApp({
             </div>
           </div>
 
+          <div className="topbar-title" aria-live="polite">
+            <strong>{
+              history.find((item) => item.id === activeChatId)?.title ||
+              "New conversation"
+            }</strong>
+            <span>OZLIND AI</span>
+          </div>
+
           <div className="topbar-actions">
             <button type="button"
               className="icon-button"
