@@ -9,8 +9,9 @@ export const metadata = {
     "OZLIND AI — an intelligent workspace for chat, research, writing and planning.",
   applicationName: "OZLIND AI",
   authors: [{ name: "OZLIND" }],
-  icons: { icon: "/ozlind-icons.svg" },
+  icons: { icon: "/ozlind-mark.svg", shortcut: "/ozlind-mark.svg", apple: "/ozlind-mark.svg" },
   robots: { index: false, follow: false },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport = {
