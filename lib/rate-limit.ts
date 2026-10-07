@@ -6,6 +6,7 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
   unauthorized?: boolean;
   unavailable?: boolean;
+  userId?: string;
 }
 
 const WINDOW_SECONDS = 60;
@@ -91,6 +92,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
     }
 
     return {
+      userId: user.id,
       allowed: Boolean(row.allowed),
       remaining: Math.max(
         0,

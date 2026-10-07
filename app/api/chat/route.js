@@ -17,6 +17,8 @@ import {
   checkUserRateLimit,
 } from "@/lib/rate-limit";
 
+import { createClient } from "@/lib/supabase/server";
+
 import {
   searchDocuments,
 } from "@/lib/rag";
@@ -26,6 +28,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const MAX_CHAT_REQUEST_BYTES = 5_000_000;
+const USAGE_LOG_TIMEOUT_MS = 600;
 
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -865,6 +868,7 @@ export async function POST(
   request,
 ) {
   const requestId = crypto.randomUUID();
+  const requestStartedAt = Date.now();
 
   try {
     const contentLength = Number(request.headers.get("content-length") || 0);
@@ -990,6 +994,12 @@ export async function POST(
         messages,
       );
 
+    const conversationId =
+      typeof body.conversationId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.conversationId)
+        ? body.conversationId
+        : null;
+
     const research =
       shouldResearch(
         body,
@@ -1078,6 +1088,8 @@ export async function POST(
             let sources = [];
             let researchNotice =
               null;
+            let selectedProvider = null;
+            let selectedModel = null;
 
             let documentResults =
               [];
@@ -1170,7 +1182,8 @@ export async function POST(
               },
             );
 
-            await streamFromProviders(
+            const providerResult =
+              await streamFromProviders(
               {
                 messages,
                 mode,
@@ -1182,7 +1195,10 @@ export async function POST(
                   request.signal,
 
                 onProvider:
-                  () => {},
+                  (provider, model) => {
+                    selectedProvider = provider;
+                    selectedModel = model;
+                  },
 
                 onDelta:
                   (content) => {
@@ -1209,6 +1225,13 @@ export async function POST(
                   },
               },
             );
+
+            if (providerResult?.provider) {
+              selectedProvider = providerResult.provider;
+            }
+            if (providerResult?.model) {
+              selectedModel = providerResult.model;
+            }
 
             if (
               request.signal?.aborted
@@ -1238,6 +1261,16 @@ export async function POST(
               },
             );
 
+            await writeUsageLog({
+              userId: rate.userId,
+              conversationId,
+              mode,
+              provider: selectedProvider,
+              model: selectedModel,
+              latencyMs: Date.now() - requestStartedAt,
+              ok: true,
+            });
+
             close();
           } catch (error) {
             if (
@@ -1250,6 +1283,17 @@ export async function POST(
 
             const safeMessage =
               safeError(error);
+
+            await writeUsageLog({
+              userId: rate.userId,
+              conversationId,
+              mode,
+              provider: selectedProvider,
+              model: selectedModel,
+              latencyMs: Date.now() - requestStartedAt,
+              ok: false,
+              error: safeMessage,
+            });
 
             send(
               "error",
@@ -1292,6 +1336,14 @@ export async function POST(
     );
   } catch (error) {
     console.error("OZLIND chat request failed:", { requestId, error });
+    await writeUsageLog({
+      userId: rate?.userId,
+      conversationId: null,
+      mode: "unknown",
+      latencyMs: Date.now() - requestStartedAt,
+      ok: false,
+      error: safeError(error),
+    });
     return json({ error: safeError(error) }, 500, { "X-OZLIND-Request-ID": requestId });
   }
 }

@@ -1982,6 +1982,7 @@ export default function OzlindApp({
 
       const body = {
         messages: apiMessages,
+        conversationId: chatId,
         mode: hasImagePart(
           apiMessages,
         )
