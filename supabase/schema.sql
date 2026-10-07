@@ -2,7 +2,8 @@
 -- Idempotent: safe to run repeatedly. No destructive table drops.
 
 create extension if not exists "pgcrypto";
-create extension if not exists "vector";
+create schema if not exists extensions;
+create extension if not exists "vector" with schema extensions;
 
 -- ---------------------------------------------------------------------------
 -- Conversations and messages
@@ -152,7 +153,7 @@ create table if not exists public.document_chunks (
   user_id uuid not null references auth.users(id) on delete cascade,
   chunk_index integer not null check (chunk_index >= 0),
   content text not null,
-  embedding vector(768) not null,
+  embedding extensions.vector(768) not null,
   created_at timestamptz not null default now(),
   unique (document_id, chunk_index)
 );
@@ -172,7 +173,7 @@ create index if not exists document_chunks_user_idx
 -- HNSW is supported by current Supabase pgvector and gives good retrieval
 -- performance without requiring an exact row-count-specific tuning step.
 create index if not exists document_chunks_embedding_hnsw_idx
-  on public.document_chunks using hnsw (embedding vector_cosine_ops);
+  on public.document_chunks using hnsw (embedding extensions.vector_cosine_ops);
 
 alter table public.documents enable row level security;
 alter table public.document_chunks enable row level security;
@@ -222,7 +223,7 @@ create policy "Users can delete their document chunks" on public.document_chunks
 -- the SECURITY DEFINER function, so callers cannot retrieve another user's
 -- vectors by manipulating a request parameter.
 create or replace function public.match_document_chunks(
-  query_embedding vector(768),
+  query_embedding extensions.vector(768),
   match_threshold double precision default 0.55,
   match_count integer default 8
 )
@@ -257,7 +258,7 @@ as $$
   limit greatest(1, least(20, match_count));
 $$;
 
-revoke all on function public.match_document_chunks(vector(768), double precision, integer)
+revoke all on function public.match_document_chunks(extensions.vector(768), double precision, integer)
   from public;
 
 grant execute on function public.match_document_chunks(vector(768), double precision, integer)
@@ -269,7 +270,7 @@ grant execute on function public.match_document_chunks(vector(768), double preci
 
 create table if not exists public.rate_limits (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  window_started_at timestamptz not null default now(),
+  window_start timestamptz not null default now(),
   request_count integer not null default 0
     check (request_count >= 0)
 );
