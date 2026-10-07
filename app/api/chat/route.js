@@ -33,71 +33,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const MAX_CHAT_REQUEST_BYTES = 5_000_000;
-const USAGE_LOG_TIMEOUT_MS = 600;
 
-function writeUsageLog({
-  userId,
-  conversationId,
-  mode,
-  provider,
-  model,
-  latencyMs,
-  ok,
-  error = null,
-}) {
-  if (!isUuid(userId)) {
-    return Promise.resolve();
-  }
-
-  return (async () => {
-    try {
-      const supabase = await createClient();
-
-      const insert = supabase
-        .from("usage_logs")
-        .insert({
-          user_id: userId,
-          conversation_id: isUuid(conversationId)
-            ? conversationId
-            : null,
-          mode: String(mode || "").slice(0, 32) || null,
-          provider: String(provider || "").slice(0, 64) || null,
-          model: String(model || "").slice(0, 160) || null,
-          latency_ms: Number.isFinite(Number(latencyMs))
-            ? Math.max(0, Math.round(Number(latencyMs)))
-            : null,
-          ok: Boolean(ok),
-          error:
-            typeof error === "string"
-              ? error.slice(0, 1000)
-              : null,
-        });
-
-      let timeoutHandle = null;
-
-      await Promise.race([
-        insert,
-        new Promise((resolve) => {
-          timeoutHandle = setTimeout(
-            resolve,
-            USAGE_LOG_TIMEOUT_MS,
-          );
-        }),
-      ]);
-
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-    } catch (logError) {
-      console.error(
-        "OZLIND usage logging failed:",
-        logError,
-      );
-    }
-  })();
-}
-
-
+import { writeUsageLog } from "@/lib/backend/usage";
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
