@@ -240,17 +240,12 @@ create or replace function public.match_document_chunks(
   match_count integer default 8
 )
 returns table (
-  id uuid,
-  document_id uuid,
-  document_name text,
-  chunk_index integer,
-  content text,
-  similarity double precision
+  id uuid, document_id uuid, document_name text, chunk_index integer,
+  content text, similarity double precision
 )
 language sql
 stable
-security definer
-set search_path = public
+set search_path = public, extensions
 as $$
   select
     dc.id,
@@ -259,17 +254,18 @@ as $$
     dc.chunk_index,
     dc.content,
     1 - (dc.embedding <=> query_embedding) as similarity
-  from public.document_chunks dc
-  join public.documents d
+  from public.document_chunks as dc
+  inner join public.documents as d
     on d.id = dc.document_id
-   and d.user_id = auth.uid()
-   and d.status = 'ready'
-  where dc.user_id = auth.uid()
-    and 1 - (dc.embedding <=> query_embedding) >= greatest(0, least(1, match_threshold))
+   and d.user_id = dc.user_id
+  where dc.user_id = (select auth.uid())
+    and d.status = 'ready'
+    and dc.embedding is not null
+    and 1 - (dc.embedding <=> query_embedding)
+      >= greatest(0, least(match_threshold, 1))
   order by dc.embedding <=> query_embedding
-  limit greatest(1, least(20, match_count));
+  limit greatest(1, least(match_count, 20));
 $$;
-
 revoke all on function public.match_document_chunks(extensions.vector(768), double precision, integer)
   from public;
 
@@ -296,69 +292,47 @@ create or replace function public.check_rate_limit(
   p_limit integer default 20,
   p_window_seconds integer default 60
 )
-returns table (
-  allowed boolean,
-  remaining integer,
-  retry_after integer
-)
+returns table (allowed boolean, remaining integer, retry_after integer)
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
-  v_user_id uuid := auth.uid();
-  v_limit integer := greatest(1, least(1000, coalesce(p_limit, 20)));
-  v_window integer := greatest(1, least(3600, coalesce(p_window_seconds, 60)));
-  v_started timestamptz;
+  v_uid uuid := auth.uid();
+  v_limit integer := least(greatest(coalesce(p_limit, 20), 1), 20);
+  v_window_seconds integer := least(greatest(coalesce(p_window_seconds, 60), 1), 60);
   v_count integer;
-  v_elapsed integer;
+  v_start timestamptz;
 begin
-  if v_user_id is null then
-    return query select false, 0, 0;
+  if v_uid is null then
+    return query select false, 0, v_window_seconds;
     return;
   end if;
 
-  -- Serialize requests for one user so concurrent chat requests cannot
-  -- race through the counter.
-  perform pg_advisory_xact_lock(hashtextextended(v_user_id::text, 0));
-
-  select window_started_at, request_count
-    into v_started, v_count
-  from public.rate_limits
-  where user_id = v_user_id
-  for update;
-
-  if not found or extract(epoch from (now() - v_started)) >= v_window then
-    insert into public.rate_limits(user_id, window_started_at, request_count)
-    values (v_user_id, now(), 1)
-    on conflict (user_id) do update
-      set window_started_at = excluded.window_started_at,
-          request_count = 1;
-
-    return query select true, v_limit - 1, v_window;
-    return;
-  end if;
-
-  if v_count >= v_limit then
-    v_elapsed := greatest(0, floor(extract(epoch from (now() - v_started)))::integer);
-    return query
-      select false,
-             0,
-             greatest(1, v_window - v_elapsed);
-    return;
-  end if;
-
-  update public.rate_limits
-  set request_count = request_count + 1
-  where user_id = v_user_id;
+  insert into public.rate_limits as r (user_id, request_count, window_start)
+  values (v_uid, 1, now())
+  on conflict (user_id) do update
+  set
+    request_count = case
+      when r.window_start <= now() - make_interval(secs => v_window_seconds)
+        then 1
+      else r.request_count + 1
+    end,
+    window_start = case
+      when r.window_start <= now() - make_interval(secs => v_window_seconds)
+        then now()
+      else r.window_start
+    end
+  returning r.request_count, r.window_start
+  into v_count, v_start;
 
   return query
-    select true,
-           greatest(0, v_limit - v_count - 1),
-           greatest(1, v_window - floor(extract(epoch from (now() - v_started)))::integer);
+  select
+    v_count <= v_limit,
+    greatest(v_limit - v_count, 0),
+    greatest(1, ceil(extract(epoch from (v_start + make_interval(secs => v_window_seconds) - now())))::integer);
 end;
 $$;
-
 revoke all on function public.check_rate_limit(integer, integer)
   from public;
 
