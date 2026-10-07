@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { getOptionalBackendConfig } from "@/lib/backend/config";
 import { errorResponse, json, requestId } from "@/lib/backend/http";
 import { logger } from "@/lib/backend/logger";
@@ -6,6 +5,37 @@ import { healthQuerySchema } from "@/lib/backend/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+async function checkSupabase() {
+  const url = process.env.SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
+
+  if (!url || !key) return "not_configured";
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(
+      `${url.replace(/\\/$/, "")}/rest/v1/`,
+      {
+        method: "GET",
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
+
+    return response.ok || response.status === 401 ? "ok" : "degraded";
+  } catch {
+    return "degraded";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function GET(request) {
   const id = requestId();
@@ -27,27 +57,11 @@ export async function GET(request) {
     }
 
     const config = getOptionalBackendConfig();
-    let database = "unknown";
-
-    try {
-      const supabase = await createClient();
-      const { error } = await supabase
-        .from("user_settings")
-        .select("user_id")
-        .limit(1);
-
-      database = error ? "degraded" : "ok";
-    } catch (error) {
-      database = "degraded";
-      logger.warn("health.database_check_failed", {
-        requestId: id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
+    const database = await checkSupabase();
     const healthy = database === "ok";
+
     const body = {
-      status: healthy ? "ok" : "degraded",
+      status: healthy ? "ok" : database === "not_configured" ? "degraded" : "degraded",
       service: "ozlind-api",
       version: "v1",
       timestamp: new Date().toISOString(),
