@@ -1,6 +1,6 @@
 import "./globals.css";
 import "./tokens.css";
-import "./premium.css";
+import "./premium.css";\nimport "./neutral.css";
 
 export const metadata = {
   title: "OZLIND AI",
@@ -16,7 +16,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#E26F4A",
+  themeColor: "#111315",
   colorScheme: "light dark",
 };
 
