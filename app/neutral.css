@@ -534,3 +534,60 @@ body {
     overscroll-behavior-y: contain;
   }
 }
+
+/* =========================================================
+   OZLIND FINAL PRODUCT UI — calm, dense, responsive
+   ========================================================= */
+.ozlind-main{min-width:0;background:var(--background)}
+.ozlind-topbar{position:relative;z-index:20;height:64px;padding:0 24px;background:color-mix(in srgb,var(--background) 94%,transparent);box-shadow:0 1px 0 var(--border)}
+.topbar-title{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;min-width:0;max-width:44%;white-space:nowrap}
+.topbar-title strong{overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:650;letter-spacing:-.01em}
+.topbar-title span{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text-faint)}
+.topbar-actions{gap:5px}
+.clear-chat-button{transition:background .16s ease,border-color .16s ease,transform .16s ease}
+.clear-chat-button:hover{transform:translateY(-1px)}
+.ozlind-sidebar{padding:14px 10px;background:var(--sidebar);box-shadow:inset -1px 0 0 var(--border)}
+.sidebar-nav-item{min-height:40px}
+.sidebar-section-title{padding-left:10px;letter-spacing:.09em}
+.new-chat-button{min-height:42px;border-radius:13px;box-shadow:0 8px 20px rgba(226,111,74,.16)}
+.workspace{background:var(--background)}
+.welcome-screen{width:min(760px,100%);max-width:760px;padding:40px 24px 34px}
+.welcome-badge{margin-bottom:16px;border-color:color-mix(in srgb,var(--primary) 18%,var(--border));box-shadow:0 4px 16px rgba(226,111,74,.07)}
+.welcome-screen h1{font-size:clamp(30px,4vw,44px);letter-spacing:-.04em}
+.welcome-screen p{max-width:560px;line-height:1.7}
+.suggestion-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.suggestion-card{min-height:92px;padding:15px;border-radius:17px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease}
+.suggestion-card:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(69,46,36,.08)}
+.messages-list{max-width:900px;padding:30px 18px 18px;gap:28px}
+.message-row{padding:0 8px}
+.message-row.user .message-row{}
+.message-row.user .message-bubble>p{max-width:min(620px,78vw);padding:11px 15px;border-radius:18px 18px 5px 18px;box-shadow:0 4px 16px rgba(226,111,74,.10)}
+.message-row.assistant .message-bubble{max-width:780px}
+.message-meta{opacity:.8}
+.assistant-avatar{width:30px;height:30px;border-radius:10px;box-shadow:0 5px 16px rgba(226,111,74,.12)}
+.composer-area{max-width:920px;padding:12px 18px 20px}
+.composer-shell{border-radius:22px;padding:10px 12px 9px;box-shadow:0 12px 34px rgba(69,46,36,.08)}
+.composer-input{line-height:1.55}
+.pull-refresh-indicator{border-color:var(--border-strong);box-shadow:0 10px 28px rgba(69,46,36,.12)}
+@media(max-width:860px){
+  .ozlind-topbar{height:58px;padding:0 12px}
+  .topbar-title{max-width:42%}
+  .topbar-title span{display:none}
+  .messages-list{padding:22px 8px 12px;gap:22px}
+  .composer-area{padding:9px 10px calc(10px + env(safe-area-inset-bottom))}
+}
+@media(max-width:520px){
+  .ozlind-topbar{height:56px}
+  .topbar-title{position:static;transform:none;max-width:none;margin-left:2px;flex:1;justify-content:flex-start}
+  .topbar-title strong{font-size:12.5px}
+  .topbar-actions .clear-chat-button{width:40px;height:40px;padding:0;justify-content:center;border:0;background:transparent}
+  .topbar-actions .clear-chat-button span{display:none}
+  .welcome-screen{padding:26px 16px 20px;justify-content:center}
+  .welcome-screen h1{font-size:30px;line-height:1.08}
+  .suggestion-grid{grid-template-columns:1fr}
+  .suggestion-card{min-height:76px}
+  .messages-list{padding-inline:4px}
+  .message-row{padding-inline:6px}
+  .message-row.user .message-bubble>p{max-width:calc(100vw - 72px)}
+  .composer-area{max-width:none}
+}
