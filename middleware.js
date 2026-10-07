@@ -6,6 +6,8 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/api/supabase/config",
   "/api/v1/health",
+  "/api/v1/live",
+  "/api/v1/ready",
 ];
 
 function isPublicPath(pathname) {
