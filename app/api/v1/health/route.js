@@ -17,7 +17,7 @@ async function checkSupabase() {
 
   try {
     const response = await fetch(
-      `${url.replace(/\\/$/, "")}/rest/v1/`,
+      `${url.replace(/\/$/, "")}/rest/v1/`,
       {
         method: "GET",
         headers: {
