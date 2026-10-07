@@ -98,6 +98,15 @@ const appText = fs.readFileSync(path.join(root, "components/OzlindApp.jsx"), "ut
 if (!appText.includes("SpeechRecognition") || !appText.includes("voice-input-button")) problems.push("Voice input control missing");
 const chatText = fs.readFileSync(path.join(root, "app/api/chat/route.js"), "utf8");
 if (!chatText.includes("MAX_CHAT_REQUEST_BYTES") || !chatText.includes("X-OZLIND-Request-ID")) problems.push("Chat hardening missing");
+if (!chatText.includes("AbortController")) problems.push("Chat timeout/cancellation hardening missing");
+if (!appText.includes("const controller = new AbortController()")) problems.push("Client chat cancellation missing");
+if (!appText.includes("let event;") || !appText.includes("handleEvent(event)")) problems.push("Streaming event parser hardening missing");
+if (!appText.includes("controller.userStopped = true")) problems.push("Stop-generation state missing");
+if (!appText.includes("aria-modal=\"true\"")) problems.push("Modal accessibility missing");
+const premiumText = fs.readFileSync(path.join(root, "app/premium.css"), "utf8");
+if (!premiumText.includes(".profile-avatar img")) problems.push("Profile avatar containment missing");
+if (!premiumText.includes("env(safe-area-inset-bottom")) problems.push("Mobile safe-area handling missing");
+if (!premiumText.includes("@media (max-width: 640px)")) problems.push("Mobile responsive rules missing");
 
 if (problems.length) {
   console.error("OZLIND verification FAILED:\n");
