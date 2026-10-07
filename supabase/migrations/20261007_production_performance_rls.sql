@@ -1,5 +1,5 @@
 -- OZLIND production performance hardening
--- Mirrors the migration applied to the production Supabase project on 2026-10-07.
+-- Applied to production Supabase on 2026-10-07.
 -- Safe/idempotent indexes plus semantically equivalent optimized RLS predicates.
 
 create index if not exists audit_logs_user_id_idx on public.audit_logs(user_id);
@@ -9,7 +9,6 @@ create index if not exists ozlind_api_events_user_id_idx on public.ozlind_api_ev
 create index if not exists ozlind_research_usage_conversation_id_idx on public.ozlind_research_usage(conversation_id);
 create index if not exists ozlind_research_usage_user_id_idx on public.ozlind_research_usage(user_id);
 create index if not exists ozlind_usage_conversation_id_idx on public.ozlind_usage(conversation_id);
-create index if not exists ozlind_usage_user_id_idx on public.ozlind_usage(user_id);
 create index if not exists prompts_user_id_idx on public.prompts(user_id);
 create index if not exists shared_chats_user_id_idx on public.shared_chats(user_id);
 create index if not exists usage_logs_conversation_id_idx on public.usage_logs(conversation_id);
