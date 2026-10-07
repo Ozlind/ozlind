@@ -1,12 +1,18 @@
 /*
- * OZLIND AI — Final interaction/polish layer
- *
- * This file intentionally stays small. Core tokens and structural styling
- * live in tokens.css so there is one authoritative visual system.
+ * OZLIND AI — Stage 2 App Shell + interaction polish
+ * This replaces the previous override layer without changing application logic.
  */
 
 .ozlind-app {
   isolation: isolate;
+  min-height: 100dvh;
+  background:
+    radial-gradient(
+      760px 360px at 50% -140px,
+      rgba(127, 140, 75, 0.075),
+      transparent 70%
+    ),
+    var(--background);
 }
 
 .ozlind-app button,
@@ -23,140 +29,422 @@
   user-select: none;
 }
 
-.ozlind-app ::selection {
-  background: rgba(93, 216, 255, 0.22);
+/* --------------------------------------------------------------------------
+   Shell
+   -------------------------------------------------------------------------- */
+
+.ozlind-sidebar {
+  width: var(--sidebar-width);
+  padding: 14px 12px;
+  gap: 12px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--sidebar) 98%, transparent),
+      var(--sidebar)
+    );
+  border-right-color: var(--border);
+  box-shadow: 12px 0 36px rgba(10, 14, 10, 0.035);
+}
+
+body.dark .ozlind-sidebar {
+  box-shadow: 16px 0 48px rgba(0, 0, 0, 0.20);
+}
+
+.sidebar-header {
+  min-height: 40px;
+}
+
+.brand-button {
+  min-height: 42px;
+  padding: 6px 8px;
+  border-radius: 13px;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(127, 140, 75, 0.20);
+}
+
+.brand-mark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.brand-copy strong {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+}
+
+.brand-copy span {
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  color: var(--text-faint);
+}
+
+.sidebar-content {
+  gap: 14px;
+}
+
+.new-chat-button {
+  min-height: 44px;
+  justify-content: center;
+  border: 1px solid rgba(127, 140, 75, 0.24);
+  border-radius: 13px;
+  background:
+    linear-gradient(
+      145deg,
+      var(--oz-olive),
+      var(--oz-olive-dark)
+    );
+  box-shadow: 0 9px 22px rgba(127, 140, 75, 0.16);
+  transition:
+    transform var(--oz-fast) var(--oz-ease),
+    box-shadow var(--oz-fast) var(--oz-ease),
+    filter var(--oz-fast) var(--oz-ease);
+}
+
+.new-chat-button:hover {
+  background:
+    linear-gradient(
+      145deg,
+      var(--oz-olive-light),
+      var(--oz-olive)
+    );
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(127, 140, 75, 0.20);
+}
+
+.sidebar-nav {
+  display: flex !important;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sidebar-nav-item {
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  transition:
+    background var(--oz-fast) var(--oz-ease),
+    color var(--oz-fast) var(--oz-ease);
+}
+
+.sidebar-nav-item:hover {
+  background: var(--surface-hover);
   color: var(--text);
 }
 
-/* Soft entrance transitions. */
-.welcome-screen,
-.message-row,
-.selected-file,
-.error-banner,
-.toast,
-.settings-dialog,
-.account-page {
-  animation-duration: 220ms;
-  animation-timing-function: var(--oz-ease);
-  animation-fill-mode: both;
+.sidebar-nav-item.active {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+.sidebar-nav-item.active::before {
+  content: "";
+  width: 3px;
+  height: 18px;
+  margin-left: -3px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.history-section {
+  padding-top: 2px;
+}
+
+.sidebar-section-heading {
+  padding: 4px 8px 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.history-search {
+  min-height: 38px;
+  margin: 4px 2px 7px;
+  padding: 7px 10px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-color: var(--border);
+}
+
+.history-search:focus-within {
+  border-color: rgba(127, 140, 75, 0.40);
+  box-shadow: var(--focus-ring);
+}
+
+.history-item {
+  min-height: 38px;
+  border-radius: 10px;
+  transition:
+    background var(--oz-fast) var(--oz-ease),
+    color var(--oz-fast) var(--oz-ease);
+}
+
+.history-item-main {
+  min-height: 38px;
+  padding: 7px 8px 7px 10px;
+}
+
+.history-item.active {
+  background: var(--primary-soft);
+}
+
+.history-delete {
+  width: 30px;
+  height: 30px;
+  margin-right: 4px;
+}
+
+.sidebar-footer {
+  gap: 3px;
+  padding-top: 9px;
+  border-top-color: var(--border);
+}
+
+.profile-card {
+  min-height: 44px;
+  padding: 7px 8px;
+  border-radius: 12px;
+}
+
+.profile-card:hover {
+  background: var(--surface-hover);
+}
+
+.profile-card > svg {
+  color: var(--text-faint);
+}
+
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  box-shadow: 0 5px 14px rgba(127, 140, 75, 0.16);
+}
+
+/* --------------------------------------------------------------------------
+   Top bar
+   -------------------------------------------------------------------------- */
+
+.ozlind-topbar {
+  height: 58px;
+  padding: 0 18px;
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  border-bottom-color: var(--border);
+}
+
+.topbar-actions,
+.status-badge {
+  display: none !important;
+}
+
+.mobile-menu-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
+
+.mobile-sidebar-backdrop {
+  background: rgba(5, 8, 5, 0.42);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* --------------------------------------------------------------------------
+   Welcome / first-run state
+   -------------------------------------------------------------------------- */
+
+.workspace {
+  background:
+    radial-gradient(
+      700px 380px at 50% 0%,
+      rgba(127, 140, 75, 0.055),
+      transparent 70%
+    ),
+    var(--background);
 }
 
 .welcome-screen {
-  animation-name: ozlind-ui-enter;
+  width: min(760px, 100%);
+  max-width: 760px;
+  padding: 26px 18px 44px;
 }
 
-.message-row {
-  animation-name: ozlind-message-enter;
+.welcome-badge {
+  min-height: 34px;
+  padding: 6px 12px;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--text);
+  box-shadow: none;
 }
 
-.selected-file {
-  animation-name: ozlind-item-enter;
+.welcome-screen h1 {
+  max-width: 700px;
+  margin-bottom: 12px;
+  font-size: clamp(36px, 5vw, 54px);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  font-weight: 760;
 }
 
-.error-banner {
-  animation-name: ozlind-item-enter;
+.welcome-screen p {
+  max-width: 620px;
+  margin-bottom: 30px;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.7;
 }
 
-.settings-dialog {
-  animation-name: ozlind-dialog-enter;
+.suggestion-grid {
+  width: 100%;
+  gap: 10px;
 }
 
-.account-page {
-  animation-name: ozlind-page-enter;
-}
-
-@keyframes ozlind-ui-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes ozlind-message-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes ozlind-item-enter {
-  from {
-    opacity: 0;
-    transform: translateY(5px) scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes ozlind-dialog-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes ozlind-page-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Better hover/focus treatment without adding visual noise. */
-.suggestion-card,
-.history-item,
-.mode-menu-item,
-.source-chip,
-.account-row,
-.profile-card,
-.new-chat-button {
+.suggestion-card {
+  min-height: 76px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 7px 22px rgba(25, 29, 23, 0.035);
+  text-align: left;
   transition:
-    background-color var(--oz-fast) var(--oz-ease),
+    transform var(--oz-fast) var(--oz-ease),
     border-color var(--oz-fast) var(--oz-ease),
-    color var(--oz-fast) var(--oz-ease),
-    box-shadow var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
+    background var(--oz-fast) var(--oz-ease),
+    box-shadow var(--oz-fast) var(--oz-ease);
 }
 
-.send-button,
-.composer-icon-button,
-.icon-button {
-  transition:
-    background-color var(--oz-fast) var(--oz-ease),
-    color var(--oz-fast) var(--oz-ease),
-    box-shadow var(--oz-fast) var(--oz-ease),
-    transform var(--oz-fast) var(--oz-ease);
+.suggestion-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
-.send-button:active:not(:disabled),
-.composer-icon-button:active,
-.icon-button:active,
-.mode-button:active {
-  transform: scale(0.96);
+.suggestion-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
-/* Keep the app clean on touch devices. */
+.suggestion-content strong {
+  font-size: 12.5px;
+  font-weight: 720;
+}
+
+.suggestion-content span {
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+/* --------------------------------------------------------------------------
+   Dialogs / account surfaces
+   -------------------------------------------------------------------------- */
+
+.dialog-backdrop {
+  background: rgba(5, 8, 5, 0.48);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.settings-dialog,
+.account-profile-hero,
+.account-group-card {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.account-page-header {
+  border-bottom-color: var(--border);
+  background: color-mix(in srgb, var(--background) 95%, transparent);
+}
+
+.account-row + .account-row,
+.settings-section + .settings-section {
+  border-top-color: var(--border);
+}
+
+.account-row:hover {
+  background: var(--surface-hover);
+}
+
+.account-row-icon {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  :root {
+    --sidebar-width: min(86vw, 320px);
+    --oz-sidebar-width: min(86vw, 320px);
+  }
+
+  .ozlind-sidebar {
+    width: min(86vw, 320px);
+    box-shadow: 20px 0 64px rgba(7, 10, 7, 0.20);
+  }
+
+  .ozlind-topbar {
+    height: 56px;
+    padding-inline: 10px 12px;
+  }
+
+  .composer-area {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .welcome-screen {
+    justify-content: center;
+    padding: 22px 14px 40px;
+  }
+}
+
+@media (max-width: 560px) {
+  .welcome-screen {
+    padding: 24px 11px 32px;
+  }
+
+  .welcome-screen h1 {
+    font-size: clamp(32px, 11vw, 43px);
+  }
+
+  .suggestion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestion-card {
+    min-height: 70px;
+    padding: 13px;
+    border-radius: 14px;
+  }
+
+  .messages-list {
+    gap: 18px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Accessibility / motion
+   -------------------------------------------------------------------------- */
+
 @media (hover: none) and (pointer: coarse) {
   .suggestion-card:hover,
   .history-item:hover,
-  .source-chip:hover,
-  .account-row:hover,
   .profile-card:hover {
     transform: none;
   }
@@ -175,35 +463,13 @@
   }
 }
 
-/* Prevent ugly horizontal overflow from long AI output. */
-.markdown-content,
-.message-column,
-.source-text,
-.account-row-copy {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.markdown-content img,
-.markdown-content video,
-.message-attachment img {
-  max-width: 100%;
-}
-
-.ozlind-app table {
-  display: block;
-  overflow-x: auto;
-}
-
-/* Keep dialogs usable on short phone screens. */
-@media (max-height: 740px) and (max-width: 700px) {
-  .settings-dialog {
-    max-height: calc(100dvh - 20px);
-    border-radius: 20px;
-  }
-
-  .account-scroll {
-    padding-bottom:
-      calc(24px + env(safe-area-inset-bottom, 0px));
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
   }
 }
