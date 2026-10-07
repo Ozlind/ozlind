@@ -278,7 +278,7 @@ Every table gets RLS and ownership policies.
 - Retry/fallback policy.
 
 ### 5 — Chat UI
-- Responsive DeepSeek-style workspace.
+- Responsive DeepSeek-style workspace with OZLIND branding and an original visual identity inspired by the simplicity of modern AI chat products.
 - Composer and attachments.
 - Streaming rendering.
 - Stop/regenerate/edit/resend.
