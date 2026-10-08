@@ -73,7 +73,7 @@ export function useOzlindChat({
           conversationId: chatId,
           title: title || createTitle(nextMessages.find((m) => m.role === "user")?.content),
           updatedAt: Date.now(),
-          messages: nextMessages,
+          messages: persistentMessages,
           synced: known,
         });
         syncRef.current = new Set(ids);
