@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Mic, Paperclip, Square, X } from "lucide-react";
 
 export default function Composer({
@@ -20,6 +20,13 @@ export default function Composer({
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const [listening, setListening] = useState(false);
+
+  useEffect(() => {
+    const element = inputRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = Math.min(element.scrollHeight, 180) + "px";
+  }, [value]);
 
   const submit = () => {
     if (streaming) return onStop();
