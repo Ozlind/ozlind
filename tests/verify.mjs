@@ -20,6 +20,7 @@ const required = [
   "lib/rag/context.js",
   "lib/chat/utils.js",
   "components/account/AccountControls.jsx",
+  "hooks/usePullToRefresh.js",
   "lib/server.js",
   "lib/rate-limit.ts",
   "middleware.js",
