@@ -24,13 +24,11 @@ const DATABASE_TIMEOUT_MS = 2_500;
  * requests across instances.
  */
 export async function checkUserRateLimit(): Promise<RateLimitResult> {
-  let supabase;
   let user;
   let admin;
 
   try {
     const auth = await getAuthenticatedUser();
-    supabase = auth.supabase;
     user = auth.user;
     admin = createAdminClient();
   } catch {
