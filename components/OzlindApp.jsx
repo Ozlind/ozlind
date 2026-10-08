@@ -72,7 +72,6 @@ import {
 } from "@/lib/cloud";
 
 import { MODES as MODE_DEFS } from "@/constants/modes";
-import { DEFAULT_SETTINGS } from "@/constants/settings";
 import {
   ATTACHMENT_ACCEPT,
   LIMITS,
