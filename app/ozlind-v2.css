@@ -1,0 +1,173 @@
+/* OZLIND V2 DESIGN SYSTEM
+ * Loaded last so legacy styles remain functional while the product shell
+ * transitions to a calmer, neutral, mobile-first visual language.
+ */
+:root {
+  --background: #f7f7f5;
+  --surface: #ffffff;
+  --surface-soft: #f1f1ee;
+  --surface-hover: #e9e9e5;
+  --sidebar: #f3f3f0;
+  --text: #171717;
+  --text-soft: #666662;
+  --text-faint: #92928c;
+  --border: rgba(23,23,23,.09);
+  --border-strong: rgba(23,23,23,.15);
+  --primary: #171717;
+  --primary-dark: #000000;
+  --primary-soft: rgba(23,23,23,.07);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.035);
+  --shadow-md: 0 18px 50px rgba(0,0,0,.08);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --sidebar-width: 272px;
+}
+
+body.dark {
+  --background: #101010;
+  --surface: #171717;
+  --surface-soft: #1d1d1d;
+  --surface-hover: #252525;
+  --sidebar: #141414;
+  --text: #f5f5f3;
+  --text-soft: #a6a6a0;
+  --text-faint: #72726d;
+  --border: rgba(255,255,255,.09);
+  --border-strong: rgba(255,255,255,.15);
+  --primary: #f5f5f3;
+  --primary-dark: #ffffff;
+  --primary-soft: rgba(255,255,255,.08);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.22), 0 10px 30px rgba(0,0,0,.18);
+  --shadow-md: 0 24px 60px rgba(0,0,0,.32);
+}
+
+body,
+.ozlind-app,
+.ozlind-main,
+.workspace {
+  background: var(--background);
+}
+
+.ozlind-sidebar {
+  background: var(--sidebar);
+  border-right-color: var(--border);
+}
+
+.brand-mark,
+.assistant-avatar {
+  background: #171717;
+  box-shadow: none;
+}
+
+body.dark .brand-mark,
+body.dark .assistant-avatar {
+  background: #f5f5f3;
+  color: #111;
+}
+
+.new-chat-button {
+  background: var(--primary);
+  color: var(--background);
+  box-shadow: none;
+}
+
+.new-chat-button:hover {
+  background: var(--primary-dark);
+  color: var(--background);
+}
+
+.sidebar-nav-item.active,
+.history-item.active {
+  color: var(--text);
+  background: var(--primary-soft);
+}
+
+.status-badge {
+  background: transparent;
+}
+
+.composer-shell,
+.suggestion-card,
+.history-search,
+.selected-file {
+  box-shadow: var(--shadow-sm);
+}
+
+.composer-shell {
+  border-radius: 18px;
+}
+
+.message-row.user .message-bubble > p {
+  background: var(--text);
+  color: var(--background);
+}
+
+.welcome-badge,
+.suggestion-icon,
+.source-index {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+.suggestion-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.markdown-content code,
+.markdown-content pre,
+.markdown-content .code-block,
+.code-block,
+.table-scroll {
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+
+.markdown-content .code-block pre {
+  background: var(--surface);
+}
+
+.mobile-sidebar-backdrop {
+  background: rgba(0,0,0,.32);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.settings-dialog,
+.modal-backdrop,
+.dialog-backdrop {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:where(button, input, textarea, select, a, [role="button"]):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .ozlind-sidebar {
+    width: min(88vw, 320px);
+  }
+
+  .ozlind-topbar {
+    height: 54px;
+    padding: 0 12px;
+  }
+
+  .messages-list {
+    padding-top: 16px;
+    gap: 18px;
+  }
+
+  .composer-shell {
+    border-radius: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggestion-card {
+    transform: none !important;
+  }
+}
