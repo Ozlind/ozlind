@@ -1,4 +1,5 @@
 import { getAuthenticatedUser } from "@/lib/backend/auth";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -25,11 +26,13 @@ const DATABASE_TIMEOUT_MS = 2_500;
 export async function checkUserRateLimit(): Promise<RateLimitResult> {
   let supabase;
   let user;
+  let admin;
 
   try {
     const auth = await getAuthenticatedUser();
     supabase = auth.supabase;
     user = auth.user;
+    admin = createAdminClient();
   } catch {
     return {
       allowed: false,
@@ -52,7 +55,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
     const result = await Promise.race([
-      supabase.rpc("check_rate_limit", {
+      admin.rpc("check_rate_limit", {
         p_limit: MAX_REQUESTS,
         p_window_seconds: WINDOW_SECONDS,
       }),
