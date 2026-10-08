@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run verify:architecture && npm run build",
+    "verify:architecture": "node tests/verify.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "1.2.22",
