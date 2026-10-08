@@ -4,6 +4,9 @@ export function usePullToRefresh({ enabled = true, threshold = 76, onRefresh }) 
   const [distance, setDistance] = useState(0);
   const stateRef = useRef({ active: false, startY: 0, distance: 0, target: null });
 
+  const refreshRef = useRef(onRefresh);
+  refreshRef.current = onRefresh;
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return undefined;
     const state = stateRef.current;
@@ -24,12 +27,12 @@ export function usePullToRefresh({ enabled = true, threshold = 76, onRefresh }) 
       const damped = Math.min(112, delta * 0.52); state.distance = damped; setDistance(damped);
       if (damped > 4) event.preventDefault();
     };
-    const onTouchEnd = () => { if (!state.active) return; const refresh = state.distance >= threshold; reset(); if (refresh) onRefresh?.(); };
+    const onTouchEnd = () => { if (!state.active) return; const refresh = state.distance >= threshold; reset(); if (refresh) refreshRef.current?.(); };
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", reset, { passive: true });
     return () => { document.removeEventListener("touchstart", onTouchStart); document.removeEventListener("touchmove", onTouchMove); document.removeEventListener("touchend", onTouchEnd); document.removeEventListener("touchcancel", reset); };
-  }, [enabled, onRefresh, threshold]);
+  }, [enabled, threshold]);
   return distance;
 }
