@@ -1,0 +1,3 @@
+import type { Metadata,Viewport } from "next"; import "../styles/theme.css"; import "../styles/globals.css"; import { QueryProvider } from "@/providers/QueryProvider";
+export const metadata:Metadata={title:"Ozlind",description:"A calm, reliable AI workspace.",robots:{index:false,follow:false}}; export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",colorScheme:"light dark"};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" suppressHydrationWarning><body><QueryProvider>{children}</QueryProvider></body></html>}

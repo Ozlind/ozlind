@@ -1,0 +1,1 @@
+export const designTokens={spacing:[4,8,12,16,24,32,48,64],radius:{card:"rounded-lg",control:"rounded-md",avatar:"rounded-full"},colors:["--bg","--surface","--surface-elevated","--border","--text","--text-muted","--accent","--accent-fg","--danger","--success","--warning"]} as const;

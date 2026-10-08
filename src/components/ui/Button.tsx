@@ -1,0 +1,1 @@
+"use client"; import * as React from "react"; export function Button({className,variant="primary",...props}:React.ButtonHTMLAttributes<HTMLButtonElement>&{variant?:"primary"|"secondary"|"ghost"}){return <button className={"ui-button ui-button-"+variant+(className?" "+className:"")} {...props}/>}

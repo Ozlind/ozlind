@@ -1,0 +1,4 @@
+import { NextResponse,type NextRequest } from "next/server"; import { updateSession } from "@/lib/supabase/middleware";
+const publicPaths=["/login","/auth/callback","/favicon.ico"];
+export async function middleware(request:NextRequest){const {response,user}=await updateSession(request);const path=request.nextUrl.pathname;if(publicPaths.some(p=>path===p||path.startsWith(p+"/")))return response;if(path.startsWith("/app")&&!user){const url=request.nextUrl.clone();url.pathname="/login";url.searchParams.set("next",path);const redirect=NextResponse.redirect(url);response.cookies.getAll().forEach(c=>redirect.cookies.set(c));return redirect;}if(path.startsWith("/api/chat")&&!user)return NextResponse.json({error:{code:"AUTH_REQUIRED"}},{status:401});return response;}
+export const config={matcher:["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"]};

@@ -1,0 +1,1 @@
+import {create} from "zustand"; type State={draft:string;model:string;setDraft:(v:string)=>void;setModel:(v:string)=>void}; export const useChatStore=create<State>(set=>({draft:"",model:"groq:llama-3.3-70b-versatile",setDraft:draft=>set({draft}),setModel:model=>set({model})}));
