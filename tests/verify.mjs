@@ -129,6 +129,28 @@ for (const [file, max] of budgets) {
   }
 }
 
+const chatHookText = fs.readFileSync(
+  path.join(root, "hooks/useOzlindChat.js"),
+  "utf8",
+);
+if (chatHookText.includes("persistentMessages")) {
+  problems.push("Chat synchronization references undefined persistentMessages");
+}
+if (!chatHookText.includes("sanitizeForPersistence")) {
+  problems.push("Chat attachment persistence sanitization missing");
+}
+if (!chatHookText.includes("await persist(chatId, nextMessages)")) {
+  problems.push("Completed assistant reply is not persisted");
+}
+
+const messageListText = fs.readFileSync(
+  path.join(root, "components/chat/MessageList.jsx"),
+  "utf8",
+);
+if (!messageListText.includes("/ozlind-icons.svg#ozl-mark")) {
+  problems.push("Assistant messages must use the Ozlind SVG mark");
+}
+
 const appShell = fs.readFileSync(
   path.join(root, "components/OzlindApp.jsx"),
   "utf8",
