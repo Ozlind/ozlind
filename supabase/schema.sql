@@ -432,3 +432,12 @@ alter table public.usage_logs
 create index if not exists usage_logs_request_id_idx
   on public.usage_logs (request_id)
   where request_id is not null;
+
+
+/*
+ * Stage 3 server-only rate-limit RPC
+ */
+revoke execute on function public.check_rate_limit(integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.check_rate_limit(integer, integer)
+  to service_role;
