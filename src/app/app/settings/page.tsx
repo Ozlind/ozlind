@@ -44,7 +44,7 @@ export default function SettingsPage() {
           <label className="setting-row"><span>{tr("language")}</span><select value={preferences.language} onChange={e => update({ language: e.target.value as Preferences["language"] })}><option value="en">English</option><option value="ml">മലയാളം</option></select></label>
           <label className="setting-row"><span>{tr("enterToSend")}</span><input type="checkbox" checked={preferences.enter_to_send} onChange={e => update({ enter_to_send: e.target.checked })}/></label>
           <label className="setting-row"><span>{tr("autoScroll")}</span><input type="checkbox" checked={preferences.auto_scroll} onChange={e => update({ auto_scroll: e.target.checked })}/></label>
-          <label className="setting-row"><span>{tr("showReasoning")}</span><input type="checkbox" checked={preferences.show_reasoning} onChange={e => update({ show_reasoning: e.target.checked })}/></label>
+          <label className="setting-row"><span>{tr("showReasoning")}</span><input type="checkbox" checked={preferences.show_reasoning} onChange={e => update({ show_reasoning: e.target.checked })}/></label><label className="setting-row"><span>Live web research</span><input type="checkbox" checked={preferences.research_enabled} onChange={e => update({ research_enabled: e.target.checked })}/></label>
         </div>
       </section>
 
