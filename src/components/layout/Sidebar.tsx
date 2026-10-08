@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, MessageSquarePlus, Search, Settings, X } from "lucide-react";
+import { FileText, LogOut, MessageSquarePlus, Search, Settings, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +20,7 @@ export function Sidebar({user,mobileOpen,onClose}:{user:{id:string;email:string;
       <label className="search-box"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search conversations"/></label>
     </div>
     <nav className="conversation-list">{data.filter(x=>x.title.toLowerCase().includes(q.toLowerCase())).map(x=><Link key={x.id} href={"/app/"+x.id} onClick={onClose} className={path==="/app/"+x.id?"conversation-link active":"conversation-link"}>{x.title||"New conversation"}</Link>)}</nav>
-    <div className="sidebar-actions"><Link href="/app/settings" className="sidebar-action" onClick={onClose}><Settings size={17}/>Settings</Link></div>
+    <div className="sidebar-actions"><Link href="/app/documents" className="sidebar-action" onClick={onClose}><FileText size={17}/>Documents</Link><Link href="/app/settings" className="sidebar-action" onClick={onClose}><Settings size={17}/>Settings</Link></div>
     <div className="sidebar-user"><div className="user-avatar">{(user.displayName||user.email||"U").slice(0,1).toUpperCase()}</div><div className="user-copy"><strong>{user.displayName||"Ozlind user"}</strong><span>{user.email}</span></div><button className="icon-button" onClick={signOut} aria-label="Sign out"><LogOut size={18}/></button></div>
   </aside>
 }
