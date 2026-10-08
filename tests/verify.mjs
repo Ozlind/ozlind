@@ -16,6 +16,10 @@ const required = [
   "components/OzlindApp.jsx",
   "lib/providers.js",
   "lib/ai/gateway.js",
+  "lib/ai/research.js",
+  "lib/rag/context.js",
+  "lib/chat/utils.js",
+  "components/account/AccountControls.jsx",
   "lib/server.js",
   "lib/rate-limit.ts",
   "middleware.js",
@@ -97,7 +101,11 @@ const tokenText = fs.readFileSync(path.join(root, "app/tokens.css"), "utf8");
 if (!tokenText.includes("--oz-clay: #E26F4A")) problems.push("Clay Orange token missing");
 if (!tokenText.includes("--background: #FFFCF4")) problems.push("Warm Ivory token missing");
 if (tokenText.includes("#7057f7") || tokenText.includes("#927eff")) problems.push("Legacy purple token remains");
-const appText = fs.readFileSync(path.join(root, "components/OzlindApp.jsx"), "utf8");
+const appPath = path.join(root, "components/OzlindApp.jsx");
+const appText = fs.readFileSync(appPath, "utf8");
+if (appText.split("\n").length > 4200) problems.push("OzlindApp.jsx remains an oversized monolith");
+const routeText = fs.readFileSync(path.join(root, "app/api/chat/route.js"), "utf8");
+if (routeText.split("\n").length > 700) problems.push("Chat API route remains an oversized orchestration monolith");
 if (!appText.includes("SpeechRecognition") || !appText.includes("voice-input-button")) problems.push("Voice input control missing");
 const chatText = fs.readFileSync(path.join(root, "app/api/chat/route.js"), "utf8");
 if (!chatText.includes("MAX_CHAT_REQUEST_BYTES") || !chatText.includes("X-OZLIND-Request-ID")) problems.push("Chat hardening missing");
