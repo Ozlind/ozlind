@@ -383,3 +383,41 @@ create policy "ozlind_usage_logs_select"
     (select auth.uid()) = user_id
     or (select public.is_admin())
   );
+
+
+-- ---------------------------------------------------------------------------
+-- Public share lookup hardening
+-- ---------------------------------------------------------------------------
+
+create or replace function public.get_shared_chat(p_token text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'title', c.title,
+    'shared_at', s.created_at,
+    'messages', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'role', m.role,
+          'content', m.content,
+          'sources', m.sources,
+          'created_at', m.created_at
+        ) order by m.created_at
+      )
+      from public.messages m
+      where m.conversation_id = c.id
+    ), '[]'::jsonb)
+  )
+  from public.shared_chats s
+  join public.conversations c on c.id = s.conversation_id
+  where p_token ~ '^[a-f0-9]{32}$'
+    and s.token = p_token
+    and not s.revoked;
+$$;
+
+revoke all on function public.get_shared_chat(text) from public;
+grant execute on function public.get_shared_chat(text) to anon, authenticated;
