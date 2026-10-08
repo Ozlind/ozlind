@@ -421,3 +421,14 @@ $$;
 
 revoke all on function public.get_shared_chat(text) from public;
 grant execute on function public.get_shared_chat(text) to anon, authenticated;
+
+
+/*
+ * Stage 3 request correlation
+ */
+alter table public.usage_logs
+  add column if not exists request_id text;
+
+create index if not exists usage_logs_request_id_idx
+  on public.usage_logs (request_id)
+  where request_id is not null;
