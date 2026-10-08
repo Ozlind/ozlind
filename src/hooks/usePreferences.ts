@@ -13,6 +13,7 @@ export type Preferences = {
   enter_to_send: boolean;
   auto_scroll: boolean;
   show_reasoning: boolean;
+  research_enabled: boolean;
 };
 
 export const defaultPreferences: Preferences = {
@@ -26,6 +27,7 @@ export const defaultPreferences: Preferences = {
   enter_to_send: true,
   auto_scroll: true,
   show_reasoning: false,
+  research_enabled: false,
 };
 
 export function usePreferences() {
