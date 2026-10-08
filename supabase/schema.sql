@@ -420,7 +420,7 @@ as $$
 $$;
 
 revoke all on function public.get_shared_chat(text) from public;
-grant execute on function public.get_shared_chat(text) to anon, authenticated;
+revoke execute on function public.get_shared_chat(text) from anon, authenticated;
 
 
 /*
