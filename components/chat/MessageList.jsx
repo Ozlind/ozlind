@@ -39,7 +39,13 @@ export default function MessageList({
             key={message.id || index}
           >
             <div className="oz-v3-message-avatar" aria-hidden="true">
-              {isUser ? <UserRound size={16} /> : "O"}
+              {isUser ? (
+                <UserRound size={16} />
+              ) : (
+                <svg className="oz-v3-message-mark" viewBox="0 0 96 96" aria-hidden="true">
+                  <use href="/ozlind-icons.svg#ozl-mark" />
+                </svg>
+              )}
             </div>
 
             <div className="oz-v3-message-body">
