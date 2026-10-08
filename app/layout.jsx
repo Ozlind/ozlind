@@ -2,6 +2,7 @@ import "./globals.css";
 import "./tokens.css";
 import "./premium.css";
 import "./neutral.css";
+import "./ozlind-v2.css";
 
 export const metadata = {
   title: "OZLIND AI",
