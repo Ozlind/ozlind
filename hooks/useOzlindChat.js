@@ -76,14 +76,23 @@ export function useOzlindChat({
       if (!userId || !chatId) return;
       try {
         const known = syncRef.current;
-        const ids = await saveConversation({
+        const payload = {
           userId,
           conversationId: chatId,
           title: title || createTitle(nextMessages.find((m) => m.role === "user")?.content),
           updatedAt: Date.now(),
           messages: sanitizeForPersistence(nextMessages),
           synced: known,
-        });
+        };
+
+        let ids;
+        try {
+          ids = await saveConversation(payload);
+        } catch (firstError) {
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+          ids = await saveConversation(payload);
+        }
+
         syncRef.current = new Set(ids);
         setHistory((items) => {
           const next = {
