@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Menu, Settings2, Sun, Moon, LogOut } from "lucide-react";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { createClient } from "@/lib/supabase/client";
 import { useOzlindChat } from "@/hooks/useOzlindChat";
 import Sidebar from "@/components/chat/Sidebar";
@@ -20,6 +21,7 @@ export default function OzlindWorkspace({
   const [value, setValue] = useState("");
   const [historyQuery, setHistoryQuery] = useState("");
   const [notice, setNotice] = useState("");
+  const pullDistance = usePullToRefresh({ onRefresh: () => window.location.reload() });
 
   const chat = useOzlindChat({
     initialUser,
@@ -65,6 +67,11 @@ export default function OzlindWorkspace({
 
   return (
     <div className={"oz-v3 " + (dark ? "oz-v3-dark" : "")}>
+      {pullDistance > 0 ? (
+        <div className={"oz-v3-refresh " + (pullDistance >= 76 ? "is-ready" : "")} style={{ transform: `translate(-50%, ${Math.max(8, pullDistance - 34)}px)` }} aria-live="polite">
+          {pullDistance >= 76 ? "Release to refresh" : "Pull to refresh"}
+        </div>
+      ) : null}
       <Sidebar
         open={sidebarOpen}
         history={chat.history}
