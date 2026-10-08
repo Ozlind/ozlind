@@ -21,6 +21,7 @@ const required = [
   "components/chat/MessageList.jsx",
   "components/settings/SettingsPanel.jsx",
   "hooks/useOzlindChat.js",
+  "hooks/usePullToRefresh.js",
   "lib/chat/utils.js",
   "lib/ai/gateway.js",
   "lib/ai/chat-service.js",
