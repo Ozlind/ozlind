@@ -10,10 +10,8 @@ import {
   isUuid,
 } from "@/lib/server";
 
-import {
-  providerOrder,
-  streamFromProviders,
-} from "@/lib/providers";
+import { providerOrder } from "@/lib/providers";
+import { generateChatResponse } from "@/lib/ai/gateway";
 
 import {
   checkUserRateLimit,
@@ -1245,7 +1243,7 @@ export async function POST(
             );
 
             const providerResult =
-              await streamFromProviders(
+              await generateChatResponse(
               {
                 messages,
                 mode,
