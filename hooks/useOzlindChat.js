@@ -18,6 +18,14 @@ import {
 } from "@/lib/cloud";
 import { DEFAULT_SETTINGS } from "@/constants/settings";
 
+function sanitizeForPersistence(messages) {
+  return (Array.isArray(messages) ? messages : []).map((message) => {
+    if (!message?.attachment) return message;
+    const { dataUrl, thumb, ...attachment } = message.attachment;
+    return { ...message, attachment };
+  });
+}
+
 function parseEvent(block) {
   let event = "message";
   let data = "";
@@ -73,7 +81,7 @@ export function useOzlindChat({
           conversationId: chatId,
           title: title || createTitle(nextMessages.find((m) => m.role === "user")?.content),
           updatedAt: Date.now(),
-          messages: nextMessages,
+          messages: sanitizeForPersistence(nextMessages),
           synced: known,
         });
         syncRef.current = new Set(ids);
