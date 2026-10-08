@@ -58,6 +58,7 @@ import {
   withoutThumbnails,
 } from "@/lib/chat/utils";
 import { AccountGroup, AccountRow, Switch } from "@/components/account/AccountControls";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 import {
   deleteAllConversations,
@@ -223,12 +224,6 @@ export default function OzlindApp({
   const [pullRefreshDistance, setPullRefreshDistance] =
     useState(0);
 
-  const pullRefreshRef = useRef({
-    active: false,
-    startY: 0,
-    distance: 0,
-    target: null,
-  });
 
   const accountUser = initialUser;
   const userId = accountUser?.id || "anon";
@@ -324,145 +319,7 @@ export default function OzlindApp({
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const state = pullRefreshRef.current;
-
-    const reset = () => {
-      state.active = false;
-      state.startY = 0;
-      state.distance = 0;
-      state.target = null;
-      setPullRefreshDistance(0);
-    };
-
-    const onTouchStart = (event) => {
-      if (
-        window.innerWidth > 768 ||
-        event.touches.length !== 1
-      ) {
-        return;
-      }
-
-      const target = event.target;
-      if (
-        target?.closest?.(
-          'textarea, input, button, [role="dialog"], .account-overlay, .dialog-backdrop, .mobile-sidebar-backdrop',
-        )
-      ) {
-        return;
-      }
-
-      const workspace = target?.closest?.(".workspace");
-      const scrollContainer = target?.closest?.(".messages-list");
-
-      if (!workspace) return;
-
-      if (
-        scrollContainer &&
-        scrollContainer.scrollTop > 0
-      ) {
-        return;
-      }
-
-      state.active = true;
-      state.startY = event.touches[0].clientY;
-      state.distance = 0;
-      state.target = scrollContainer || workspace;
-    };
-
-    const onTouchMove = (event) => {
-      if (
-        !state.active ||
-        event.touches.length !== 1
-      ) {
-        return;
-      }
-
-      const distance =
-        event.touches[0].clientY - state.startY;
-
-      if (distance <= 0) {
-        reset();
-        return;
-      }
-
-      const target = state.target;
-      if (
-        target &&
-        "scrollTop" in target &&
-        target.scrollTop > 0
-      ) {
-        reset();
-        return;
-      }
-
-      const damped = Math.min(112, distance * 0.52);
-      state.distance = damped;
-      setPullRefreshDistance(damped);
-
-      if (damped > 4) {
-        event.preventDefault();
-      }
-    };
-
-    const onTouchEnd = () => {
-      if (!state.active) return;
-
-      const shouldRefresh =
-        state.distance >= 76;
-
-      reset();
-
-      if (shouldRefresh) {
-        window.location.reload();
-      }
-    };
-
-    document.addEventListener(
-      "touchstart",
-      onTouchStart,
-      { passive: true },
-    );
-
-    document.addEventListener(
-      "touchmove",
-      onTouchMove,
-      { passive: false },
-    );
-
-    document.addEventListener(
-      "touchend",
-      onTouchEnd,
-      { passive: true },
-    );
-
-    document.addEventListener(
-      "touchcancel",
-      reset,
-      { passive: true },
-    );
-
-    return () => {
-      document.removeEventListener(
-        "touchstart",
-        onTouchStart,
-      );
-      document.removeEventListener(
-        "touchmove",
-        onTouchMove,
-      );
-      document.removeEventListener(
-        "touchend",
-        onTouchEnd,
-      );
-      document.removeEventListener(
-        "touchcancel",
-        reset,
-      );
-    };
-  }, []);
+  const pullRefreshDistance = usePullToRefresh({ onRefresh: () => window.location.reload() });
 
   useEffect(() => {
     const query = historySearch.trim();
