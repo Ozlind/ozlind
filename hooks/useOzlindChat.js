@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildApiMessages,
   createTitle,
-  fileToDataUrl,
-  hasImagePart,
   makeThumbnail,
   newId as localId,
   normalizeSettings,
@@ -17,6 +15,7 @@ import {
   fetchMessages,
   saveConversation,
   saveSettings,
+  newId as localId,
 } from "@/lib/cloud";
 import { DEFAULT_SETTINGS } from "@/constants/settings";
 
@@ -212,6 +211,7 @@ export function useOzlindChat({
         const decoder = new TextDecoder();
         let buffer = "";
         let finalText = "";
+        let streamSources = [];
         let done = false;
 
         const applyEvent = (raw) => {
@@ -225,7 +225,8 @@ export function useOzlindChat({
           } else if (event === "notice") {
             setStatus(data?.message || "");
           } else if (event === "sources") {
-            setSources(Array.isArray(data?.sources) ? data.sources : []);
+            streamSources = Array.isArray(data?.sources) ? data.sources : [];
+            setSources(streamSources);
           } else if (event === "delta") {
             const delta = typeof data?.content === "string" ? data.content : "";
             if (!delta) return;
@@ -261,10 +262,6 @@ export function useOzlindChat({
           throw new Error("The AI returned an empty response.");
         }
 
-        const completed = {
-          ...baseMessages,
-          [baseMessages.length]: undefined,
-        };
         const nextMessages = [
           ...baseMessages,
           {
@@ -272,7 +269,7 @@ export function useOzlindChat({
             role: "assistant",
             content: finalText,
             createdAt: Date.now(),
-            sources,
+            sources: streamSources,
           },
         ];
 
