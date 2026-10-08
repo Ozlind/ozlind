@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, RotateCcw, UserRound } from "lucide-react";
+import { Copy, UserRound } from "lucide-react";
+import { useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"));
@@ -9,8 +10,12 @@ export default function MessageList({
   messages,
   streaming,
   onCopy,
-  onRegenerate,
 }) {
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: streaming ? "auto" : "smooth", block: "end" });
+  }, [messages, streaming]);
   if (!messages.length) {
     return (
       <section className="oz-v3-empty" aria-label="Start a conversation">
@@ -80,16 +85,13 @@ export default function MessageList({
                 <button type="button" onClick={() => onCopy(message.content)} aria-label="Copy message">
                   <Copy size={14} />
                 </button>
-                {lastAssistant && !streaming ? (
-                  <button type="button" onClick={() => onRegenerate?.()} aria-label="Regenerate response">
-                    <RotateCcw size={14} />
-                  </button>
-                ) : null}
+
               </div>
             </div>
           </article>
         );
       })}
+      <div ref={bottomRef} aria-hidden="true" />
     </div>
   );
 }
