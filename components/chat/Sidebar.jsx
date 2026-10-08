@@ -1,6 +1,7 @@
 "use client";
 
-import { MessageSquarePlus, Search, Settings2, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { MessageSquarePlus, Search, Settings2, Trash2, X, FileText } from "lucide-react";
 
 export default function Sidebar({
   open,
@@ -55,6 +56,7 @@ export default function Sidebar({
         </div>
 
         <div className="oz-v3-sidebar-bottom">
+          <Link href="/documents"><FileText size={17} /> Documents</Link>
           <button type="button" onClick={onSettings}><Settings2 size={17} /> Settings</button>
         </div>
       </aside>
