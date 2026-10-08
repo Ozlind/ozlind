@@ -5,7 +5,6 @@ import {
   buildApiMessages,
   createTitle,
   makeThumbnail,
-  newId as localId,
   normalizeSettings,
   optimizeImage,
   readTextFile,
