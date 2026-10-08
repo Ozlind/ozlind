@@ -171,3 +171,59 @@ body.dark .assistant-avatar {
     transform: none !important;
   }
 }
+
+/* Mobile interaction layer */
+.pull-refresh-indicator {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 80;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pull-refresh-icon {
+  display: inline-flex;
+  transition: transform 120ms ease;
+}
+
+.pull-refresh-icon.ready {
+  transform: rotate(180deg);
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  .ozlind-main {
+    min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .composer-shell {
+    margin-left: max(10px, env(safe-area-inset-left));
+    margin-right: max(10px, env(safe-area-inset-right));
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .message-row {
+    max-width: 100%;
+  }
+
+  .message-bubble {
+    max-width: min(92vw, 760px);
+  }
+
+  .pull-refresh-indicator {
+    top: calc(8px + env(safe-area-inset-top));
+  }
+}
