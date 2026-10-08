@@ -60,3 +60,15 @@ Checks: `npm run verify` (imports and structure) and `npm run typecheck`.
 - Image generation and PDF reading are intentionally not included.
 - Chat history and settings are stored in your Supabase account. If the tables are missing, the app falls back to on-device storage.
 - Account deletion needs `SUPABASE_SECRET_KEY` on the server.
+
+## First Production Architecture
+
+OZLIND is being rebuilt as a five-stage production system. The implementation is intentionally modular; the legacy OzlindApp.jsx is only a compatibility shell.
+
+1. **Stage 1 — Product foundation**: mobile-first workspace, isolated chat state, sidebar, composer, message renderer, settings, attachments, streaming UI.
+2. **Stage 2 — AI application layer**: thin HTTP route, chat application service, provider gateway, live research and private-document context boundaries.
+3. **Stage 3 — Data and security**: request correlation, server-only rate-limit execution, RLS-preserving ownership checks, hardened shared-chat lookup, health/readiness.
+4. **Stage 4 — Reliability**: repository verification, TypeScript validation, production build gates, architecture line budgets, cancellation and streaming error handling.
+5. **Stage 5 — Product polish**: mobile pull-to-refresh, auto-scroll, auto-growing composer, neutral visual system, reduced-motion and safe-area handling.
+
+The production bar is correctness first: new modules are kept only when they have a clear responsibility and are covered by repository/build verification.
