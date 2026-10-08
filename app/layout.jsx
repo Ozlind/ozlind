@@ -3,6 +3,7 @@ import "./tokens.css";
 import "./premium.css";
 import "./neutral.css";
 import "./ozlind-v2.css";
+import "./ozlind-v3.css";
 
 export const metadata = {
   title: "OZLIND AI",
