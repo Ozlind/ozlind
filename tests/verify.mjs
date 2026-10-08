@@ -11,8 +11,11 @@ const required = [
   "app/login/page.jsx",
   "app/auth/callback/route.js",
   "app/api/chat/route.js",
+  "app/api/health/route.js",
+  "app/api/ready/route.js",
   "components/OzlindApp.jsx",
   "lib/providers.js",
+  "lib/ai/gateway.js",
   "lib/server.js",
   "lib/rate-limit.ts",
   "middleware.js",
@@ -98,6 +101,12 @@ const appText = fs.readFileSync(path.join(root, "components/OzlindApp.jsx"), "ut
 if (!appText.includes("SpeechRecognition") || !appText.includes("voice-input-button")) problems.push("Voice input control missing");
 const chatText = fs.readFileSync(path.join(root, "app/api/chat/route.js"), "utf8");
 if (!chatText.includes("MAX_CHAT_REQUEST_BYTES") || !chatText.includes("X-OZLIND-Request-ID")) problems.push("Chat hardening missing");
+const gatewayText = fs.readFileSync(path.join(root, "lib/ai/gateway.js"), "utf8");
+if (!gatewayText.includes("streamFromProviders")) problems.push("AI gateway provider boundary missing");
+const healthText = fs.readFileSync(path.join(root, "app/api/health/route.js"), "utf8");
+if (!healthText.includes('status: "ok"')) problems.push("Health endpoint missing");
+const readyText = fs.readFileSync(path.join(root, "app/api/ready/route.js"), "utf8");
+if (!readyText.includes('status: "not_ready"') || !readyText.includes("createAdminClient")) problems.push("Readiness dependency check missing");
 if (!chatText.includes("AbortController")) problems.push("Chat timeout/cancellation hardening missing");
 if (!appText.includes("const controller = new AbortController()")) problems.push("Client chat cancellation missing");
 if (!appText.includes("let event;") || !appText.includes("handleEvent(event)")) problems.push("Streaming event parser hardening missing");
