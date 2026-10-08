@@ -15,6 +15,7 @@ const defaults = {
   enter_to_send: true,
   auto_scroll: true,
   show_reasoning: false,
+  research_enabled: false,
 } as const;
 
 const schema = z.object({
@@ -32,6 +33,7 @@ const schema = z.object({
   enter_to_send: z.boolean().optional(),
   auto_scroll: z.boolean().optional(),
   show_reasoning: z.boolean().optional(),
+  research_enabled: z.boolean().optional(),
 });
 
 async function getUser() {
