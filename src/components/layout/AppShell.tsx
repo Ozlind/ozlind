@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu } from "lucide-react";
+import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { usePreferences } from "@/hooks/usePreferences";
 
@@ -27,5 +27,5 @@ export function AppShell({user,children}:{user:{id:string;email:string;displayNa
     return()=>media.removeEventListener("change", applyTheme);
   },[preferences]);
 
-  return <div className="app-shell"><Sidebar user={user} mobileOpen={open} onClose={()=>setOpen(false)}/><div className="app-main"><button className="mobile-menu" onClick={()=>setOpen(true)} aria-label="Open sidebar"><Menu size={20}/></button>{children}</div></div>;
+  return <div className="app-shell"><Sidebar user={user} mobileOpen={open} onClose={()=>setOpen(false)}/><div className="app-main"><button className="mobile-menu" onClick={()=>setOpen(true)} aria-label="Open sidebar"><OzlindIcon name="i-menu" size={20}/></button>{children}</div></div>;
 }
