@@ -346,79 +346,7 @@ grant execute on function public.match_document_chunks(vector(768), double preci
 create table if not exists public.user_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
   theme text not null default 'system' check (theme in ('system','light','dark')),
-  accent text not null default '#E26F4A' check (accent ~ '^#[0-9A-Fa-f]{6}
-
-create table if not exists public.rate_limits (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  window_start timestamptz not null default now(),
-  request_count integer not null default 0
-    check (request_count >= 0)
-);
-
-alter table public.rate_limits enable row level security;
-
--- The application accesses this table only through the SECURITY DEFINER RPC.
-revoke all on public.rate_limits from anon, authenticated;
-
-drop function if exists public.check_rate_limit(integer, integer);
-
-create or replace function public.check_rate_limit(
-  p_user_id uuid,
-  p_limit integer default 20,
-  p_window_seconds integer default 60
-)
-returns table (allowed boolean, remaining integer, retry_after integer)
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_uid uuid := p_user_id;
-  v_limit integer := least(greatest(coalesce(p_limit, 20), 1), 20);
-  v_window_seconds integer := least(greatest(coalesce(p_window_seconds, 60), 1), 60);
-  v_count integer;
-  v_start timestamptz;
-begin
-  if v_uid is null then
-    return query select false, 0, v_window_seconds;
-    return;
-  end if;
-
-  insert into public.rate_limits as r (user_id, request_count, window_start)
-  values (v_uid, 1, now())
-  on conflict (user_id) do update
-  set
-    request_count = case
-      when r.window_start <= now() - make_interval(secs => v_window_seconds)
-        then 1
-      else r.request_count + 1
-    end,
-    window_start = case
-      when r.window_start <= now() - make_interval(secs => v_window_seconds)
-        then now()
-      else r.window_start
-    end
-  returning r.request_count, r.window_start
-  into v_count, v_start;
-
-  return query
-  select
-    v_count <= v_limit,
-    greatest(v_limit - v_count, 0),
-    greatest(
-      1,
-      ceil(extract(epoch from (
-        v_start + make_interval(secs => v_window_seconds) - now()
-      )))::integer
-    );
-end;
-$$;
-
-revoke all on function public.check_rate_limit(uuid, integer, integer)
-  from public, anon, authenticated;
-grant execute on function public.check_rate_limit(uuid, integer, integer)
-  to service_role;
-),
+  accent text not null default '#E26F4A' check (accent ~ '^#[0-9A-Fa-f]{6}$'),
   language text not null default 'en' check (language in ('en','ml')),
   density text not null default 'comfortable' check (density in ('compact','comfortable','spacious')),
   code_theme text not null default 'default',
@@ -490,17 +418,12 @@ create index if not exists artifacts_user_updated_idx on public.artifacts(user_i
 create table if not exists public.rate_limits (
   user_id uuid primary key references auth.users(id) on delete cascade,
   window_start timestamptz not null default now(),
-  request_count integer not null default 0
-    check (request_count >= 0)
+  request_count integer not null default 0 check (request_count >= 0)
 );
-
 alter table public.rate_limits enable row level security;
-
--- The application accesses this table only through the SECURITY DEFINER RPC.
 revoke all on public.rate_limits from anon, authenticated;
 
 drop function if exists public.check_rate_limit(integer, integer);
-
 create or replace function public.check_rate_limit(
   p_user_id uuid,
   p_limit integer default 20,
@@ -528,32 +451,24 @@ begin
   on conflict (user_id) do update
   set
     request_count = case
-      when r.window_start <= now() - make_interval(secs => v_window_seconds)
-        then 1
+      when r.window_start <= now() - make_interval(secs => v_window_seconds) then 1
       else r.request_count + 1
     end,
     window_start = case
-      when r.window_start <= now() - make_interval(secs => v_window_seconds)
-        then now()
+      when r.window_start <= now() - make_interval(secs => v_window_seconds) then now()
       else r.window_start
     end
-  returning r.request_count, r.window_start
-  into v_count, v_start;
+  returning r.request_count, r.window_start into v_count, v_start;
 
   return query
   select
     v_count <= v_limit,
     greatest(v_limit - v_count, 0),
-    greatest(
-      1,
-      ceil(extract(epoch from (
-        v_start + make_interval(secs => v_window_seconds) - now()
-      )))::integer
-    );
+    greatest(1, ceil(extract(epoch from (
+      v_start + make_interval(secs => v_window_seconds) - now()
+    )))::integer);
 end;
 $$;
 
-revoke all on function public.check_rate_limit(uuid, integer, integer)
-  from public, anon, authenticated;
-grant execute on function public.check_rate_limit(uuid, integer, integer)
-  to service_role;
+revoke all on function public.check_rate_limit(uuid, integer, integer) from public, anon, authenticated;
+grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role;
