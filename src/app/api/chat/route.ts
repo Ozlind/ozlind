@@ -114,6 +114,32 @@ export async function POST(request: Request) {
 
   const input = parsed.data;
 
+  // Resolve idempotent retries before creating a conversation or invoking
+  // paid services. Return the original conversation id so the client can load it.
+  if (input.action === "send") {
+    const { data: duplicate, error: duplicateError } = await supabase
+      .from("messages")
+      .select("id,conversation_id")
+      .eq("user_id", user.id)
+      .eq("idempotency_key", input.idempotencyKey)
+      .maybeSingle();
+
+    if (duplicateError) {
+      console.error(JSON.stringify({ event: "idempotency.lookup_failed", requestId, error: duplicateError.message }));
+      return jsonError("REQUEST_LOOKUP_FAILED", requestId, 500);
+    }
+
+    if (duplicate) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "X-OZLIND-Conversation-ID": duplicate.conversation_id,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+  }
+
   // Apply the shared database-backed limit before any paid provider/search work.
   const rateLimit = await checkUserRateLimit();
   if (rateLimit.unavailable) {
@@ -187,20 +213,6 @@ export async function POST(request: Request) {
       await supabase.from("messages").delete().eq("id", last.id).eq("user_id", user.id);
     }
   } else {
-    const { data: duplicate } = await supabase
-      .from("messages")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("idempotency_key", input.idempotencyKey)
-      .maybeSingle();
-
-    if (duplicate) {
-      return new Response(null, {
-        status: 204,
-        headers: { "X-OZLIND-Conversation-ID": conversationId },
-      });
-    }
-
     const { error } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       user_id: user.id,
