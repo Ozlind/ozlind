@@ -264,7 +264,7 @@ export async function POST(request: Request) {
         system: SYSTEM_PROMPT + research.context,
         messages: core,
         maxTokens: 4096,
-        abortSignal: AbortSignal.timeout(50000),
+        abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(50000)]),
       });
       break;
     } catch (error) {
