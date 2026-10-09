@@ -10,7 +10,8 @@ const required=[
 "src/app/api/health/route.ts","src/app/api/ready/route.ts","src/lib/supabase/server.ts",
 "src/lib/supabase/middleware.ts","src/hooks/usePreferences.ts","src/lib/i18n.ts",
 "supabase/migrations/20261008_stage2_preferences.sql","supabase/migrations/20261008_stage2_workspace.sql",
-"supabase/migrations/20261008_stage2_research_preference.sql"
+"supabase/migrations/20261008_stage2_research_preference.sql",
+"supabase/migrations/20261009_stage3_rate_limit_user_scope.sql"
 ];
 for(const file of required)if(!fs.existsSync(path.join(root,file)))problems.push("Missing required file: "+file);
 const files=[];
@@ -21,7 +22,7 @@ for(const file of files){
  if(/NEXT_PUBLIC_[A-Z_]*(KEY|SECRET|TOKEN)/.test(source))problems.push("Secret-looking NEXT_PUBLIC_ variable in "+path.relative(root,file));
 }
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
-for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","idempotencyKey","X-OZLIND-Request-ID","researchContext"])if(!chat.includes(token))problems.push("Chat route missing "+token);
+for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After"])if(!chat.includes(token))problems.push("Chat route missing "+token);
 const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
 for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
