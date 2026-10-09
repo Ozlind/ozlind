@@ -89,7 +89,13 @@ create policy "Users can delete their conversations" on public.conversations
 
 drop policy if exists "Users can read their messages" on public.messages;
 create policy "Users can read their messages" on public.messages
-  for select using (auth.uid() = user_id);
+  for select using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id and c.user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "Users can create their messages" on public.messages;
 create policy "Users can create their messages" on public.messages
@@ -105,12 +111,30 @@ create policy "Users can create their messages" on public.messages
 
 drop policy if exists "Users can update their messages" on public.messages;
 create policy "Users can update their messages" on public.messages
-  for update using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  for update using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id and c.user_id = auth.uid()
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id and c.user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "Users can delete their messages" on public.messages;
 create policy "Users can delete their messages" on public.messages
-  for delete using (auth.uid() = user_id);
+  for delete using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id and c.user_id = auth.uid()
+    )
+  );
 
 -- Keep conversation ordering current when messages are inserted/updated.
 create or replace function public.touch_conversation_updated_at()
@@ -227,7 +251,13 @@ create policy "Users can delete their documents" on public.documents
 
 drop policy if exists "Users can read their document chunks" on public.document_chunks;
 create policy "Users can read their document chunks" on public.document_chunks
-  for select using (auth.uid() = user_id);
+  for select using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.documents d
+      where d.id = document_id and d.user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "Users can create their document chunks" on public.document_chunks;
 create policy "Users can create their document chunks" on public.document_chunks
@@ -243,12 +273,30 @@ create policy "Users can create their document chunks" on public.document_chunks
 
 drop policy if exists "Users can update their document chunks" on public.document_chunks;
 create policy "Users can update their document chunks" on public.document_chunks
-  for update using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  for update using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.documents d
+      where d.id = document_id and d.user_id = auth.uid()
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.documents d
+      where d.id = document_id and d.user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "Users can delete their document chunks" on public.document_chunks;
 create policy "Users can delete their document chunks" on public.document_chunks
-  for delete using (auth.uid() = user_id);
+  for delete using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.documents d
+      where d.id = document_id and d.user_id = auth.uid()
+    )
+  );
 
 -- Secure retrieval function. The authenticated user's id is applied inside
 -- the SECURITY DEFINER function, so callers cannot retrieve another user's
