@@ -13,7 +13,8 @@ const required=[
 "supabase/migrations/20261008_stage2_research_preference.sql",
 "supabase/migrations/20261009_stage3_rate_limit_user_scope.sql",
 "supabase/migrations/20261009_stage3_chat_runtime_columns.sql",
-"supabase/migrations/20261009_stage3_rls_relationship_ownership.sql"
+"supabase/migrations/20261009_stage3_rls_relationship_ownership.sql",
+"supabase/migrations/20261009_stage3_artifact_parent_ownership.sql"
 ];
 for(const file of required)if(!fs.existsSync(path.join(root,file)))problems.push("Missing required file: "+file);
 const files=[];
