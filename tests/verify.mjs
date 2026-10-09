@@ -40,12 +40,3 @@ for(const token of ["env(safe-area-inset-bottom)","@media(max-width:768px)"])if(
 if(css.includes("backdrop-filter"))problems.push("Glass/backdrop-filter styling detected");
 if(problems.length){console.error("OZLIND architecture verification FAILED:\n");for(const p of problems)console.error(" - "+p);process.exit(1)}
 console.log("OZLIND architecture verification passed ("+files.length+" src files checked).");
-const runtimeMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261009_stage3_chat_runtime_columns.sql"),"utf8");
-for(const token of ["add column if not exists status","add column if not exists idempotency_key","add column if not exists model","messages_user_idempotency_key_uidx"])if(!runtimeMigration.includes(token))problems.push("Runtime schema migration missing "+token);
-const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
-for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
-const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
-for(const token of ["env(safe-area-inset-bottom)","@media(max-width:768px)"])if(!css.includes(token))problems.push("Responsive CSS missing "+token);
-if(css.includes("backdrop-filter"))problems.push("Glass/backdrop-filter styling detected");
-if(problems.length){console.error("OZLIND architecture verification FAILED:\n");for(const p of problems)console.error(" - "+p);process.exit(1)}
-console.log("OZLIND architecture verification passed ("+files.length+" src files checked).");
