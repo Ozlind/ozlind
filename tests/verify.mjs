@@ -22,7 +22,7 @@ for(const file of files){
  if(/NEXT_PUBLIC_[A-Z_]*(KEY|SECRET|TOKEN)/.test(source))problems.push("Secret-looking NEXT_PUBLIC_ variable in "+path.relative(root,file));
 }
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
-for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After"])if(!chat.includes(token))problems.push("Chat route missing "+token);
+for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After","candidateIterator.next()","firstDelta","iterator.next()"])if(!chat.includes(token))problems.push("Chat route missing "+token);
 const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
 for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
