@@ -54,6 +54,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
 
     const result = await Promise.race([
       admin.rpc("check_rate_limit", {
+        p_user_id: user.id,
         p_limit: MAX_REQUESTS,
         p_window_seconds: WINDOW_SECONDS,
       }),
