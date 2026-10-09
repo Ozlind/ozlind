@@ -7,7 +7,7 @@ This document defines the intended ownership boundaries for Ozlind. It is a migr
 
 ## Repository layout
 
-\`\`\`text
+```text
 ozlind/
 ├── .github/
 │   └── workflows/              # CI and repository automation
@@ -59,7 +59,7 @@ ozlind/
 ├── next.config.ts
 ├── package.json
 └── tsconfig.json
-\`\`\`
+```
 
 ## Layer ownership and dependency direction
 
