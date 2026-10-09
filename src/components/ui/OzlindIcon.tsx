@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 export type OzlindIconName =
-  | "ozl-mark" | "sym-insight" | "sym-research" | "sym-discovery" | "sym-creation"
+  | "ozl-mark" | "ozl-node" | "sym-insight" | "sym-research" | "sym-discovery" | "sym-creation"
   | "sym-conversation" | "sym-sources" | "sym-active" | "sym-thinking" | "sym-processing"
   | "sym-success" | "sym-warning" | "i-ai-chat" | "i-home" | "i-new-conversation"
   | "i-search" | "i-menu" | "i-settings" | "i-profile" | "i-history" | "i-back"
