@@ -14,7 +14,7 @@ export function Sidebar({user,mobileOpen,onClose}:{user:{id:string;email:string;
   const router=useRouter(); const path=usePathname(); const [q,setQ]=useState("");
   const {data=[]}=useQuery({queryKey:["conversations",user.id],queryFn:async()=>{const supabase=createClient();const{data,error}=await supabase.from("conversations").select("id,title,updated_at").eq("user_id",user.id).eq("archived",false).order("updated_at",{ascending:false}).limit(100);if(error)throw error;return data??[]}});
   async function signOut(){const supabase=createClient();await supabase.auth.signOut();window.location.assign("/login")}
-  return <aside className={"sidebar "+(mobileOpen?"sidebar-open":"")}>
+  return <aside id="ozlind-sidebar" className={"sidebar "+(mobileOpen?"sidebar-open":"")}>
     <div className="sidebar-top">
       <div className="sidebar-brand"><Image src="/ozlind-mark.svg" alt="Ozlind" width={32} height={32}/><span>Ozlind</span><button className="icon-button mobile-close" onClick={onClose} aria-label="Close sidebar"><OzlindIcon name="i-close" size={20}/></button></div>
       <Button onClick={()=>{router.push("/app");onClose()}}><OzlindIcon name="i-new-conversation" size={18}/>New chat</Button>
