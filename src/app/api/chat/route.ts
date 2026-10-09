@@ -251,21 +251,38 @@ export async function POST(request: Request) {
 
   let selectedKey: ModelKey | null = null;
   let result: ReturnType<typeof streamText> | null = null;
+  let iterator: AsyncIterator<string> | null = null;
+  let firstDelta = "";
   let lastProviderError: unknown = null;
 
+  // streamText() is lazy: provider/network errors can happen only when the
+  // stream is consumed. Pull the first chunk before committing to a provider,
+  // so failures before any user-visible output can safely fall back.
   for (const candidate of candidates) {
     try {
       const model = models[candidate];
       if (!model) continue;
 
-      selectedKey = candidate;
-      result = streamText({
+      const candidateResult = streamText({
         model,
         system: SYSTEM_PROMPT + research.context,
         messages: core,
         maxTokens: 4096,
         abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(50000)]),
       });
+      const candidateIterator = candidateResult.textStream[Symbol.asyncIterator]();
+      const first = await candidateIterator.next();
+
+      if (first.done || !first.value) {
+        lastProviderError = new Error("Provider returned no initial text.");
+        await candidateResult.consumeStream();
+        continue;
+      }
+
+      selectedKey = candidate;
+      result = candidateResult;
+      iterator = candidateIterator;
+      firstDelta = first.value;
       break;
     } catch (error) {
       lastProviderError = error;
@@ -309,7 +326,14 @@ export async function POST(request: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const delta of result!.textStream) {
+        buffer += firstDelta;
+        controller.enqueue(encoder.encode(firstDelta));
+
+        while (iterator) {
+          const next = await iterator.next();
+          if (next.done) break;
+          const delta = next.value;
+          if (!delta) continue;
           buffer += delta;
           controller.enqueue(encoder.encode(delta));
 
