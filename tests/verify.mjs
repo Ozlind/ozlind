@@ -24,7 +24,9 @@ for(const file of files){
  if(/NEXT_PUBLIC_[A-Z_]*(KEY|SECRET|TOKEN)/.test(source))problems.push("Secret-looking NEXT_PUBLIC_ variable in "+path.relative(root,file));
 }
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
-for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed","messages_user_idempotency_key_uidx"])if(!chat.includes(token))problems.push("Chat route missing "+token);
+for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed"])if(!chat.includes(token))problems.push("Chat route missing "+token);
+const runtimeMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261009_stage3_chat_runtime_columns.sql"),"utf8");
+for(const token of ["add column if not exists status","add column if not exists idempotency_key","add column if not exists model","messages_user_idempotency_key_uidx"])if(!runtimeMigration.includes(token))problems.push("Runtime schema migration missing "+token);
 const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
 for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
