@@ -13,6 +13,7 @@ create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null default 'New chat',
+  model text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -23,6 +24,8 @@ create table if not exists public.messages (
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('user', 'assistant')),
   content text not null,
+  status text not null default 'complete' check (status in ('pending', 'streaming', 'complete', 'interrupted', 'failed')),
+  idempotency_key uuid,
   attachment jsonb,
   sources jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
@@ -37,6 +40,15 @@ create table if not exists public.messages (
   ) stored
 );
 
+-- Reconcile databases created from earlier schema versions.
+alter table public.conversations add column if not exists model text;
+alter table public.messages
+  add column if not exists status text not null default 'complete',
+  add column if not exists idempotency_key uuid;
+alter table public.messages drop constraint if exists messages_status_check;
+alter table public.messages add constraint messages_status_check
+  check (status in ('pending', 'streaming', 'complete', 'interrupted', 'failed'));
+
 create index if not exists conversations_user_updated_idx
   on public.conversations (user_id, updated_at desc);
 
@@ -45,6 +57,13 @@ create index if not exists messages_conversation_created_idx
 
 create index if not exists messages_user_created_idx
   on public.messages (user_id, created_at desc);
+
+create unique index if not exists messages_user_idempotency_key_uidx
+  on public.messages (user_id, idempotency_key)
+  where idempotency_key is not null;
+
+create index if not exists messages_conversation_status_created_idx
+  on public.messages (conversation_id, status, created_at desc);
 
 create index if not exists messages_search_idx
   on public.messages using gin (search);
