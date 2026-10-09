@@ -3,6 +3,7 @@ import { groq } from "@ai-sdk/groq";
 import { streamText, type CoreMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { checkUserRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,6 +113,22 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
+
+  // Apply the shared database-backed limit before any paid provider/search work.
+  const rateLimit = await checkUserRateLimit();
+  if (rateLimit.unavailable) {
+    return jsonError("RATE_LIMITER_UNAVAILABLE", requestId, 503, "Request protection is temporarily unavailable.");
+  }
+  if (rateLimit.unauthorized) {
+    return jsonError("AUTH_REQUIRED", requestId, 401);
+  }
+  if (!rateLimit.allowed) {
+    return Response.json(
+      { error: { code: "RATE_LIMITED", requestId, message: "Too many requests. Please try again shortly." } },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds), "Cache-Control": "no-store" } },
+    );
+  }
+
   let research = { context: "", used: false };
   if (input.research) research = await researchContext(input.content, requestId);
   const models = configuredModels();
@@ -353,6 +370,7 @@ export async function POST(request: Request) {
       "X-OZLIND-Conversation-ID": conversationId,
       "X-OZLIND-Model": selectedKey,
       "X-OZLIND-Research": research.used ? "1" : "0",
+      "X-OZLIND-RateLimit-Remaining": String(rateLimit.remaining),
     },
   });
 }
