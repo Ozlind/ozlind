@@ -340,6 +340,150 @@ grant execute on function public.match_document_chunks(vector(768), double preci
   to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- User preferences and workspace data
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.user_preferences (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  theme text not null default 'system' check (theme in ('system','light','dark')),
+  accent text not null default '#E26F4A' check (accent ~ '^#[0-9A-Fa-f]{6}
+
+create table if not exists public.rate_limits (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 0
+    check (request_count >= 0)
+);
+
+alter table public.rate_limits enable row level security;
+
+-- The application accesses this table only through the SECURITY DEFINER RPC.
+revoke all on public.rate_limits from anon, authenticated;
+
+drop function if exists public.check_rate_limit(integer, integer);
+
+create or replace function public.check_rate_limit(
+  p_user_id uuid,
+  p_limit integer default 20,
+  p_window_seconds integer default 60
+)
+returns table (allowed boolean, remaining integer, retry_after integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := p_user_id;
+  v_limit integer := least(greatest(coalesce(p_limit, 20), 1), 20);
+  v_window_seconds integer := least(greatest(coalesce(p_window_seconds, 60), 1), 60);
+  v_count integer;
+  v_start timestamptz;
+begin
+  if v_uid is null then
+    return query select false, 0, v_window_seconds;
+    return;
+  end if;
+
+  insert into public.rate_limits as r (user_id, request_count, window_start)
+  values (v_uid, 1, now())
+  on conflict (user_id) do update
+  set
+    request_count = case
+      when r.window_start <= now() - make_interval(secs => v_window_seconds)
+        then 1
+      else r.request_count + 1
+    end,
+    window_start = case
+      when r.window_start <= now() - make_interval(secs => v_window_seconds)
+        then now()
+      else r.window_start
+    end
+  returning r.request_count, r.window_start
+  into v_count, v_start;
+
+  return query
+  select
+    v_count <= v_limit,
+    greatest(v_limit - v_count, 0),
+    greatest(
+      1,
+      ceil(extract(epoch from (
+        v_start + make_interval(secs => v_window_seconds) - now()
+      )))::integer
+    );
+end;
+$$;
+
+revoke all on function public.check_rate_limit(uuid, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.check_rate_limit(uuid, integer, integer)
+  to service_role;
+),
+  language text not null default 'en' check (language in ('en','ml')),
+  density text not null default 'comfortable' check (density in ('compact','comfortable','spacious')),
+  code_theme text not null default 'default',
+  layout text not null default 'standard' check (layout in ('standard','wide')),
+  default_model text not null default 'groq:llama-3.3-70b-versatile',
+  enter_to_send boolean not null default true,
+  auto_scroll boolean not null default true,
+  show_reasoning boolean not null default false,
+  research_enabled boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.user_preferences add column if not exists research_enabled boolean not null default false;
+alter table public.user_preferences enable row level security;
+drop policy if exists user_preferences_select_own on public.user_preferences;
+create policy user_preferences_select_own on public.user_preferences for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists user_preferences_insert_own on public.user_preferences;
+create policy user_preferences_insert_own on public.user_preferences for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists user_preferences_update_own on public.user_preferences;
+create policy user_preferences_update_own on public.user_preferences for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists user_preferences_delete_own on public.user_preferences;
+create policy user_preferences_delete_own on public.user_preferences for delete to authenticated using ((select auth.uid()) = user_id);
+
+create table if not exists public.presets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 80),
+  system_prompt text not null check (char_length(system_prompt) <= 12000),
+  model text not null default 'groq:llama-3.3-70b-versatile',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.presets enable row level security;
+drop policy if exists presets_own on public.presets;
+create policy presets_own on public.presets for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create index if not exists presets_user_updated_idx on public.presets(user_id, updated_at desc);
+
+create table if not exists public.artifacts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  conversation_id uuid references public.conversations(id) on delete set null,
+  title text not null,
+  kind text not null default 'text' check (kind in ('text','code','markdown','json')),
+  content text not null default '',
+  version integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.artifacts enable row level security;
+drop policy if exists artifacts_own on public.artifacts;
+drop policy if exists artifacts_select_own on public.artifacts;
+drop policy if exists artifacts_insert_own on public.artifacts;
+drop policy if exists artifacts_update_own on public.artifacts;
+drop policy if exists artifacts_delete_own on public.artifacts;
+create policy artifacts_select_own on public.artifacts for select to authenticated
+  using ((select auth.uid()) = user_id and (conversation_id is null or exists (select 1 from public.conversations c where c.id = conversation_id and c.user_id = (select auth.uid()))));
+create policy artifacts_insert_own on public.artifacts for insert to authenticated
+  with check ((select auth.uid()) = user_id and (conversation_id is null or exists (select 1 from public.conversations c where c.id = conversation_id and c.user_id = (select auth.uid()))));
+create policy artifacts_update_own on public.artifacts for update to authenticated
+  using ((select auth.uid()) = user_id and (conversation_id is null or exists (select 1 from public.conversations c where c.id = conversation_id and c.user_id = (select auth.uid()))))
+  with check ((select auth.uid()) = user_id and (conversation_id is null or exists (select 1 from public.conversations c where c.id = conversation_id and c.user_id = (select auth.uid()))));
+create policy artifacts_delete_own on public.artifacts for delete to authenticated using ((select auth.uid()) = user_id);
+create index if not exists artifacts_user_updated_idx on public.artifacts(user_id, updated_at desc);
+
+-- ---------------------------------------------------------------------------
 -- Database-backed per-user rate limiting
 -- ---------------------------------------------------------------------------
 
