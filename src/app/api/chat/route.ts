@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
-import { streamText, type ModelMessage, type LanguageModelV2 } from "ai";
+import { streamText, type ModelMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { checkUserRateLimit } from "@/lib/rate-limit";
@@ -27,7 +27,7 @@ const SYSTEM_PROMPT =
 
 type ModelKey = z.infer<typeof schema>["model"];
 
-function configuredModels(): Record<ModelKey, LanguageModelV2 | null> {
+function configuredModels(): Record<ModelKey, LanguageModel | null> {
   const groqReady = Boolean(process.env.GROQ_API_KEY);
   const googleReady = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
