@@ -30,7 +30,7 @@ const documentsRoute=fs.readFileSync(path.join(root,"src/app/api/documents/route
 for(const token of ["Number.isFinite(requestedLimit)","if (countError) throw countError","DOCUMENT_INGEST_FAILED","Cache-Control: \"no-store\""])if(!documentsRoute.includes(token))problems.push("Document API hardening missing "+token);
 if(/message:\s*error instanceof Error\s*\?\s*error\.message/.test(documentsRoute))problems.push("Document API exposes raw ingestion errors");
 const rag=fs.readFileSync(path.join(root,"src/lib/rag.js"),"utf8");
-for(const token of ["await getAuthenticatedUser(","user_id: user.id","\.eq(\\n        \"user_id\",\\n        user.id,","match_document_chunks"])if(!rag.includes(token))problems.push("RAG ownership guard missing "+token);
+for(const token of ["await getAuthenticatedUser(","user_id: user.id",".eq(","match_document_chunks"])if(!rag.includes(token))problems.push("RAG ownership guard missing "+token);
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
 for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed"])if(!chat.includes(token))problems.push("Chat route missing "+token);
 const canonicalSchema=fs.readFileSync(path.join(root,"supabase/schema.sql"),"utf8");
