@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { deleteDocument, ingestDocument, searchDocuments } from "@/lib/rag";
+import { checkUserRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,20 @@ export async function POST(request: Request) {
 
     const parsed = uploadSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return Response.json({ error: { code: "INVALID_DOCUMENT" } }, { status: 400 });
+
+    const rateLimit = await checkUserRateLimit();
+    if (rateLimit.unavailable) {
+      return Response.json({ error: { code: "RATE_LIMITER_UNAVAILABLE" } }, { status: 503 });
+    }
+    if (rateLimit.unauthorized) {
+      return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
+    }
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: { code: "RATE_LIMITED" } },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds), "Cache-Control": "no-store" } },
+      );
+    }
 
     const { count, error: countError } = await supabase
       .from("documents")
