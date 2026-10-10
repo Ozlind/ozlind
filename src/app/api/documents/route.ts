@@ -21,7 +21,12 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const query = url.searchParams.get("q")?.trim() || "";
-    const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 20), 1), 20);
+    const requestedLimit = Number(url.searchParams.get("limit") ?? 20);
+    // Malformed query parameters must not become NaN and turn a client error
+    // into a misleading database/service failure.
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 20)
+      : 20;
 
     if (query) {
       const results = await searchDocuments(query, { matchCount: limit });
@@ -52,14 +57,25 @@ export async function POST(request: Request) {
     const parsed = uploadSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return Response.json({ error: { code: "INVALID_DOCUMENT" } }, { status: 400 });
 
-    const { count } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("user_id", user.id);
-    if ((count ?? 0) >= 20) return Response.json({ error: { code: "DOCUMENT_LIMIT_REACHED" } }, { status: 409 });
+    const { count, error: countError } = await supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    if (countError) throw countError;
+    if ((count ?? 0) >= 20) {
+      return Response.json({ error: { code: "DOCUMENT_LIMIT_REACHED" } }, { status: 409 });
+    }
 
     const document = await ingestDocument(parsed.data);
     return Response.json({ document }, { status: 201 });
   } catch (error) {
     console.error("[documents]", error);
-    return Response.json({ error: { code: "DOCUMENT_INGEST_FAILED", message: error instanceof Error ? error.message : "Could not process document." } }, { status: 422 });
+    // Do not expose database, embedding-provider, or internal exception details
+    // to clients. Keep diagnostics in server logs and return a stable envelope.
+    return Response.json(
+      { error: { code: "DOCUMENT_INGEST_FAILED", message: "Could not process the document. Please check the file and try again." } },
+      { status: 422, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }
 
