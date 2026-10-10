@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
-import { streamText, type CoreMessage, type LanguageModel } from "ai";
+import { streamText, type ModelMessage, type LanguageModelV2 } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { checkUserRateLimit } from "@/lib/rate-limit";
@@ -27,7 +27,7 @@ const SYSTEM_PROMPT =
 
 type ModelKey = z.infer<typeof schema>["model"];
 
-function configuredModels(): Record<ModelKey, LanguageModel | null> {
+function configuredModels(): Record<ModelKey, LanguageModelV2 | null> {
   const groqReady = Boolean(process.env.GROQ_API_KEY);
   const googleReady = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
@@ -271,7 +271,7 @@ export async function POST(request: Request) {
 
   if (historyError) return jsonError("HISTORY_LOAD_FAILED", requestId, 500);
 
-  const core: CoreMessage[] = (history ?? []).map((message) => ({
+  const core: ModelMessage[] = (history ?? []).map((message) => ({
     role: message.role as "user" | "assistant",
     content: message.content,
   }));
@@ -311,7 +311,7 @@ export async function POST(request: Request) {
         model,
         system: SYSTEM_PROMPT + research.context,
         messages: core,
-        maxTokens: 4096,
+        maxOutputTokens: 4096,
         abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(50000)]),
       });
       const candidateIterator = candidateResult.textStream[Symbol.asyncIterator]();
