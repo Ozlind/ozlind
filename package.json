@@ -11,9 +11,10 @@
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm run test:security && npm run verify:architecture && npm run build",
+    "verify": "npm run typecheck && npm run lint && npm run test:security && npm run test:schema-contract && npm run verify:architecture && npm run build",
     "verify:architecture": "node tests/verify.mjs",
-    "test:security": "node --test tests/security.test.mjs"
+    "test:security": "node --test tests/security.test.mjs",
+    "test:schema-contract": "node --test tests/schema-contract.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "1.2.22",
