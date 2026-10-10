@@ -85,11 +85,24 @@ export async function POST(request: Request) {
     return Response.json({ document }, { status: 201 });
   } catch (error) {
     console.error("[documents]", error);
-    // Do not expose database, embedding-provider, or internal exception details
-    // to clients. Keep diagnostics in server logs and return a stable envelope.
+    // Invalid extracted content is a client error; database or embedding
+    // provider failures are retryable service errors. Never expose internals.
+    const reason = error instanceof Error ? error.message : "";
+    const invalidContent = [
+      "The document does not contain readable text.",
+      "No usable document chunks were created.",
+    ].includes(reason);
+
     return Response.json(
-      { error: { code: "DOCUMENT_INGEST_FAILED", message: "Could not process the document. Please check the file and try again." } },
-      { status: 422, headers: { "Cache-Control": "no-store" } },
+      {
+        error: {
+          code: invalidContent ? "INVALID_DOCUMENT_CONTENT" : "DOCUMENT_INGEST_FAILED",
+          message: invalidContent
+            ? "The document does not contain readable text."
+            : "The document service is temporarily unavailable. Please try again.",
+        },
+      },
+      { status: invalidContent ? 422 : 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 }
