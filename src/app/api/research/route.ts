@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { checkUserRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,20 @@ export async function POST(request: Request) {
 
     const parsed = schema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return Response.json({ error: { code: "INVALID_INPUT", requestId } }, { status: 400 });
+
+    const rateLimit = await checkUserRateLimit();
+    if (rateLimit.unavailable) {
+      return Response.json({ error: { code: "RATE_LIMITER_UNAVAILABLE", requestId } }, { status: 503 });
+    }
+    if (rateLimit.unauthorized) {
+      return Response.json({ error: { code: "AUTH_REQUIRED", requestId } }, { status: 401 });
+    }
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: { code: "RATE_LIMITED", requestId, message: "Too many requests. Please try again shortly." } },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds), "Cache-Control": "no-store" } },
+      );
+    }
 
     const key = process.env.TAVILY_API_KEY;
     if (!key) return Response.json({ error: { code: "RESEARCH_NOT_CONFIGURED", requestId, message: "Web research is not configured." } }, { status: 503 });
