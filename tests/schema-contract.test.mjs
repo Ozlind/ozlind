@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const migrationPath = new URL(
-  "../supabase/migrations/20261010_stage4_document_schema_reconciliation.sql",
+  "../supabase/migrations/20261010101700_stage4_document_schema_reconciliation.sql",
   import.meta.url,
 );
 const migration = fs.readFileSync(migrationPath, "utf8").toLowerCase();
