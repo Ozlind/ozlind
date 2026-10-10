@@ -16,7 +16,7 @@ const required=[
 "supabase/migrations/20261009_stage3_rls_relationship_ownership.sql",
 "supabase/migrations/20261009_stage3_artifact_parent_ownership.sql",
 "supabase/migrations/20261009_stage3_message_parent_ownership.sql",
-"supabase/migrations/20261010_stage4_document_schema_reconciliation.sql",
+"supabase/migrations/20261010101700_stage4_document_schema_reconciliation.sql",
 "tests/schema-contract.test.mjs"
 ];
 for(const file of required)if(!fs.existsSync(path.join(root,file)))problems.push("Missing required file: "+file);
@@ -44,7 +44,7 @@ if(rateLimitTables.length!==1)problems.push("Canonical schema must define rate_l
 for(const token of ["create table if not exists public.user_preferences","accent text not null default '#E26F4A'","create table if not exists public.presets","create table if not exists public.artifacts","grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role"])if(!canonicalSchema.includes(token))problems.push("Canonical schema missing "+token);
 const runtimeMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261009_stage3_chat_runtime_columns.sql"),"utf8");
 for(const token of ["add column if not exists status","add column if not exists idempotency_key","add column if not exists model","messages_user_idempotency_key_uidx"])if(!runtimeMigration.includes(token))problems.push("Runtime schema migration missing "+token);
-const documentMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261010_stage4_document_schema_reconciliation.sql"),"utf8").toLowerCase();
+const documentMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261010101700_stage4_document_schema_reconciliation.sql"),"utf8").toLowerCase();
 for(const token of ["add column if not exists mime text","add column if not exists size_bytes bigint","add column if not exists char_count integer","add column if not exists chunk_count integer","alter column mime set not null","alter column char_count set not null","alter column embedding set not null"])if(!documentMigration.includes(token))problems.push("Document schema migration missing "+token);
 if(/\bdrop\s+(table|column|schema)\b|\btruncate\s+table\b|\bdelete\s+from\b/.test(documentMigration))problems.push("Document schema migration contains destructive data/schema operations");
 const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
