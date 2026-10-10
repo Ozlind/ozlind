@@ -114,6 +114,10 @@ export async function POST(request: Request) {
 
   const input = parsed.data;
 
+  if (input.action === "regenerate" && !input.conversationId) {
+    return jsonError("CONVERSATION_REQUIRED", requestId, 400);
+  }
+
   // Resolve idempotent retries before creating a conversation or invoking
   // paid services. Return the original conversation id so the client can load it.
   if (input.action === "send") {
@@ -155,6 +159,23 @@ export async function POST(request: Request) {
     );
   }
 
+  // Validate conversation ownership before paid web research or AI-provider calls.
+  let conversationId = input.conversationId ?? null;
+  if (conversationId) {
+    const { data: ownedConversation, error: ownershipError } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (ownershipError) {
+      console.error(JSON.stringify({ event: "conversation.ownership_check_failed", requestId, error: ownershipError.message }));
+      return jsonError("CONVERSATION_LOOKUP_FAILED", requestId, 500);
+    }
+    if (!ownedConversation) return jsonError("NOT_FOUND", requestId, 404);
+  }
+
   let research = { context: "", used: false };
   if (input.research) research = await researchContext(input.content, requestId);
   const models = configuredModels();
@@ -169,18 +190,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let conversationId = input.conversationId ?? null;
-
-  if (conversationId) {
-    const { data } = await supabase
-      .from("conversations")
-      .select("id")
-      .eq("id", conversationId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!data) return jsonError("NOT_FOUND", requestId, 404);
-  } else {
+  if (!conversationId) {
     const { data, error } = await supabase
       .from("conversations")
       .insert({
