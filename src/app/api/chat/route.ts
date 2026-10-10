@@ -234,6 +234,28 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      // Concurrent retries can both pass the initial lookup. The unique
+      // (user_id, idempotency_key) index is the final arbiter; recover that
+      // race by returning the already-created conversation rather than 500.
+      if (error.code === "23505") {
+        const { data: racedDuplicate, error: retryLookupError } = await supabase
+          .from("messages")
+          .select("conversation_id")
+          .eq("user_id", user.id)
+          .eq("idempotency_key", input.idempotencyKey)
+          .maybeSingle();
+
+        if (!retryLookupError && racedDuplicate) {
+          return new Response(null, {
+            status: 204,
+            headers: {
+              "X-OZLIND-Conversation-ID": racedDuplicate.conversation_id,
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      }
+
       console.error(JSON.stringify({ event: "message.create_failed", requestId, error }));
       return jsonError("MESSAGE_SAVE_FAILED", requestId, 500);
     }
@@ -369,7 +391,7 @@ export async function POST(request: Request) {
           }
         }
 
-        await supabase
+        const { data: persisted, error: persistError } = await supabase
           .from("messages")
           .update({
             content: buffer,
@@ -377,7 +399,13 @@ export async function POST(request: Request) {
             model: selectedKey,
           })
           .eq("id", assistant.id)
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .select("id")
+          .maybeSingle();
+
+        if (persistError || !persisted) {
+          throw persistError ?? new Error("Assistant response was not persisted.");
+        }
 
         controller.close();
       } catch (error) {
