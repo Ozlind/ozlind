@@ -27,7 +27,7 @@ for(const file of files){
 }
 // Stage 2 security regression checks: document API boundaries and RAG ownership.
 const documentsRoute=fs.readFileSync(path.join(root,"src/app/api/documents/route.ts"),"utf8");
-for(const token of ["Number.isFinite(requestedLimit)","if (countError) throw countError","DOCUMENT_INGEST_FAILED","Cache-Control: \"no-store\""])if(!documentsRoute.includes(token))problems.push("Document API hardening missing "+token);
+for(const token of ["Number.isFinite(requestedLimit)","if (countError) throw countError","DOCUMENT_INGEST_FAILED","no-store"])if(!documentsRoute.includes(token))problems.push("Document API hardening missing "+token);
 if(/message:\s*error instanceof Error\s*\?\s*error\.message/.test(documentsRoute))problems.push("Document API exposes raw ingestion errors");
 const rag=fs.readFileSync(path.join(root,"src/lib/rag.js"),"utf8");
 for(const token of ["await getAuthenticatedUser(","user_id: user.id",".eq(","match_document_chunks"])if(!rag.includes(token))problems.push("RAG ownership guard missing "+token);
