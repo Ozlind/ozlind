@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Preferences = {
   theme: "system" | "light" | "dark";
@@ -34,33 +34,56 @@ export function usePreferences() {
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const requestVersion = useRef(0);
+  const pendingSaves = useRef(0);
 
   useEffect(() => {
+    let active = true;
     fetch("/api/preferences", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load preferences.");
         const body = await response.json();
-        setPreferences({ ...defaultPreferences, ...body.preferences });
+        if (active) setPreferences({ ...defaultPreferences, ...body.preferences });
       })
-      .catch(() => setPreferences(defaultPreferences))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (active) setSaveError("Your saved preferences could not be loaded. Changes may not match your last session.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   const update = useCallback(async (patch: Partial<Preferences>) => {
-    setSaving(true);
-    const next = { ...preferences, ...patch };
+    const previous = preferences;
+    const version = ++requestVersion.current;
+    const next = { ...previous, ...patch };
     setPreferences(next);
+    setSaveError("");
+    pendingSaves.current += 1;
+    setSaving(true);
+
     try {
       const response = await fetch("/api/preferences", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
-      if (!response.ok) throw new Error("Could not save preferences.");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error?.message || "Could not save preferences.");
+      }
+    } catch {
+      if (version === requestVersion.current) {
+        setPreferences(previous);
+        setSaveError("Your change could not be saved. Check your connection and try again.");
+      }
     } finally {
-      setSaving(false);
+      pendingSaves.current = Math.max(0, pendingSaves.current - 1);
+      setSaving(pendingSaves.current > 0);
     }
   }, [preferences]);
 
-  return { preferences, setPreferences, update, loading, saving };
+  return { preferences, setPreferences, update, loading, saving, saveError, clearSaveError: () => setSaveError("") };
 }
