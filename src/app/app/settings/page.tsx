@@ -11,7 +11,7 @@ const models: Array<[Preferences["default_model"], string]> = [
 ];
 
 export default function SettingsPage() {
-  const { preferences, update, loading, saving } = usePreferences();
+  const { preferences, update, loading, saving, saveError } = usePreferences();
   const tr = (key: Parameters<typeof t>[1]) => t(preferences.language, key);
 
   if (loading) return <main className="settings-page"><p>{tr("loading")}</p></main>;
@@ -26,6 +26,8 @@ export default function SettingsPage() {
         </div>
         <Link href="/app" className="text-button">{tr("back")}</Link>
       </header>
+
+      {saveError && <div className="documents-feedback documents-feedback-error" role="alert"><span>{saveError}</span></div>}
 
       <section className="settings-section">
         <h2>{tr("appearance")}</h2>
