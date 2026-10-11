@@ -200,3 +200,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.sidebar-empty { padding: 10px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
