@@ -27,5 +27,5 @@ export function AppShell({user,children}:{user:{id:string;email:string;displayNa
     return()=>media.removeEventListener("change", applyTheme);
   },[preferences]);
 
-  return <div className="app-shell"><Sidebar user={user} mobileOpen={open} onClose={()=>setOpen(false)}/><div className="app-main"><button className="mobile-menu" onClick={()=>setOpen(true)} aria-label="Open sidebar"><OzlindIcon name="i-menu" size={20}/></button>{children}</div></div>;
+  return <div className="app-shell"><Sidebar user={user} mobileOpen={open} onClose={()=>setOpen(false)}/>{open&&<button className="sidebar-backdrop" onClick={()=>setOpen(false)} aria-label="Close navigation" />}<div className="app-main"><button className="mobile-menu" onClick={()=>setOpen(true)} aria-label="Open sidebar"><OzlindIcon name="i-menu" size={20}/></button>{children}</div></div>;
 }
