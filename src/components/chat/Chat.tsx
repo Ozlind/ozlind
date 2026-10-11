@@ -29,6 +29,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyAttempt, setHistoryAttempt] = useState(0);
   const [online, setOnline] = useState(true);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -228,6 +229,19 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   };
 
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content;
+  const lastAssistantMessageId = [...messages].reverse().find((message) => message.role === "assistant")?.id;
+
+  async function copyMessage(message: Message) {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => (current === message.id ? null : current));
+      }, 1600);
+    } catch {
+      setError("Clipboard access is unavailable. Select the message text to copy it.");
+    }
+  }
 
   return (
     <main className="chat-page">
@@ -296,6 +310,27 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 )}
                 {message.role === "assistant" && message.status === "streaming" && (
                   <span className="stream-cursor" aria-label="Ozlind is responding" />
+                )}
+                {message.role === "assistant" && message.content && message.status !== "streaming" && (
+                  <div className="message-actions" aria-label="Message actions">
+                    <button
+                      type="button"
+                      className="message-action"
+                      onClick={() => void copyMessage(message)}
+                    >
+                      {copiedMessageId === message.id ? "Copied" : "Copy"}
+                    </button>
+                    {message.id === lastAssistantMessageId && message.status !== "interrupted" && lastUserMessage && (
+                      <button
+                        type="button"
+                        className="message-action"
+                        onClick={() => void send("regenerate", lastUserMessage)}
+                        disabled={streaming || !online}
+                      >
+                        Regenerate
+                      </button>
+                    )}
+                  </div>
                 )}
               </article>
             ))
