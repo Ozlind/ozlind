@@ -272,3 +272,55 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width: 768px) {
   .history-state { min-height: 180px; }
 }
+
+
+/* Part 5 — composer guidance, resilient drafts, and mobile-friendly input states. */
+.composer-meta {
+  width: min(800px, 100%);
+  min-height: 16px;
+  margin: 7px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+}
+.composer-keyboard-hint,
+.composer-counter {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.composer-counter {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.composer textarea {
+  width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.composer select {
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+.composer .send-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.composer .send-button:focus-visible {
+  outline-offset: 3px;
+}
+@media (max-width: 768px) {
+  .composer-meta {
+    padding: 0 4px;
+    margin-top: 6px;
+  }
+  .composer-keyboard-hint,
+  .composer-counter {
+    font-size: 9px;
+  }
+}
+@media (max-width: 360px) {
+  .composer-keyboard-hint { max-width: 72%; }
+}

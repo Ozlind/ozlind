@@ -38,7 +38,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   useEffect(() => setModel(preferences.default_model), [preferences.default_model]);
 
   useEffect(() => {
-    const onPrompt = (event: Event) => setDraft((event as CustomEvent<string>).detail);
+    const onPrompt = (event: Event) => {
+      const prompt = (event as CustomEvent<string>).detail;
+      setDraft(prompt.slice(0, 20000));
+      textareaRef.current?.focus();
+    };
     const syncOnline = () => setOnline(navigator.onLine);
     syncOnline();
     addEventListener("ozlind:prompt", onPrompt);
@@ -201,6 +205,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         );
       } else {
         setError(caught instanceof Error ? caught.message : "Generation failed.");
+        // Keep a failed prompt recoverable without overwriting text the user typed meanwhile.
+        if (action === "send") {
+          setDraft((current) => (current.trim() ? current : content));
+        }
         setMessages((current) =>
           current.filter((message) => message.id !== assistantId || Boolean(message.content)),
         );
@@ -212,7 +220,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   }
 
   const handleKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey && preferences.enter_to_send) {
+    // Do not submit while an IME (for example, Malayalam input) is composing text.
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && preferences.enter_to_send) {
       event.preventDefault();
       void send();
     }
@@ -263,9 +272,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               <h1>How can I help?</h1>
               <p>Ask a question, draft something, or work through a problem.</p>
               <div className="prompt-grid">
-                <button onClick={() => setDraft("Help me plan my week.")}>Plan my week</button>
-                <button onClick={() => setDraft("Explain a difficult idea simply.")}>Explain an idea</button>
-                <button onClick={() => setDraft("Help me write something clearly.")}>Write with me</button>
+                <button onClick={() => { setDraft("Help me plan my week."); textareaRef.current?.focus(); }}>Plan my week</button>
+                <button onClick={() => { setDraft("Explain a difficult idea simply."); textareaRef.current?.focus(); }}>Explain an idea</button>
+                <button onClick={() => { setDraft("Help me write something clearly."); textareaRef.current?.focus(); }}>Write with me</button>
               </div>
             </div>
           ) : (
@@ -317,6 +326,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             maxLength={20000}
             placeholder="Message Ozlind…"
             aria-label="Message Ozlind"
+            aria-describedby="composer-help"
           />
           <Button
             className="send-button"
@@ -336,6 +346,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               </>
             )}
           </Button>
+        </div>
+        <div className="composer-meta">
+          <p id="composer-help" className="composer-keyboard-hint">
+            {preferences.enter_to_send ? "Enter to send · Shift + Enter for a new line" : "Enter for a new line · Use Send to submit"}
+          </p>
+          {draft.length >= 18000 && (
+            <p className="composer-counter" aria-live="polite">{draft.length.toLocaleString()} / 20,000</p>
+          )}
         </div>
         <p className="composer-note">
           {online ? "Ozlind can make mistakes. Verify important information." : "You’re offline. Reconnect to send a message."}
