@@ -350,3 +350,70 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .message-action { min-height: 34px; padding: 6px 9px; }
   .markdown-code-block pre code { padding: 12px; font-size: 11px; }
 }
+
+
+/* Part 7 — document library, upload, search, and feedback states. */
+.documents-page .settings-header { align-items: center; }
+.documents-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.documents-section-heading h2 { margin: 0 0 5px; font-size: 16px; font-weight: 600; }
+.documents-section-heading p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.documents-refresh { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-muted); font-size: 12px; }
+.documents-refresh:hover:not(:disabled) { background: var(--surface-elevated); color: var(--text); }
+.documents-refresh:disabled { cursor: wait; }
+.documents-upload-panel { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px dashed var(--border-strong, var(--border)); border-radius: 12px; background: var(--surface); }
+.documents-upload-icon, .documents-file-icon { flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text-muted); }
+.documents-upload-copy { min-width: 0; flex: 1; }
+.documents-upload-copy strong { font-size: 13px; font-weight: 600; }
+.documents-upload-copy p { margin: 5px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.documents-upload-button { flex: 0 0 auto; min-height: 38px; border-radius: 8px; font-size: 12px; }
+.documents-count { margin: 10px 0 14px; color: var(--text-muted); font-size: 11px; }
+.documents-list { display: grid; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.documents-item { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 12px 14px; }
+.documents-item + .documents-item { border-top: 1px solid var(--border); }
+.documents-item-copy { min-width: 0; flex: 1; }
+.documents-item-copy strong { display: block; overflow: hidden; color: var(--text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.documents-item-copy p { margin: 5px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.documents-delete { flex: 0 0 36px; border-radius: 8px; }
+.documents-delete:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 9%, transparent); color: var(--danger); }
+.documents-state { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); text-align: center; font-size: 12px; }
+.documents-empty { padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.documents-empty strong { color: var(--text); font-size: 13px; font-weight: 500; }
+.documents-empty p { max-width: 360px; margin: 0; line-height: 1.6; }
+.documents-spinner { animation: documents-spin 900ms linear infinite; }
+@keyframes documents-spin { to { transform: rotate(360deg); } }
+.documents-feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 0; padding: 11px 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.documents-feedback-error { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+.documents-feedback-action, .documents-dismiss, .documents-clear { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--accent); padding: 5px 7px; font-size: 11px; }
+.documents-dismiss, .documents-clear { color: var(--text-muted); }
+.documents-search-form { margin-top: 4px; border-radius: 10px; }
+.documents-search-form input { min-width: 0; }
+.documents-search-button { flex: 0 0 auto; padding: 6px 4px; }
+.documents-results { margin-top: 20px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.documents-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--border); }
+.documents-results-heading h3 { margin: 0; font-size: 12px; font-weight: 600; }
+.documents-results-heading span { color: var(--text-muted); font-size: 11px; }
+.documents-result { padding: 14px 15px; }
+.documents-result + .documents-result { border-top: 1px solid var(--border); }
+.documents-result-meta { display: flex; min-width: 0; align-items: center; gap: 7px; color: var(--text-muted); font-size: 11px; }
+.documents-result-meta strong { min-width: 0; flex: 1; overflow-wrap: anywhere; color: var(--text); font-weight: 500; }
+.documents-result-meta span { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.documents-result p { margin: 10px 0 0; color: var(--text); font-size: 13px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.documents-no-results { margin: 0; padding: 18px 15px; font-size: 12px; }
+@media (max-width: 768px) {
+  .documents-page .settings-header { align-items: flex-start; }
+  .documents-upload-panel { flex-wrap: wrap; padding: 13px; }
+  .documents-upload-copy { flex-basis: calc(100% - 54px); }
+  .documents-upload-button { width: 100%; }
+  .documents-section-heading { align-items: flex-start; }
+  .documents-item { gap: 9px; padding: 11px 10px; }
+  .documents-file-icon { width: 36px; height: 36px; flex-basis: 36px; }
+  .documents-search-form { gap: 6px; padding: 0 8px; }
+  .documents-search-form input { font-size: 12px; }
+  .documents-feedback { align-items: flex-start; }
+}
+@media (max-width: 360px) {
+  .documents-refresh span { display: none; }
+  .documents-refresh { width: 34px; padding: 0; }
+  .documents-section-heading { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .documents-spinner { animation-duration: 1800ms; } }
