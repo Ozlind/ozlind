@@ -92,9 +92,98 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .sidebar-backdrop { display: none; }
 @media (max-width: 768px) {
-  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 40; border: 0; border-radius: 0; padding: 0; background: rgba(17, 20, 18, .38); backdrop-filter: none; animation: backdrop-in 140ms ease-out; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 40; border: 0; border-radius: 0; padding: 0; background: rgba(17, 20, 18, .38);  animation: backdrop-in 140ms ease-out; }
   .sidebar { z-index: 50; }
   .mobile-menu { z-index: 20; }
 }
 @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sidebar-backdrop { animation: none; } }
+
+
+/* Part 2 — consistent app geometry and responsive page headers. */
+.app-shell {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.app-main {
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+.settings-page,
+.settings-header,
+.settings-section,
+.settings-grid {
+  min-width: 0;
+}
+
+.settings-header > div:first-child {
+  min-width: 0;
+}
+
+.settings-header h1 {
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.setting-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.setting-row strong {
+  overflow-wrap: anywhere;
+}
+
+.setting-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  /* The persistent navigation control must not cover page headings. */
+  .settings-page {
+    padding-top: 76px;
+  }
+
+  .settings-header {
+    gap: 12px;
+  }
+
+  .settings-header h1 {
+    font-size: clamp(26px, 6vw, 32px);
+  }
+
+  .setting-row {
+    gap: 12px;
+  }
+
+  .setting-row > span:first-child {
+    flex: 1 1 180px;
+  }
+
+  .setting-row > select {
+    min-width: 0;
+    max-width: 48%;
+  }
+}
+
+@media (max-width: 380px) {
+  .settings-page {
+    width: calc(100% - 24px);
+  }
+
+  .settings-header h1 {
+    font-size: 26px;
+  }
+}
