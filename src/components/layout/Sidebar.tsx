@@ -8,7 +8,7 @@ import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type SidebarProps = {
   user: { id: string; email: string; displayName: string };
@@ -20,6 +20,15 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const path = usePathname();
   const [query, setQuery] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
 
@@ -73,7 +82,8 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       id="sidebar-navigation"
       className={"sidebar " + (mobileOpen ? "sidebar-open" : "")}
       aria-label="Main navigation"
-      aria-hidden={!mobileOpen && typeof window !== "undefined" && window.innerWidth <= 768}
+      aria-hidden={isMobile && !mobileOpen}
+      inert={isMobile && !mobileOpen}
     >
       <div className="sidebar-top">
         <div className="sidebar-brand">
