@@ -86,8 +86,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   }, [id]);
 
   useEffect(() => {
-    void refreshMessages(false);
-  }, [refreshMessages]);
+    // Avoid replacing optimistic/streaming messages when the first response creates an ID.
+    if (!streaming) void refreshMessages(false);
+  }, [refreshMessages, streaming]);
 
   useEffect(() => {
     if (stick.current && preferences.auto_scroll) {
