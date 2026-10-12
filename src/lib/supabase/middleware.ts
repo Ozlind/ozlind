@@ -6,14 +6,14 @@ function passthrough(request: NextRequest) {
 }
 
 export async function updateSession(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 
   // Never let a missing production configuration turn every page request into
   // a server exception. Protected routes will still be handled as unauthenticated.
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !publishableKey) {
     console.error(
-      "[supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      "[supabase] Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY"
     );
     return passthrough(request);
   }
@@ -21,7 +21,7 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   try {
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createServerClient(supabaseUrl, publishableKey, {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll(items) {
