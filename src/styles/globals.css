@@ -483,3 +483,55 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media(max-width:900px){.workspace-page{width:calc(100% - 40px)}.workspace-layout{grid-template-columns:minmax(0,1fr) minmax(250px,.82fr);gap:18px}.workspace-form-card{padding:16px}.workspace-list-heading{display:grid}.workspace-search{flex-basis:auto;width:100%}}
 @media(max-width:680px){.workspace-page{width:calc(100% - 32px);padding:24px 0 56px}.workspace-header h1{font-size:30px}.workspace-header{display:flex;align-items:flex-start;flex-direction:column;gap:8px}.workspace-header .workspace-back{margin-top:4px}.workspace-tabs{gap:18px;margin-top:20px}.workspace-tab{font-size:12px;gap:7px;min-height:48px}.workspace-layout{grid-template-columns:minmax(0,1fr);gap:24px;padding-top:22px}.workspace-list-heading{gap:14px}.workspace-item{padding:13px;gap:9px}.workspace-item-icon{width:32px;height:32px;flex-basis:32px}.workspace-artifact-open{gap:9px}.workspace-form-card{padding:18px}.workspace-forms{order:2}.workspace-preview pre{max-height:280px}}
 @media(prefers-reduced-motion:reduce){.workspace-spin{animation:none}.workspace-item{transition:none}}
+
+
+/* Stage 9 — readable preference groups, explicit save feedback, and mobile controls. */
+.settings-page-polished { max-width: 860px; padding-top: 40px; }
+.settings-page-polished .settings-header { align-items: center; }
+.settings-page-polished .settings-header h1 { font-size: 34px; letter-spacing: -.045em; }
+.settings-page-polished .settings-header > div > p:last-child { max-width: 520px; line-height: 1.65; }
+.settings-back { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; text-decoration: none; }
+.settings-section-polished { padding: 28px 0; }
+.settings-section-intro { margin-bottom: 16px; }
+.settings-section-intro h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+.settings-section-intro p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.65; }
+.settings-grid-polished { border-radius: 12px; }
+.setting-row-polished { min-height: 72px; gap: 20px; padding: 14px 16px; }
+.setting-row-polished > span:first-child { min-width: 0; flex: 1; }
+.setting-row-polished strong { display: block; color: var(--text); font-size: 13px; font-weight: 500; }
+.setting-row-polished small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.setting-row-polished select { min-width: 150px; max-width: 45%; border-radius: 8px; }
+.setting-row-polished select:focus-visible { outline-offset: 2px; }
+.settings-color-control { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.settings-color-swatch { width: 20px; height: 20px; border: 1px solid var(--border); border-radius: 50%; }
+.settings-color-control input[type=color] { width: 38px; height: 34px; border: 1px solid var(--border); border-radius: 8px; padding: 3px; background: var(--surface); cursor: pointer; }
+.setting-toggle-row input[type=checkbox] { flex: 0 0 auto; width: 18px; height: 18px; margin: 0 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+.settings-feedback { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 12px; line-height: 1.6; }
+.settings-feedback > span { flex: 1; min-width: 0; }
+.settings-feedback-error { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); color: var(--danger); }
+.settings-feedback-dismiss { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border: 0; border-radius: 6px; background: transparent; color: inherit; }
+.settings-feedback-dismiss:hover { background: var(--surface-subtle); }
+.settings-save-status,.settings-persisted { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: var(--text-muted); font-size: 11px; }
+.settings-persisted { color: var(--text-subtle); }
+.settings-spinner { animation: settings-spin 900ms linear infinite; }
+@keyframes settings-spin { to { transform: rotate(360deg); } }
+.settings-loading { min-height: 240px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); font-size: 13px; }
+.settings-reset-section { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.settings-reset-section .settings-section-intro { margin: 0; max-width: 520px; }
+.settings-reset-button { flex: 0 0 auto; border-radius: 8px; font-size: 12px; }
+@media(max-width: 768px) {
+  .settings-page-polished { padding-top: 76px; }
+  .settings-page-polished .settings-header { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .settings-page-polished .settings-header h1 { font-size: 30px; }
+  .setting-row-polished { align-items: center; gap: 12px; padding: 13px 12px; }
+  .setting-row-polished select { min-width: 0; width: 44%; max-width: 44%; font-size: 12px; }
+  .setting-row-polished small { max-width: 34ch; }
+  .settings-reset-section { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .settings-reset-button { width: 100%; }
+}
+@media(max-width: 380px) {
+  .settings-page-polished { width: calc(100% - 24px); }
+  .setting-row-polished { align-items: flex-start; }
+  .setting-row-polished select { width: 42%; max-width: 42%; }
+}
+@media(prefers-reduced-motion: reduce) { .settings-spinner { animation-duration: 1800ms; } }
