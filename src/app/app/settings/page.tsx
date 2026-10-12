@@ -23,7 +23,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <main className="settings-page settings-page-polished" aria-busy="true">
-        <div className="settings-loading" role="status"><LoaderCircle size={20} className="settings-spinner" /><span>Loading your preferences…</span></div>
+        <div className="settings-loading" role="status"><OzlindIcon name="sym-processing" size={20} className="settings-spinner" /><span>Loading your preferences…</span></div>
       </main>
     );
   }
@@ -36,16 +36,16 @@ export default function SettingsPage() {
           <h1>{tr("settings")}</h1>
           <p>Make Ozlind work the way you prefer. Changes are saved to your account.</p>
         </div>
-        <Link href="/app" className="text-button settings-back"><ArrowLeft size={15} aria-hidden="true" /> {tr("back")}</Link>
+        <Link href="/app" className="text-button settings-back"><OzlindIcon name="i-back" size={15} aria-hidden="true" /> {tr("back")}</Link>
       </header>
 
       {saveError && (
         <div className="settings-feedback settings-feedback-error" role="alert">
           <span>{saveError}</span>
-          <button type="button" onClick={clearSaveError} className="settings-feedback-dismiss" aria-label="Dismiss error"><X size={16} /></button>
+          <button type="button" onClick={clearSaveError} className="settings-feedback-dismiss" aria-label="Dismiss error"><OzlindIcon name="i-close" size={16} /></button>
         </div>
       )}
-      {saving && <div className="settings-save-status" role="status"><LoaderCircle size={15} className="settings-spinner" /> Saving your changes…</div>}
+      {saving && <div className="settings-save-status" role="status"><OzlindIcon name="sym-processing" size={15} className="settings-spinner" /> Saving your changes…</div>}
 
       <section className="settings-section settings-section-polished" aria-labelledby="settings-appearance">
         <div className="settings-section-intro">
@@ -121,11 +121,11 @@ export default function SettingsPage() {
           <p>Restore the original appearance and chat defaults. This does not delete conversations or saved work.</p>
         </div>
         <button type="button" className="ui-button ui-button-secondary settings-reset-button" onClick={resetPreferences} disabled={saving}>
-          <RotateCcw size={15} /> Reset to defaults
+          <OzlindIcon name="i-refresh" size={15} /> Reset to defaults
         </button>
       </section>
 
-      {!saving && !saveError && <p className="settings-persisted" role="status"><Check size={14} /> Your preferences are up to date.</p>}
+      {!saving && !saveError && <p className="settings-persisted" role="status"><OzlindIcon name="i-check" size={14} /> Your preferences are up to date.</p>}
     </main>
   );
 }
