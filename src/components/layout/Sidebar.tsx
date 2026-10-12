@@ -110,8 +110,8 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search conversations"
-            aria-label="Search conversations"
+            placeholder="Search chats…"
+            aria-label="Search your chats"
           />
           {query && (
             <button
