@@ -20,6 +20,10 @@ const schema = z.object({
   action: z.enum(["send", "regenerate"]).default("send"),
   idempotencyKey: z.string().uuid(),
   research: z.boolean().default(false),
+  images: z.array(z.object({
+    dataUrl: z.string().startsWith("data:image/jpeg;base64,").max(2_100_000),
+    mimeType: z.literal("image/jpeg"),
+  })).max(2).default([]),
 });
 
 const SYSTEM_PROMPT =
@@ -248,10 +252,25 @@ export async function POST(request: Request) {
 
   if (historyError) return jsonError("HISTORY_LOAD_FAILED", requestId, 500);
 
-  const core: CoreMessage[] = (history ?? []).map((message) => ({
-    role: message.role as "user" | "assistant",
-    content: message.content,
-  }));
+  const historyRows = history ?? [];
+  const lastUserIndex = historyRows.map(message => message.role).lastIndexOf("user");
+  const core: CoreMessage[] = historyRows.map((message, index) => {
+    if (input.images.length && index === lastUserIndex && message.role === "user") {
+      const parts: Array<{ type: "text"; text: string } | { type: "image"; image: Uint8Array; mimeType: string }> = [
+        { type: "text", text: message.content },
+        ...input.images.map(image => ({
+          type: "image" as const,
+          image: Buffer.from(image.dataUrl.slice(image.dataUrl.indexOf(",") + 1), "base64"),
+          mimeType: image.mimeType,
+        })),
+      ];
+      return { role: "user" as const, content: parts };
+    }
+    return {
+      role: message.role as "user" | "assistant",
+      content: message.content,
+    };
+  });
 
   const { data: assistant, error: assistantError } = await supabase
     .from("messages")
