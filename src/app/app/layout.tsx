@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
@@ -20,7 +21,7 @@ export default async function AppLayout({
     redirect("/login?error=server_configuration");
   }
 
-  let user: Awaited<ReturnType<Awaited<ReturnType<typeof createClient>>["auth"]["getUser"]>>["data"]["user"] = null;
+  let user: User | null = null;
 
   try {
     const supabase = await createClient();
