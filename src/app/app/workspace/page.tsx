@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, LoaderCircle, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { OzlindIcon } from "@/components/ui/OzlindIcon";
 
 type Preset = { id: string; name: string; system_prompt: string; model: string };
 type Artifact = { id: string; title: string; kind: "text" | "code" | "markdown" | "json"; content: string; version: number };
