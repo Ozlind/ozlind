@@ -3,6 +3,7 @@ import { groq } from "@ai-sdk/groq";
 import { streamText, type CoreMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { checkUserRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -120,6 +121,17 @@ export async function POST(request: Request) {
     return jsonError("AUTH_REQUIRED", requestId, 401);
   }
 
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!supabaseUrl || !secretKey) {
+    return jsonError("SERVER_CONFIGURATION_ERROR", requestId, 503);
+  }
+  // Authentication above uses the cookie-bound client. Use a server-only
+  // privileged client for persistence, with every user-owned query scoped to user.id.
+  const db = createAdminClient(supabaseUrl, secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  });
+
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return jsonError("INVALID_INPUT", requestId, 400);
@@ -223,10 +235,10 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (last) {
-      await supabase.from("messages").delete().eq("id", last.id).eq("user_id", user.id);
+      await db.from("messages").delete().eq("id", last.id).eq("user_id", user.id);
     }
   } else {
-    const { error } = await supabase.from("messages").insert({
+    const { error } = await db.from("messages").insert({
       conversation_id: conversationId,
       user_id: user.id,
       role: "user",
