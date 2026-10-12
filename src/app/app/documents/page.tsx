@@ -160,25 +160,25 @@ export default function DocumentsPage() {
       </div>}
       {notice && <div className="documents-feedback" role="status">
         <span>{notice}</span>
-        <button type="button" className="documents-dismiss" onClick={() => setNotice("")} aria-label="Dismiss message"><X size={16} /></button>
+        <button type="button" className="documents-dismiss" onClick={() => setNotice("")} aria-label="Dismiss message"><OzlindIcon name="i-close" size={16} /></button>
       </div>}
 
       <section className="settings-section">
         <div className="documents-section-heading">
           <div><h2>Your library</h2><p>Up to 20 text-based files, each up to 2 MB.</p></div>
           <button type="button" className="documents-refresh" onClick={() => void load()} disabled={loading || busy} aria-label="Refresh document library">
-            {loading ? <Loader2 size={16} className="documents-spinner" /> : <RefreshCw size={16} />}
+            {loading ? <OzlindIcon name="sym-processing" size={16} className="documents-spinner" /> : <OzlindIcon name="i-refresh" size={16} />}
             <span>Refresh</span>
           </button>
         </div>
         <div className="documents-upload-panel">
-          <div className="documents-upload-icon"><Upload size={20} /></div>
+          <div className="documents-upload-icon"><OzlindIcon name="i-upload" size={20} /></div>
           <div className="documents-upload-copy">
             <strong>Add a document</strong>
             <p>TXT, Markdown, CSV or JSON · up to 2 MB and 120,000 characters</p>
           </div>
           <button type="button" className="ui-button ui-button-primary documents-upload-button" onClick={() => input.current?.click()} disabled={busy || documents.length >= 20}>
-            {busy ? <Loader2 size={16} className="documents-spinner" /> : <Upload size={16} />}
+            {busy ? <OzlindIcon name="sym-processing" size={16} className="documents-spinner" /> : <OzlindIcon name="i-upload" size={16} />}
             {busy ? "Processing…" : "Choose file"}
           </button>
           <input
@@ -191,25 +191,25 @@ export default function DocumentsPage() {
         </div>
         <p className="documents-count">{documents.length} of 20 documents used</p>
         {loading ? (
-          <div className="documents-state" role="status"><Loader2 size={20} className="documents-spinner" /><span>Loading your library…</span></div>
+          <div className="documents-state" role="status"><OzlindIcon name="sym-processing" size={20} className="documents-spinner" /><span>Loading your library…</span></div>
         ) : documents.length ? (
           <div className="documents-list">
             {documents.map((document) => (
               <article className="documents-item" key={document.id}>
-                <div className="documents-file-icon"><FileText size={19} /></div>
+                <div className="documents-file-icon"><OzlindIcon name="i-documents" size={19} /></div>
                 <div className="documents-item-copy">
                   <strong title={document.name}>{document.name}</strong>
                   <p>{formatBytes(document.size_bytes)} <span aria-hidden="true">·</span> {document.chunk_count} chunks <span aria-hidden="true">·</span> {document.status}</p>
                 </div>
                 <button type="button" className="icon-button documents-delete" onClick={() => void remove(document)} disabled={busy || deletingId !== null} aria-label={`Delete ${document.name}`}>
-                  {deletingId === document.id ? <Loader2 size={17} className="documents-spinner" /> : <Trash2 size={17} />}
+                  {deletingId === document.id ? <OzlindIcon name="sym-processing" size={17} className="documents-spinner" /> : <OzlindIcon name="i-delete" size={17} />}
                 </button>
               </article>
             ))}
           </div>
         ) : (
           <div className="documents-state documents-empty">
-            <FileText size={24} />
+            <OzlindIcon name="i-documents" size={24} />
             <strong>No documents yet</strong>
             <p>Add a text-based file to search its contents in your private library.</p>
           </div>
@@ -221,9 +221,9 @@ export default function DocumentsPage() {
           <div><h2>Search your knowledge</h2><p>Find relevant passages from documents you have added.</p></div>
         </div>
         <form className="search-box documents-search-form" onSubmit={search}>
-          <Search size={17} aria-hidden="true" />
+          <OzlindIcon name="i-search" size={17} aria-hidden="true" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ask about your documents…" aria-label="Search document contents" />
-          {query && <button type="button" className="documents-clear" onClick={clearSearch} aria-label="Clear search"><X size={16} /></button>}
+          {query && <button type="button" className="documents-clear" onClick={clearSearch} aria-label="Clear search"><OzlindIcon name="i-close" size={16} /></button>}
           <button className="text-button documents-search-button" type="submit" disabled={!query.trim() || busy}>{busy ? "Searching…" : "Search"}</button>
         </form>
         {results !== null && (
@@ -234,7 +234,7 @@ export default function DocumentsPage() {
             </div>
             {results.length ? results.map((result) => (
               <article className="documents-result" key={result.id}>
-                <div className="documents-result-meta"><FileText size={15} /><strong>{result.name}</strong><span>Match {(result.similarity * 100).toFixed(0)}%</span></div>
+                <div className="documents-result-meta"><OzlindIcon name="i-documents" size={15} /><strong>{result.name}</strong><span>Match {(result.similarity * 100).toFixed(0)}%</span></div>
                 <p>{result.content}</p>
               </article>
             )) : <p className="settings-muted documents-no-results">No relevant passages found. Try a different phrase or add more documents.</p>}
