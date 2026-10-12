@@ -506,7 +506,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               </>
             ) : (
               <>
-                <OzlindIcon name="i-arrow-up" size={18} />
+                <OzlindIcon name="i-send" size={18} />
                 Send
               </>
             )}
