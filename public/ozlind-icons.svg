@@ -84,6 +84,7 @@
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5 8.5 12 15 19"/></symbol>
   <symbol id="i-forward" viewBox="0 0 24 24"><path d="M9 5 15.5 12 9 19"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5" stroke-width="1.9"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M10 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H10"/><path d="M13 8l4 4-4 4M9 12h8"/></symbol>
 
   <!-- ============ MODULES ============ -->
   <symbol id="i-research" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.3 14.3 19 19"/><path d="M7.5 10h4.5"/></symbol>
