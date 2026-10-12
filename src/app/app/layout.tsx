@@ -8,8 +8,8 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    !process.env.SUPABASE_URL ||
+    !process.env.SUPABASE_PUBLISHABLE_KEY
   ) {
     redirect("/login?error=server_configuration");
   }
