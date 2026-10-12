@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { FileText, Loader2, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
+import { OzlindIcon } from "@/components/ui/OzlindIcon";
 
 type DocumentRow = {
   id: string;
