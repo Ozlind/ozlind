@@ -1,9 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FolderKanban, LogOut, Search, X } from "lucide-react";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
@@ -88,7 +86,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       <div className="sidebar-top">
         <div className="sidebar-brand">
           <Link href="/app" className="sidebar-brand-link" onClick={onClose} aria-label="Ozlind home">
-            <Image src="/ozlind-mark.svg" alt="" width={32} height={32} />
+            <OzlindIcon name="ozl-mark" size={32} aria-hidden="true" className="sidebar-logo-icon" />
             <span>Ozlind</span>
           </Link>
           <button
@@ -107,7 +105,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         </Button>
 
         <label className="search-box">
-          <Search size={16} aria-hidden="true" />
+          <OzlindIcon name="i-search" size={16} />
           <input
             type="search"
             value={query}
@@ -122,7 +120,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
               onClick={() => setQuery("")}
               aria-label="Clear conversation search"
             >
-              <X size={15} />
+              <OzlindIcon name="i-clear" size={15} />
             </button>
           )}
         </label>
@@ -160,7 +158,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
 
       <nav className="sidebar-actions" aria-label="Workspace navigation">
         <Link href="/app/workspace" className="sidebar-action" onClick={onClose} aria-current={path.startsWith("/app/workspace") ? "page" : undefined}>
-          <FolderKanban size={17} aria-hidden="true" /> Workspace
+          <OzlindIcon name="i-home" size={17} /> Workspace
         </Link>
         <Link href="/app/documents" className="sidebar-action" onClick={onClose} aria-current={path.startsWith("/app/documents") ? "page" : undefined}>
           <OzlindIcon name="i-documents" size={17} /> Documents
@@ -187,7 +185,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           aria-label={signingOut ? "Signing out" : "Sign out"}
           title={signingOut ? "Signing out…" : "Sign out"}
         >
-          <LogOut size={18} aria-hidden="true" />
+          <OzlindIcon name="i-forward" size={18} />
         </button>
       </div>
     </aside>
