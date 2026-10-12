@@ -3,7 +3,6 @@ import { groq } from "@ai-sdk/groq";
 import { streamText, type CoreMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { checkUserRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -121,18 +120,6 @@ export async function POST(request: Request) {
     return jsonError("AUTH_REQUIRED", requestId, 401);
   }
 
-  // Use the server-only Supabase secret for database operations because the
-  // current database grants reject table access through the publishable key.
-  // Every query below remains explicitly scoped to the authenticated user ID.
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const secretKey = process.env.SUPABASE_SECRET_KEY;
-  if (!supabaseUrl || !secretKey) {
-    return jsonError("SERVER_CONFIGURATION_ERROR", requestId, 503);
-  }
-  const db = createAdminClient(supabaseUrl, secretKey, {
-    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-  });
-
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return jsonError("INVALID_INPUT", requestId, 400);
@@ -143,7 +130,7 @@ export async function POST(request: Request) {
   // Resolve idempotent retries before creating a conversation or invoking
   // paid services. Return the original conversation id so the client can load it.
   if (input.action === "send") {
-    const { data: duplicate, error: duplicateError } = await db
+    const { data: duplicate, error: duplicateError } = await supabase
       .from("messages")
       .select("id,conversation_id")
       .eq("user_id", user.id)
@@ -198,7 +185,7 @@ export async function POST(request: Request) {
   let conversationId = input.conversationId ?? null;
 
   if (conversationId) {
-    const { data } = await db
+    const { data } = await supabase
       .from("conversations")
       .select("id")
       .eq("id", conversationId)
@@ -207,7 +194,7 @@ export async function POST(request: Request) {
 
     if (!data) return jsonError("NOT_FOUND", requestId, 404);
   } else {
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("conversations")
       .insert({
         user_id: user.id,
@@ -225,7 +212,7 @@ export async function POST(request: Request) {
   }
 
   if (input.action === "regenerate") {
-    const { data: last } = await db
+    const { data: last } = await supabase
       .from("messages")
       .select("id")
       .eq("conversation_id", conversationId)
@@ -236,10 +223,10 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (last) {
-      await db.from("messages").delete().eq("id", last.id).eq("user_id", user.id);
+      await supabase.from("messages").delete().eq("id", last.id).eq("user_id", user.id);
     }
   } else {
-    const { error } = await db.from("messages").insert({
+    const { error } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       user_id: user.id,
       role: "user",
@@ -255,7 +242,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: history, error: historyError } = await db
+  const { data: history, error: historyError } = await supabase
     .from("messages")
     .select("role,content")
     .eq("conversation_id", conversationId)
@@ -285,7 +272,7 @@ export async function POST(request: Request) {
     };
   });
 
-  const { data: assistant, error: assistantError } = await db
+  const { data: assistant, error: assistantError } = await supabase
     .from("messages")
     .insert({
       conversation_id: conversationId,
@@ -349,7 +336,7 @@ export async function POST(request: Request) {
   }
 
   if (!result || !selectedKey) {
-    await db
+    await supabase
       .from("messages")
       .update({ status: "failed" })
       .eq("id", assistant.id)
@@ -365,7 +352,7 @@ export async function POST(request: Request) {
   }
 
   if (selectedKey !== input.model) {
-    await db
+    await supabase
       .from("messages")
       .update({ model: selectedKey })
       .eq("id", assistant.id)
@@ -391,7 +378,7 @@ export async function POST(request: Request) {
           controller.enqueue(encoder.encode(delta));
 
           if (Date.now() - lastFlush >= 150) {
-            await db
+            await supabase
               .from("messages")
               .update({ content: buffer })
               .eq("id", assistant.id)
@@ -400,7 +387,7 @@ export async function POST(request: Request) {
           }
         }
 
-        await db
+        await supabase
           .from("messages")
           .update({
             content: buffer,
@@ -412,7 +399,7 @@ export async function POST(request: Request) {
 
         controller.close();
       } catch (error) {
-        await db
+        await supabase
           .from("messages")
           .update({
             content: buffer,
