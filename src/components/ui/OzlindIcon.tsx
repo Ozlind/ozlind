@@ -35,6 +35,7 @@ export function OzlindIcon({ name, size = 18, title, className, ...props }: Prop
       role={title ? "img" : undefined}
       className={className}
       focusable="false"
+      preserveAspectRatio="xMidYMid meet"
       {...props}
     >
       {title ? <title>{title}</title> : null}
