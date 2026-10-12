@@ -161,14 +161,14 @@ export default function WorkspacePage() {
           <h1>Workspace</h1>
           <p>Keep your best instructions close and your useful work in one place.</p>
         </div>
-        <Link href="/app" className="text-button workspace-back"><ArrowLeft size={15} aria-hidden="true" /> Back to chat</Link>
+        <Link href="/app" className="text-button workspace-back"><OzlindIcon name="i-back" size={15} aria-hidden="true" /> Back to chat</Link>
       </header>
 
       {(error || notice) && (
         <div className={error ? "workspace-feedback workspace-feedback-error" : "workspace-feedback"} role={error ? "alert" : "status"}>
           <span>{error || notice}</span>
-          {error && <button type="button" className="workspace-retry" onClick={() => void load()}><RefreshCw size={14} /> Retry</button>}
-          <button type="button" className="workspace-dismiss" aria-label="Dismiss message" onClick={() => { setError(""); setNotice(""); }}><X size={16} /></button>
+          {error && <button type="button" className="workspace-retry" onClick={() => void load()}><OzlindIcon name="i-refresh" size={14} /> Retry</button>}
+          <button type="button" className="workspace-dismiss" aria-label="Dismiss message" onClick={() => { setError(""); setNotice(""); }}><OzlindIcon name="i-close" size={16} /></button>
         </div>
       )}
 
@@ -189,7 +189,7 @@ export default function WorkspacePage() {
               <p>{tab === "presets" ? "Reusable instructions for the way you work." : "Notes, snippets and outputs you want to keep."}</p>
             </div>
             <label className="workspace-search">
-              <Search size={16} aria-hidden="true" />
+              <OzlindIcon name="i-search" size={16} aria-hidden="true" />
               <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Find something…" aria-label="Search workspace" />
             </label>
           </div>
@@ -197,42 +197,42 @@ export default function WorkspacePage() {
           {loading ? (
             <div className="workspace-skeleton-list" aria-label="Loading workspace" aria-busy="true">
               {[0, 1, 2].map(item => <div className="workspace-skeleton" key={item}><span /><div><i /><i /></div></div>)}
-              <p className="settings-muted"><LoaderCircle size={14} className="workspace-spin" /> Loading your workspace…</p>
+              <p className="settings-muted"><OzlindIcon name="sym-processing" size={14} className="workspace-spin" /> Loading your workspace…</p>
             </div>
           ) : tab === "presets" ? (
             filteredPresets.length ? (
               <div className="workspace-items">
                 {filteredPresets.map(item => (
                   <article className="workspace-item" key={item.id}>
-                    <div className="workspace-item-icon"><FileText size={18} aria-hidden="true" /></div>
+                    <div className="workspace-item-icon"><OzlindIcon name="i-documents" size={18} aria-hidden="true" /></div>
                     <div className="workspace-item-copy">
                       <h3>{item.name}</h3>
                       <p>{item.system_prompt}</p>
                       <span className="workspace-item-meta">{item.model.replace("groq:", "").replace("google:", "")}</span>
                     </div>
                     <button type="button" className="icon-button workspace-delete" disabled={deletingId === item.id} onClick={() => void removeItem("presets", item.id, item.name)} aria-label={`Delete ${item.name}`} title="Delete preset">
-                      {deletingId === item.id ? <LoaderCircle size={16} className="workspace-spin" /> : <Trash2 size={16} />}
+                      {deletingId === item.id ? <OzlindIcon name="sym-processing" size={16} className="workspace-spin" /> : <OzlindIcon name="i-delete" size={16} />}
                     </button>
                   </article>
                 ))}
               </div>
-            ) : <div className="workspace-empty"><div className="workspace-empty-mark"><FileText size={20} /></div><h3>{search ? "No matching presets" : "A better starting point"}</h3><p>{search ? "Try another search term." : "Save instructions you use often, so you can get to the good part faster next time."}</p>{!search && <button className="ui-button ui-button-secondary" onClick={() => document.getElementById("preset-name")?.focus()}><Plus size={16} /> Create your first preset</button>}</div>
+            ) : <div className="workspace-empty"><div className="workspace-empty-mark"><OzlindIcon name="i-documents" size={20} /></div><h3>{search ? "No matching presets" : "A better starting point"}</h3><p>{search ? "Try another search term." : "Save instructions you use often, so you can get to the good part faster next time."}</p>{!search && <button className="ui-button ui-button-secondary" onClick={() => document.getElementById("preset-name")?.focus()}><OzlindIcon name="i-plus" size={16} /> Create your first preset</button>}</div>
           ) : (
             filteredArtifacts.length ? (
               <div className="workspace-items">
                 {filteredArtifacts.map(item => (
                   <article className={selectedArtifact?.id === item.id ? "workspace-item selected" : "workspace-item"} key={item.id}>
                     <button type="button" className="workspace-artifact-open" onClick={() => setSelectedArtifact(item)} aria-label={`Open ${item.title}`}>
-                      <div className="workspace-item-icon"><FileText size={18} aria-hidden="true" /></div>
+                      <div className="workspace-item-icon"><OzlindIcon name="i-documents" size={18} aria-hidden="true" /></div>
                       <div className="workspace-item-copy"><h3>{item.title}</h3><p>{item.content.slice(0, 150) || "No preview available"}{item.content.length > 150 ? "…" : ""}</p><span className="workspace-item-meta">{item.kind.toUpperCase()} · Version {item.version}</span></div>
                     </button>
                     <button type="button" className="icon-button workspace-delete" disabled={deletingId === item.id} onClick={() => void removeItem("artifacts", item.id, item.title)} aria-label={`Delete ${item.title}`} title="Delete artifact">
-                      {deletingId === item.id ? <LoaderCircle size={16} className="workspace-spin" /> : <Trash2 size={16} />}
+                      {deletingId === item.id ? <OzlindIcon name="sym-processing" size={16} className="workspace-spin" /> : <OzlindIcon name="i-delete" size={16} />}
                     </button>
                   </article>
                 ))}
               </div>
-            ) : <div className="workspace-empty"><div className="workspace-empty-mark"><FileText size={20} /></div><h3>{search ? "No matching artifacts" : "Keep the useful bits"}</h3><p>{search ? "Try another search term." : "Save a note, code snippet or answer here. Your saved work stays tied to your account."}</p>{!search && <button className="ui-button ui-button-secondary" onClick={() => document.getElementById("artifact-title")?.focus()}><Plus size={16} /> Save an artifact</button>}</div>
+            ) : <div className="workspace-empty"><div className="workspace-empty-mark"><OzlindIcon name="i-documents" size={20} /></div><h3>{search ? "No matching artifacts" : "Keep the useful bits"}</h3><p>{search ? "Try another search term." : "Save a note, code snippet or answer here. Your saved work stays tied to your account."}</p>{!search && <button className="ui-button ui-button-secondary" onClick={() => document.getElementById("artifact-title")?.focus()}><OzlindIcon name="i-plus" size={16} /> Save an artifact</button>}</div>
           )}
         </section>
 
@@ -244,7 +244,7 @@ export default function WorkspacePage() {
                 <label className="field" htmlFor="preset-name">Name<input id="preset-name" className="ui-input" value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Product reviewer" maxLength={80} required /></label>
                 <label className="field" htmlFor="preset-prompt">Instructions<textarea id="preset-prompt" className="ui-input workspace-textarea" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="How should Ozlind approach this kind of task?" maxLength={12000} required /></label>
                 <p className="workspace-helper">{prompt.length.toLocaleString()} / 12,000 characters</p>
-                <button className="ui-button ui-button-primary workspace-submit" type="submit" disabled={savingPreset || !name.trim() || !prompt.trim()}>{savingPreset ? <><LoaderCircle size={16} className="workspace-spin" /> Saving preset…</> : <><Plus size={16} /> Save preset</>}</button>
+                <button className="ui-button ui-button-primary workspace-submit" type="submit" disabled={savingPreset || !name.trim() || !prompt.trim()}>{savingPreset ? <><OzlindIcon name="sym-processing" size={16} className="workspace-spin" /> Saving preset…</> : <><OzlindIcon name="i-plus" size={16} /> Save preset</>}</button>
               </form>
             </section>
           ) : (
@@ -255,13 +255,13 @@ export default function WorkspacePage() {
                 <label className="field" htmlFor="artifact-kind">Format<select id="artifact-kind" className="ui-input" value={artifactKind} onChange={event => setArtifactKind(event.target.value as Artifact["kind"])}><option value="markdown">Markdown</option><option value="text">Plain text</option><option value="code">Code</option><option value="json">JSON</option></select></label>
                 <label className="field" htmlFor="artifact-content">Content<textarea id="artifact-content" className="ui-input workspace-textarea workspace-artifact-textarea" value={artifactContent} onChange={event => setArtifactContent(event.target.value)} placeholder="Paste or write the content you want to keep…" maxLength={100000} required /></label>
                 <p className="workspace-helper">{artifactContent.length.toLocaleString()} / 100,000 characters</p>
-                <button className="ui-button ui-button-primary workspace-submit" type="submit" disabled={savingArtifact || !artifactTitle.trim() || !artifactContent.trim()}>{savingArtifact ? <><LoaderCircle size={16} className="workspace-spin" /> Saving…</> : <><Plus size={16} /> Save artifact</>}</button>
+                <button className="ui-button ui-button-primary workspace-submit" type="submit" disabled={savingArtifact || !artifactTitle.trim() || !artifactContent.trim()}>{savingArtifact ? <><OzlindIcon name="sym-processing" size={16} className="workspace-spin" /> Saving…</> : <><OzlindIcon name="i-plus" size={16} /> Save artifact</>}</button>
               </form>
             </section>
           )}
           {selectedArtifact && tab === "artifacts" && (
             <section className="workspace-form-card workspace-preview">
-              <div className="workspace-form-heading"><div><h2>{selectedArtifact.title}</h2><p>{selectedArtifact.kind.toUpperCase()} · Version {selectedArtifact.version}</p></div><button type="button" className="icon-button" aria-label="Close artifact preview" onClick={() => setSelectedArtifact(null)}><X size={17} /></button></div>
+              <div className="workspace-form-heading"><div><h2>{selectedArtifact.title}</h2><p>{selectedArtifact.kind.toUpperCase()} · Version {selectedArtifact.version}</p></div><button type="button" className="icon-button" aria-label="Close artifact preview" onClick={() => setSelectedArtifact(null)}><OzlindIcon name="i-close" size={17} /></button></div>
               <pre>{selectedArtifact.content}</pre>
             </section>
           )}
