@@ -465,7 +465,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           >
             <OzlindIcon name="sym-processing" size={15} />
             <span>Auto</span>
-            <OzlindIcon name={showModeOptions ? "i-close" : "i-chevron-down"} size={13} />
+            <OzlindIcon name={showModeOptions ? "i-close" : "i-plus"} size={13} />
           </button>
           <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
             aria-pressed={researchEnabled} disabled={streaming} onClick={() => setResearchEnabled(current => !current)}
