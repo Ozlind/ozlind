@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { deleteDocument, ingestDocument, searchDocuments } from "@/lib/rag";
+import { deleteDocument, ingestDocument, searchDocuments } from "@/lib/documents/rag";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

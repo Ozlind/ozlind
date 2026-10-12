@@ -44,11 +44,12 @@ ozlind/
 │   │   └── ui/               # Button, input, Ozlind SVG icon wrapper
 │   ├── hooks/usePreferences.ts
 │   ├── lib/
+│   │   ├── documents/        # Document ingestion, embeddings, and retrieval
+│   │   │   ├── embeddings.js
+│   │   │   ├── embeddings.d.ts
+│   │   │   ├── rag.js
+│   │   │   └── rag.d.ts
 │   │   ├── supabase/         # Browser, server, and middleware clients
-│   │   ├── embeddings.js     # Existing embedding implementation
-│   │   ├── embeddings.d.ts   # Type declarations for embedding helper
-│   │   ├── rag.js            # Existing retrieval/RAG implementation
-│   │   ├── rag.d.ts          # Type declarations for RAG helper
 │   │   ├── design-tokens.ts
 │   │   ├── i18n.ts
 │   │   ├── rate-limit.ts
@@ -110,7 +111,7 @@ Keep route-specific behavior at the HTTP boundary and extract shared behavior on
 3. **Supabase access** must respect row-level security and resource ownership. A valid session alone does not grant access to every row.
 4. **Provider keys** stay server-side. Never prefix a secret with `NEXT_PUBLIC_`.
 5. **Database changes** are new ordered migrations. Check applied migration history before applying SQL to a shared database.
-6. **RAG and embeddings** currently live as JavaScript helpers under `src/lib` with adjacent TypeScript declaration files. Before moving them, trace every import and test runtime/module compatibility.
+6. **RAG and embeddings** are grouped under `src/lib/documents/` with adjacent TypeScript declaration files. Keep document-specific indexing and retrieval code together; test runtime/module compatibility when changing these helpers.
 7. **Middleware** should remain small and focused on session refresh and route gating; avoid duplicating authorization logic that belongs at the API/data boundary.
 
 ## Safe organization strategy

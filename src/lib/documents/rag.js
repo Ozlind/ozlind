@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   createEmbedding,
   createEmbeddings,
-} from "@/lib/embeddings";
+} from "./embeddings";
 
 const MAX_DOCUMENT_SIZE =
   2 * 1024 * 1024;
