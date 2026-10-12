@@ -374,7 +374,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           ) : messages.length === 0 ? (
             <div className="empty-chat">
               <span className="empty-chat-mark" aria-hidden="true">
-                <img src="/ozlind-mark.svg" alt="" width={36} height={36} />
+                <OzlindIcon name="ozl-mark" size={36} aria-hidden="true" />
               </span>
               <h1>Start anywhere.</h1>
               <p>Bring a question, an unfinished thought, or something you want to get done.</p>
@@ -413,7 +413,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                       className="message-action"
                       onClick={() => void copyMessage(message)}
                     >
-                      {copiedMessageId === message.id ? "Copied" : "Copy"}
+                      <><OzlindIcon name={copiedMessageId === message.id ? "i-check" : "i-copy"} size={14} />{copiedMessageId === message.id ? "Copied" : "Copy"}</>
                     </button>
                     {message.id === lastAssistantMessageId && message.status !== "interrupted" && lastUserMessage && (
                       <button
@@ -422,7 +422,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                         onClick={() => void send("regenerate", lastUserMessage)}
                         disabled={streaming || !online}
                       >
-                        Regenerate
+                        <OzlindIcon name="i-regenerate" size={14} /> Regenerate
                       </button>
                     )}
                   </div>
@@ -436,7 +436,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       {error && (
         <div className="error-card" role="alert">
           <span>{error}</span>
-          <button onClick={() => setError("")}>Dismiss</button>
+          <button type="button" onClick={() => setError("")} aria-label="Dismiss error"><OzlindIcon name="i-close" size={16} /></button>
         </div>
       )}
 
@@ -447,7 +447,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               <div className="composer-attachment" key={image.name + index}>
                 <img src={image.dataUrl} alt={image.name} />
                 <span>{image.name}</span>
-                <button type="button" onClick={() => setImages(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={"Remove " + image.name}>×</button>
+                <button type="button" onClick={() => setImages(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={"Remove " + image.name}><OzlindIcon name="i-clear" size={15} /></button>
               </div>
             ))}
           </div>
