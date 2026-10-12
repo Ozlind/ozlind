@@ -476,3 +476,14 @@ $$;
 
 revoke all on function public.check_rate_limit(uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role;
+
+-- Explicit Data API access for core signed-in app features. RLS policies on
+-- each table enforce ownership; never grant these tables to anon.
+grant select, insert, update, delete on table
+  public.user_settings,
+  public.documents,
+  public.document_chunks,
+  public.user_preferences,
+  public.presets,
+  public.artifacts
+to authenticated;
