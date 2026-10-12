@@ -1,118 +1,133 @@
-# Ozlind Project Structure
+# Ozlind Repository Structure
 
-**Status:** Architecture baseline for incremental implementation  
-**Stack:** Next.js App Router, TypeScript, React, Vercel AI SDK, Supabase, Vercel
+**Status:** Current repository map and incremental refactoring guide  
+**Stack:** Next.js App Router, React, TypeScript, Vercel AI SDK, Supabase, Vercel
 
-This document defines the intended ownership boundaries for Ozlind. It is a migration target, not a claim that every directory or module already exists. Keep the current application working and move code in small, tested steps; do not create duplicate implementations just to match a diagram.
+This document describes the files that currently exist in the repository. Proposed future layers are explicitly marked as future work; a folder diagram must not be mistaken for implemented functionality.
 
-## Repository layout
+## Current repository tree
 
 ```text
 ozlind/
-├── .github/
-│   └── workflows/              # CI and repository automation
+├── .github/workflows/ci.yml
 ├── docs/
-│   ├── adr/                    # Architecture decision records
-│   └── architecture/
-│       └── project-structure.md
-├── public/                     # Static, non-secret assets
+│   ├── adr/0001-stage-1-backend-foundation.md
+│   └── architecture/project-structure.md
+├── public/
+│   ├── ozlind-icons.svg
+│   └── ozlind-mark.svg
 ├── src/
-│   ├── app/                    # Next.js routes, layouts, route handlers
-│   │   ├── (marketing)/         # Public pages, if/when separated
-│   │   ├── app/                 # Authenticated product routes
-│   │   ├── api/                 # Thin HTTP adapters only
-│   │   └── auth/                # Authentication callback routes
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── artifacts/route.ts
+│   │   │   ├── chat/route.ts
+│   │   │   ├── documents/route.ts
+│   │   │   ├── health/route.ts
+│   │   │   ├── preferences/route.ts
+│   │   │   ├── presets/route.ts
+│   │   │   ├── ready/route.ts
+│   │   │   └── research/route.ts
+│   │   ├── app/
+│   │   │   ├── [conversationId]/page.tsx
+│   │   │   ├── documents/page.tsx
+│   │   │   ├── settings/page.tsx
+│   │   │   ├── workspace/page.tsx
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   ├── auth/callback/route.ts
+│   │   ├── login/page.tsx
+│   │   ├── layout.tsx
+│   │   └── page.tsx
 │   ├── components/
-│   │   ├── ui/                  # Accessible, reusable primitives
-│   │   ├── layout/              # App shell, navigation, responsive sidebar
-│   │   └── chat/                # Chat presentation components
-│   ├── features/                # Feature-owned UI, schemas, hooks and contracts
-│   │   ├── chat/
-│   │   ├── conversations/
-│   │   ├── documents/
-│   │   ├── research/
-│   │   ├── preferences/
-│   │   └── workspace/
-│   ├── server/                  # Server-only application and domain code
-│   │   ├── application/         # Use cases/orchestration
-│   │   ├── domain/              # Business rules and domain types
-│   │   ├── repositories/        # Persistence interfaces and implementations
-│   │   ├── providers/           # LLM provider adapters and model routing
-│   │   ├── security/            # Authz, validation, quotas and safe redirects
-│   │   └── observability/       # Structured logs, tracing and error mapping
-│   ├── lib/                     # Small shared utilities and SDK clients
-│   │   └── supabase/            # Browser/server/middleware Supabase clients
-│   ├── providers/               # React context providers
-│   ├── stores/                  # Client state only; no server secrets
-│   ├── styles/                  # Global styles and design tokens
-│   └── types/                   # Shared transport/UI types where appropriate
+│   │   ├── chat/             # Chat, Markdown renderer, offline status
+│   │   ├── layout/           # App shell and sidebar
+│   │   └── ui/               # Button, input, Ozlind SVG icon wrapper
+│   ├── hooks/usePreferences.ts
+│   ├── lib/
+│   │   ├── supabase/         # Browser, server, and middleware clients
+│   │   ├── embeddings.js     # Existing embedding implementation
+│   │   ├── embeddings.d.ts   # Type declarations for embedding helper
+│   │   ├── rag.js            # Existing retrieval/RAG implementation
+│   │   ├── rag.d.ts          # Type declarations for RAG helper
+│   │   ├── design-tokens.ts
+│   │   ├── i18n.ts
+│   │   ├── rate-limit.ts
+│   │   └── utils.ts
+│   ├── providers/QueryProvider.tsx
+│   ├── stores/chat-store.ts
+│   └── styles/
+│       ├── globals.css
+│       └── theme.css
 ├── supabase/
-│   ├── migrations/              # Ordered, reviewable database changes
-│   └── schema.sql               # Reference schema snapshot
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   └── verify.mjs
-├── .env.example                 # Names/placeholders only; never secrets
-├── middleware.ts                # Request/session middleware, minimal logic
-├── next.config.ts
+│   ├── migrations/            # Ordered SQL changes
+│   └── schema.sql             # Reference schema snapshot
+├── tests/verify.mjs
+├── types/chat.ts
+├── middleware.ts
 ├── package.json
-└── tsconfig.json
+├── next.config.ts
+├── tailwind.config.ts
+├── tsconfig.json
+└── .env.example
 ```
 
-## Layer ownership and dependency direction
+## File ownership
 
-1. **Route handlers (src/app/api/**/route.ts)** — parse HTTP input, authenticate the request, call an application use case, and map the result to HTTP/stream responses. Keep business rules out of route handlers.
-2. **Application (src/server/application)** — coordinates a use case such as sending a message, creating a conversation, indexing a document, or running research. It owns workflow sequencing, not UI details.
-3. **Domain (src/server/domain)** — business invariants, domain errors and provider-independent types. It must not import Next.js, React, Supabase SDKs, or provider SDKs.
-4. **Repositories (src/server/repositories)** — persistence contracts and Supabase-backed implementations. Enforce user/tenant ownership in the database as well as at the application boundary.
-5. **Provider adapters (src/server/providers)** — LLM/model selection, streaming adapters, embeddings and retrieval integrations. Provider-specific details must not leak into domain types.
-6. **UI (src/features, src/components)** — rendering, user interaction, optimistic state and accessible responsive behavior. Never import server-only modules or secrets.
-7. **Shared infrastructure (src/lib)** — narrowly scoped utilities and SDK clients. Avoid turning this into a miscellaneous business-logic directory.
+| Location | Responsibility | Keep out of this location |
+| --- | --- | --- |
+| `src/app/**/page.tsx` | Route composition and page-level UI | Reusable primitives, database credentials |
+| `src/app/api/**/route.ts` | HTTP boundary, request validation, auth checks, status/stream mapping | Large reusable UI, unrelated business logic |
+| `src/app/auth/callback/route.ts` and `src/lib/supabase/*` | Supabase session and auth integration | Client-side secrets or duplicated auth flows |
+| `src/components/ui/` | Small reusable accessible UI primitives | Feature-specific data fetching |
+| `src/components/layout/` | App shell, navigation, responsive drawer | AI provider orchestration |
+| `src/components/chat/` | Chat presentation and message interaction | Supabase service-role access |
+| `src/hooks/` | Client-side reusable state and behavior | Server-only SDKs and secrets |
+| `src/providers/` | React context/provider setup | Route-specific page layout |
+| `src/stores/` | Client state only | Authoritative server persistence or secrets |
+| `src/lib/supabase/` | Browser/server/middleware Supabase client factories | UI components |
+| `src/lib/` | Shared utilities, rate limiting, design tokens, i18n, current AI/RAG helpers | Unrelated miscellaneous features without a clear owner |
+| `src/styles/` | Global styling, semantic theme tokens, responsive states | Application data logic |
+| `types/` | Shared TypeScript contracts | Runtime implementations |
+| `supabase/migrations/` | Append-only database changes | Application UI or provider code |
+| `tests/` | Automated repository checks | Production runtime code |
+| `docs/adr/` | Decisions and trade-offs | Claims that are not yet implemented |
 
-Dependency direction: **HTTP/UI → application → domain contracts**. Infrastructure adapters implement contracts at the edge. Keep server-only modules out of client bundles; use import "server-only" for modules that must never run in the browser.
+## API route inventory
 
-## Feature boundaries
+- `/api/chat` — chat request validation, model/provider streaming, persistence and interruption handling.
+- `/api/documents` — document library operations.
+- `/api/preferences` — user preference persistence.
+- `/api/research` — research request handling.
+- `/api/presets` and `/api/artifacts` — workspace presets and saved artifacts.
+- `/api/health` and `/api/ready` — health/readiness responses; readiness currently checks required environment configuration, not a full end-to-end provider/database transaction.
 
-- **Chat:** request validation, model choice, streaming lifecycle, cancellation, regeneration, message persistence and failure recovery.
-- **Conversations:** list, create, rename, archive/delete, ownership checks and pagination.
-- **Documents / RAG:** upload validation, storage metadata, extraction, chunking, embeddings, retrieval and citations.
-- **Research:** task orchestration, source collection, timeouts, partial results and clear provenance.
-- **Preferences:** validated user settings with safe defaults and server-side authorization.
-- **Workspace:** workspace membership and resource ownership; do not rely only on client-side checks.
+Keep route-specific behavior at the HTTP boundary and extract shared behavior only when the existing contract is understood and covered by verification. Do not describe an API as versioned under `/api/v1` unless those routes are actually implemented.
 
-A feature may initially remain in the current src/app, src/lib, and src/components locations. Move it only when there is a clear boundary and tests cover the behavior.
+## Dependency and security rules
 
-## Security and reliability rules
+1. **UI components** may depend on shared UI utilities and client-safe hooks. They must not import server-only secrets or service-role clients.
+2. **Route handlers** authenticate and authorize the request, validate untrusted input, call the required server integrations, and map results to HTTP or streaming responses.
+3. **Supabase access** must respect row-level security and resource ownership. A valid session alone does not grant access to every row.
+4. **Provider keys** stay server-side. Never prefix a secret with `NEXT_PUBLIC_`.
+5. **Database changes** are new ordered migrations. Check applied migration history before applying SQL to a shared database.
+6. **RAG and embeddings** currently live as JavaScript helpers under `src/lib` with adjacent TypeScript declaration files. Before moving them, trace every import and test runtime/module compatibility.
+7. **Middleware** should remain small and focused on session refresh and route gating; avoid duplicating authorization logic that belongs at the API/data boundary.
 
-- Validate every untrusted payload at the server boundary (Zod or an equivalent schema).
-- Authenticate with the server-side Supabase client and authorize each resource against its owner/workspace. A valid session alone is not authorization.
-- Keep Row Level Security enabled for user data. Review every new table, policy, function and storage bucket in a migration.
-- Never expose service-role keys, provider keys, raw stack traces or sensitive prompts to the browser/logs.
-- Accept only safe same-origin relative paths for post-auth redirects; reject protocol-relative paths such as //example.com.
-- Apply rate limits and request-size/time limits to expensive routes. A process-local limiter is not sufficient for multi-instance production.
-- Make streamed writes resilient to cancellation, provider errors, client disconnects and retries; avoid duplicate persisted messages.
-- Use structured logs with request/correlation IDs and redact tokens, cookies, message content and personal data by default.
-- Health checks should distinguish process liveness from dependency readiness and should not reveal secrets/configuration.
-- Database changes are append-only migrations; do not edit a migration that may already have run in a shared environment.
+## Safe organization strategy
 
-## Testing and release gates
+The repository currently uses a compact structure rather than the full Clean Architecture layering described in some design proposals. Do not create empty `features/`, `server/`, `repositories/`, or `domain/` directories just to make the tree look more sophisticated.
 
-- **Unit:** domain rules, schemas, redirect validation, model routing, quota calculations and error mapping.
-- **Integration:** repository ownership, RLS behavior, persistence lifecycle, storage and provider adapter contracts.
-- **End-to-end:** sign-in/callback, send/stop/regenerate chat, reload persisted conversation, document workflow and mobile navigation.
-- **CI required checks:** typecheck, lint, architecture guard, tests and production build. Security/dependency checks should report actionable failures; do not silently treat them as passed.
-- **Release:** review migration order, environment variables, provider quotas, logs/alerts, rollback path and actual Vercel deployment health.
+Use this order for future code organization:
 
-## Incremental implementation order
+1. Inventory imports and identify duplicate or unused implementations.
+2. Add or update tests before moving behavior.
+3. Move one cohesive module at a time, updating every import in the same change.
+4. Preserve public routes, request/response shapes, Supabase Auth, Google OAuth, RLS policies, database schema, and persisted user data.
+5. Run `npm run verify` and review the deployment created from the exact commit.
+6. Remove an old file only after confirming it has no live imports, runtime references, or migration dependency.
 
-1. Fix and test security findings in existing routes before broad refactors.
-2. Add domain/application contracts around the existing chat flow without changing its public API.
-3. Move chat persistence behind repository functions and test ownership/RLS.
-4. Apply the same pattern to documents, preferences, research and workspace one feature at a time.
-5. Add integration/E2E coverage and strengthen CI before declaring production readiness.
+## Verification and known limitations
 
-## Done means
+The repository check is `npm run verify`, which runs TypeScript validation, ESLint, `tests/verify.mjs`, and a production build. The current CI workflow runs that command. The dependency audit uses `continue-on-error: true`, so audit findings do not currently fail CI.
 
-A folder existing is not completion. A boundary is complete only when its behavior is covered by tests, authorization is enforced server-side and in RLS where applicable, errors are observable without leaking secrets, and the production build and deployed smoke tests pass.
+A passing repository build does not prove that production Supabase credentials, Google OAuth redirect configuration, AI provider quotas, runtime logs, or live deployed flows are healthy. Those require separate environment/deployment checks.
