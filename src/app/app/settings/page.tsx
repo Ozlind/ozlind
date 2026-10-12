@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Check, LoaderCircle, RotateCcw, X } from "lucide-react";
+import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { usePreferences, type Preferences, defaultPreferences } from "@/hooks/usePreferences";
 import { t } from "@/lib/i18n";
 
