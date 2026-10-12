@@ -60,6 +60,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto"
   );
   const [researchEnabled, setResearchEnabled] = useState(preferences.research_enabled);
+  const [showModeOptions, setShowModeOptions] = useState(false);
   const [images, setImages] = useState<ChatImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
@@ -453,27 +454,46 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           </div>
         )}
         <div className="composer-modebar" role="group" aria-label="AI mode">
-          {([
-            ["auto", "Auto", "Choose the best available model"],
-            ["fast", "Fast", "Fast responses"],
-            ["vision", "Vision", "Analyze images with Gemini"],
-            ["pro", "Pro", "Use the configured pro model"],
-          ] as const).map(([value, label, description]) => (
-            <button key={value} type="button" className={"composer-mode" + (mode === value ? " active" : "")}
-              aria-pressed={mode === value} title={images.length > 0 && value !== "vision" ? "Attached images require Vision mode" : description} aria-label={label + ": " + (images.length > 0 && value !== "vision" ? "Unavailable while images are attached" : description)} disabled={streaming || (images.length > 0 && value !== "vision")} onClick={() => setMode(value)}>
-              {value === "auto" ? <OzlindIcon name="sym-processing" size={15} /> :
-               value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
-               value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
-               <OzlindIcon name="sym-thinking" size={15} />}
-              <span>{label}</span>
-            </button>
-          ))}
+          <button
+            type="button"
+            className={"composer-mode" + (mode === "auto" ? " active" : "")}
+            aria-pressed={mode === "auto"}
+            aria-expanded={showModeOptions}
+            aria-controls="composer-mode-options"
+            title="Choose a response mode"
+            onClick={() => setShowModeOptions(current => !current)}
+          >
+            <OzlindIcon name="sym-processing" size={15} />
+            <span>Auto</span>
+            <OzlindIcon name={showModeOptions ? "i-close" : "i-chevron-down"} size={13} />
+          </button>
           <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
             aria-pressed={researchEnabled} disabled={streaming} onClick={() => setResearchEnabled(current => !current)}
             title="Search the web and include sources" aria-label={researchEnabled ? "Turn web search off" : "Turn web search on"}>
             <OzlindIcon name="i-web-research" size={15} />
             <span>Web search</span>
           </button>
+          {showModeOptions && (
+            <div id="composer-mode-options" className="composer-mode-options" role="group" aria-label="Choose AI mode">
+              {([
+                ["fast", "Fast", "Fast responses"],
+                ["vision", "Vision", "Analyze images with Gemini"],
+                ["pro", "Pro", "Use the configured pro model"],
+              ] as const).map(([value, label, description]) => (
+                <button key={value} type="button" className={"composer-mode" + (mode === value ? " active" : "")}
+                  aria-pressed={mode === value}
+                  title={images.length > 0 && value !== "vision" ? "Attached images require Vision mode" : description}
+                  aria-label={label + ": " + (images.length > 0 && value !== "vision" ? "Unavailable while images are attached" : description)}
+                  disabled={streaming || (images.length > 0 && value !== "vision")}
+                  onClick={() => { setMode(value); setShowModeOptions(false); }}>
+                  {value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
+                   value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
+                   <OzlindIcon name="sym-thinking" size={15} />}
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="composer">
           <input ref={fileInputRef} type="file" accept="image/*" multiple hidden
