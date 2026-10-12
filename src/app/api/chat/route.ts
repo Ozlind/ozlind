@@ -1,4 +1,4 @@
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
 import { streamText, type CoreMessage, type LanguageModel } from "ai";
 import { z } from "zod";
@@ -29,12 +29,21 @@ type ModelKey = z.infer<typeof schema>["model"];
 
 function configuredModels(): Record<ModelKey, LanguageModel | null> {
   const groqReady = Boolean(process.env.GROQ_API_KEY);
-  const googleReady = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  const fastModel = process.env.GROQ_FAST_MODEL?.trim();
+  const proModel = process.env.GROQ_PRO_MODEL?.trim();
+  const geminiModel = process.env.GEMINI_MODEL?.trim();
+  const googleProvider =
+    process.env.GEMINI_API_KEY && geminiModel
+      ? createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })
+      : null;
 
   return {
-    "groq:llama-3.3-70b-versatile": groqReady ? groq("llama-3.3-70b-versatile") : null,
-    "groq:deepseek-r1-distill-llama-70b": groqReady ? groq("deepseek-r1-distill-llama-70b") : null,
-    "google:gemini-2.0-flash": googleReady ? google("gemini-2.0-flash") : null,
+    "groq:llama-3.3-70b-versatile":
+      groqReady && fastModel ? groq(fastModel) : null,
+    "groq:deepseek-r1-distill-llama-70b":
+      groqReady && proModel ? groq(proModel) : null,
+    "google:gemini-2.0-flash":
+      googleProvider && geminiModel ? googleProvider(geminiModel) : null,
   };
 }
 
