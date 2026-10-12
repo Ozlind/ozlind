@@ -136,6 +136,10 @@ create policy "Users can delete their messages" on public.messages
     )
   );
 
+-- Explicit Data API grants are required on projects with opt-in table exposure.
+-- RLS policies above continue to restrict every row to its authenticated owner.
+grant select, insert, update, delete on table public.conversations, public.messages to authenticated;
+
 -- Keep conversation ordering current when messages are inserted/updated.
 create or replace function public.touch_conversation_updated_at()
 returns trigger
