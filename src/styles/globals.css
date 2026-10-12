@@ -925,3 +925,161 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion: reduce) {
   .thinking-indicator { animation: none; opacity: .65; }
 }
+
+
+/* Global overflow guardrails: allow long content to wrap without clipping the viewport. */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+body {
+  overflow-wrap: anywhere;
+  -webkit-text-size-adjust: 100%;
+}
+img, video, canvas, svg {
+  max-width: 100%;
+}
+.app-shell, .app-main, .chat-page, .message-list, .message-column,
+.settings-page, .settings-header, .settings-section, .settings-grid,
+.workspace-page, .documents-page, .composer-wrap, .composer {
+  min-width: 0;
+  max-width: 100%;
+}
+.message-content, .prose, .prose p, .prose li, .prose a,
+.settings-muted, .setting-row, .sidebar-user, .user-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.prose pre, .message-content pre, .message-content table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.prose img, .message-content img {
+  height: auto;
+  max-width: 100%;
+}
+.sidebar-brand-link {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.sidebar-backdrop {
+  display: none;
+}
+.not-found-page {
+  min-height: 100dvh;
+  width: min(520px, calc(100% - 40px));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 0;
+}
+.not-found-mark {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 32px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 25px;
+  font-weight: 600;
+}
+.not-found-page h1 {
+  margin: 12px 0;
+  font-size: clamp(32px, 7vw, 44px);
+  font-weight: 500;
+  letter-spacing: -.045em;
+  line-height: 1.1;
+}
+.not-found-copy {
+  max-width: 420px;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.not-found-actions a {
+  text-decoration: none;
+}
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgb(18 18 16 / 38%);
+  }
+  .sidebar {
+    max-width: min(320px, calc(100vw - 48px));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .app-main {
+    width: 100%;
+  }
+  .message-column {
+    width: calc(100% - 32px);
+    padding-top: 20px;
+  }
+  .message.user .message-content {
+    max-width: 100%;
+  }
+  .composer-wrap {
+    width: 100%;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+  .composer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .composer textarea {
+    width: 100%;
+    min-width: 0;
+  }
+  .composer select {
+    max-width: 115px;
+  }
+  .settings-header {
+    flex-wrap: wrap;
+  }
+  .setting-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 380px) {
+  .message-column {
+    width: calc(100% - 24px);
+  }
+  .composer {
+    padding: 6px;
+  }
+  .composer select {
+    max-width: 95px;
+    font-size: 12px;
+  }
+  .not-found-actions {
+    width: 100%;
+  }
+  .not-found-actions a {
+    flex: 1 1 auto;
+  }
+}
