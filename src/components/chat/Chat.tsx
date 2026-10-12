@@ -479,7 +479,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           <input ref={fileInputRef} type="file" accept="image/*" multiple hidden
             onChange={(event) => void addImages(event.target.files)} aria-label="Attach images" />
           <button type="button" className="composer-attach" onClick={() => fileInputRef.current?.click()}
-            disabled={streaming || images.length >= 2} aria-label="Attach an image" title="Attach an image to ask about it" aria-label="Attach an image">
+            disabled={streaming || images.length >= 2} aria-label="Attach an image" title="Attach an image to ask about it">
             <OzlindIcon name="i-attach" size={19} />
           </button>
           <textarea
