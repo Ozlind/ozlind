@@ -1083,3 +1083,73 @@ img, video, canvas, svg {
     flex: 1 1 auto;
   }
 }
+
+
+/* Screenshot-driven mobile polish: keep controls legible and links intentional. */
+.sidebar a,
+.sidebar a:visited { text-decoration: none; }
+.sidebar-brand-link { color: var(--text); }
+.sidebar-brand-link .sidebar-logo-icon { color: var(--accent); }
+.sidebar .conversation-link,
+.sidebar .sidebar-action { text-decoration: none; }
+.sidebar .conversation-link:hover,
+.sidebar .sidebar-action:hover { text-decoration: none; }
+
+/* The composer shell supplies the focus ring; avoid a second box around the text itself. */
+.composer textarea:focus,
+.composer textarea:focus-visible { outline: none; box-shadow: none; }
+.composer:focus-within { outline: none; }
+.composer-modebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(800px, 100%);
+  margin: 0 auto 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.composer-modebar::-webkit-scrollbar { display: none; }
+.composer-mode,
+.composer-research {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-size: 12px;
+}
+.composer-mode.active,
+.composer-research.active {
+  border-color: var(--border);
+  background: var(--surface-elevated);
+  color: var(--text);
+}
+.composer-attach { display: grid; place-items: center; width: 38px; min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--text-muted); }
+.composer-attach:hover:not(:disabled) { background: var(--surface-elevated); color: var(--text); }
+.composer .send-button { min-width: 84px; width: auto; padding-inline: 12px; gap: 7px; }
+@media (max-width: 768px) {
+  .composer-modebar { width: 100%; margin-bottom: 7px; gap: 5px; }
+  .composer-mode,
+  .composer-research { min-height: 34px; padding: 0 9px; font-size: 11px; }
+  .composer { grid-template-columns: 34px minmax(0, 1fr) auto; align-items: end; }
+  .composer .composer-attach { grid-column: 1; grid-row: 1; width: 34px; min-height: 38px; }
+  .composer textarea { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; max-height: 144px; padding: 8px 5px; }
+  .composer .send-button { grid-column: 3; grid-row: 1; min-width: 78px; width: auto; min-height: 40px; padding-inline: 10px; }
+  .composer-wrap { padding-left: 10px; padding-right: 10px; }
+  .composer-note { line-height: 1.45; }
+}
+@media (max-width: 380px) {
+  .composer-modebar { gap: 4px; }
+  .composer-mode, .composer-research { padding-inline: 7px; gap: 4px; }
+  .composer .send-button { min-width: 70px; padding-inline: 8px; }
+}
