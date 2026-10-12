@@ -754,3 +754,147 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion: reduce) {
   .composer-mode, .composer-research, .composer-attach { transition: none; }
 }
+
+
+/* Ozlind interaction pass: restrained product styling and purposeful controls. */
+.empty-chat {
+  width: min(680px, calc(100% - 48px));
+  text-align: left;
+  padding: clamp(48px, 12vh, 112px) 0 64px;
+}
+.empty-chat-mark {
+  width: 52px;
+  height: 52px;
+  margin: 0 0 28px;
+  border-radius: 16px;
+  box-shadow: none;
+}
+.empty-chat h1 {
+  margin: 0 0 10px;
+  font-size: clamp(30px, 4vw, 40px);
+  line-height: 1.14;
+  letter-spacing: -.05em;
+  font-weight: 500;
+}
+.empty-chat p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.composer-modebar {
+  width: min(800px, 100%);
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.composer-mode,
+.composer-research {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.composer-mode:hover,
+.composer-research:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.composer-mode.active,
+.composer-research.active {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(20,20,16,.035);
+}
+.composer-mode:focus-visible,
+.composer-research:focus-visible,
+.composer-attach:focus-visible,
+.message-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.composer-attach {
+  display: grid;
+  width: 40px;
+  min-height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.composer-attach:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--text);
+}
+.message-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.message-action {
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.message-action:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.composer-attachments {
+  width: min(800px, 100%);
+  margin: 0 auto 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.composer-attachment {
+  max-width: min(260px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+@media (max-width: 768px) {
+  .empty-chat {
+    width: calc(100% - 32px);
+    padding: 48px 0 32px;
+  }
+  .empty-chat-mark {
+    margin-bottom: 22px;
+  }
+  .composer-modebar {
+    gap: 4px;
+    margin-bottom: 7px;
+  }
+  .composer-mode,
+  .composer-research {
+    min-height: 30px;
+    padding: 0 8px;
+    gap: 5px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 380px) {
+  .composer-mode,
+  .composer-research {
+    padding: 0 6px;
+    gap: 4px;
+    font-size: 10px;
+  }
+}
