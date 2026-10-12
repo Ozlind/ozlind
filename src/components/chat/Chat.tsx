@@ -236,27 +236,31 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!reader) throw new Error("Streaming response unavailable.");
 
       const decoder = new TextDecoder();
-      for (;;) {
-        const part = await reader.read();
-        if (part.done) break;
-        const delta = decoder.decode(part.value, { stream: true });
+      let pendingText = "";
+      let lastUiFlush = 0;
+      const flushVisibleText = (force = false) => {
+        if (!pendingText || (!force && Date.now() - lastUiFlush < 48)) return;
+        const chunk = pendingText;
+        pendingText = "";
+        lastUiFlush = Date.now();
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
-              ? { ...message, content: message.content + delta, status: "streaming" }
+              ? { ...message, content: message.content + chunk, status: "streaming" }
               : message,
           ),
         );
+      };
+
+      for (;;) {
+        const part = await reader.read();
+        if (part.done) break;
+        pendingText += decoder.decode(part.value, { stream: true });
+        flushVisibleText();
       }
 
-      const remainder = decoder.decode();
-      if (remainder) {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId ? { ...message, content: message.content + remainder } : message,
-          ),
-        );
-      }
+      pendingText += decoder.decode();
+      flushVisibleText(true);
       setMessages((current) =>
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
@@ -370,15 +374,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           ) : messages.length === 0 ? (
             <div className="empty-chat">
               <span className="empty-chat-mark" aria-hidden="true">
-                <img src="/ozlind-mark.svg" alt="" width={42} height={42} />
+                <img src="/ozlind-mark.svg" alt="" width={36} height={36} />
               </span>
-              <h1>How can I help?</h1>
-              <p>Ask a question, draft something, or work through a problem.</p>
-              <div className="prompt-grid">
-                <button onClick={() => { setDraft("Help me plan my week."); textareaRef.current?.focus(); }}>Plan my week</button>
-                <button onClick={() => { setDraft("Explain a difficult idea simply."); textareaRef.current?.focus(); }}>Explain an idea</button>
-                <button onClick={() => { setDraft("Help me write something clearly."); textareaRef.current?.focus(); }}>Write with me</button>
-              </div>
+              <h1>Start anywhere.</h1>
+              <p>Bring a question, an unfinished thought, or something you want to get done.</p>
             </div>
           ) : (
             messages.map((message) => (
@@ -454,7 +453,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             ["pro", "Pro", "Use the configured pro model"],
           ] as const).map(([value, label, description]) => (
             <button key={value} type="button" className={"composer-mode" + (mode === value ? " active" : "")}
-              aria-pressed={mode === value} title={description} onClick={() => setMode(value)}>
+              aria-pressed={mode === value} title={description} aria-label={label + ": " + description} onClick={() => setMode(value)}>
               {value === "auto" ? <OzlindIcon name="sym-processing" size={15} /> :
                value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
                value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
@@ -464,7 +463,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           ))}
           <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
             aria-pressed={researchEnabled} onClick={() => setResearchEnabled(current => !current)}
-            title="Search the web and include sources">
+            title="Search the web and include sources" aria-label={researchEnabled ? "Turn web search off" : "Turn web search on"}>
             <OzlindIcon name="i-web-research" size={15} />
             <span>Web search</span>
           </button>
@@ -473,7 +472,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           <input ref={fileInputRef} type="file" accept="image/*" multiple hidden
             onChange={(event) => void addImages(event.target.files)} aria-label="Attach images" />
           <button type="button" className="composer-attach" onClick={() => fileInputRef.current?.click()}
-            disabled={streaming || images.length >= 2} aria-label="Attach an image" title="Attach image for Vision mode">
+            disabled={streaming || images.length >= 2} aria-label="Attach an image" title="Attach an image to ask about it" aria-label="Attach an image">
             <OzlindIcon name="i-attach" size={19} />
           </button>
           <textarea
