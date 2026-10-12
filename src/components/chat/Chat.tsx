@@ -16,6 +16,38 @@ type Message = {
   status?: string;
 };
 
+type ChatMode = "auto" | "fast" | "vision" | "pro";
+type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
+
+async function compressImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Image processing is unavailable in this browser.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const toBlob = (quality: number) => new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not prepare this image.")), "image/jpeg", quality);
+    });
+    let blob = await toBlob(0.82);
+    if (blob.size > 1_700_000) blob = await toBlob(0.66);
+    if (blob.size > 1_900_000) throw new Error("Image is too large after compression. Choose a smaller image.");
+
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Could not read this image."));
+      reader.onerror = () => reject(new Error("Could not read this image."));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    bitmap.close();
+  }
+}
+
 export function Chat({ conversationId: initialId }: { conversationId?: string }) {
   const router = useRouter();
   const [id, setId] = useState(initialId);
@@ -23,6 +55,13 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [draft, setDraft] = useState("");
   const { preferences } = usePreferences();
   const [model, setModel] = useState<string>(preferences.default_model);
+  const [mode, setMode] = useState<ChatMode>(() =>
+    preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
+    preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto"
+  );
+  const [researchEnabled, setResearchEnabled] = useState(preferences.research_enabled);
+  const [images, setImages] = useState<ChatImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
   const [historyError, setHistoryError] = useState("");
@@ -36,7 +75,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setId(initialId), [initialId]);
-  useEffect(() => setModel(preferences.default_model), [preferences.default_model]);
+  useEffect(() => {
+    setModel(preferences.default_model);
+    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
+      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
+  }, [preferences.default_model]);
+  useEffect(() => setResearchEnabled(preferences.research_enabled), [preferences.research_enabled]);
 
   useEffect(() => {
     const onPrompt = (event: Event) => {
@@ -118,15 +162,20 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   async function send(action: "send" | "regenerate" = "send", contentOverride?: string) {
     const content = (contentOverride ?? draft).trim();
-    if ((action === "send" && !content) || streaming || !online) return;
+    const outgoingImages = action === "send" ? images : [];
+    const outgoingContent = content || (outgoingImages.length ? "Please analyze the attached image." : "");
+    if ((action === "send" && !outgoingContent) || streaming || !online) return;
 
-    if (action === "send") setDraft("");
+    if (action === "send") {
+      setDraft("");
+      setImages([]);
+    }
     setError("");
     const key = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
 
     if (action === "send") {
-      setMessages((current) => current.concat({ id: key, role: "user", content, status: "complete" }));
+      setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete" }));
     }
     setMessages((current) => current.concat({ id: assistantId, role: "assistant", content: "", status: "streaming" }));
     setStreaming(true);
@@ -135,16 +184,28 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     abortRef.current = controller;
 
     try {
+      const fastModel = "groq:llama-3.3-70b-versatile";
+      const proModel = "groq:deepseek-r1-distill-llama-70b";
+      const visionModel = "google:gemini-2.0-flash";
+      const requestedModel = outgoingImages.length || mode === "vision"
+        ? visionModel
+        : mode === "fast"
+          ? fastModel
+          : mode === "pro"
+            ? proModel
+            : ([fastModel, proModel, visionModel].includes(model) ? model : fastModel);
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId: id,
-          content,
-          model,
+          content: outgoingContent,
+          model: requestedModel,
           action,
           idempotencyKey: key,
-          research: preferences.research_enabled,
+          research: researchEnabled,
+          images: outgoingImages.map(({ dataUrl, mimeType }) => ({ dataUrl, mimeType })),
         }),
         signal: controller.signal,
       });
@@ -208,7 +269,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         setError(caught instanceof Error ? caught.message : "Generation failed.");
         // Keep a failed prompt recoverable without overwriting text the user typed meanwhile.
         if (action === "send") {
-          setDraft((current) => (current.trim() ? current : content));
+          setDraft((current) => (current.trim() ? current : outgoingContent));
+          setImages((current) => current.length ? current : outgoingImages);
         }
         setMessages((current) =>
           current.filter((message) => message.id !== assistantId || Boolean(message.content)),
@@ -218,6 +280,33 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (abortRef.current === controller) abortRef.current = null;
       setStreaming(false);
     }
+  }
+
+  async function addImages(files: FileList | null) {
+    if (!files?.length) return;
+    const remaining = Math.max(0, 2 - images.length);
+    if (!remaining) {
+      setError("You can attach up to 2 images per message.");
+      return;
+    }
+    const selected = Array.from(files).filter(file => file.type.startsWith("image/")).slice(0, remaining);
+    if (!selected.length) {
+      setError("Choose an image file to use Vision mode.");
+      return;
+    }
+    setError("");
+    try {
+      const prepared = await Promise.all(selected.map(async file => ({
+        dataUrl: await compressImage(file),
+        mimeType: "image/jpeg" as const,
+        name: file.name.slice(0, 120),
+      })));
+      setImages(current => [...current, ...prepared].slice(0, 2));
+      setMode("vision");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not attach this image.");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const handleKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -346,12 +435,47 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       )}
 
       <div className="composer-wrap">
+        {images.length > 0 && (
+          <div className="composer-attachments" aria-label="Attached images">
+            {images.map((image, index) => (
+              <div className="composer-attachment" key={image.name + index}>
+                <img src={image.dataUrl} alt={image.name} />
+                <span>{image.name}</span>
+                <button type="button" onClick={() => setImages(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={"Remove " + image.name}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="composer-modebar" role="group" aria-label="AI mode">
+          {([
+            ["auto", "Auto", "Choose the best available model"],
+            ["fast", "Fast", "Fast responses"],
+            ["vision", "Vision", "Analyze images with Gemini"],
+            ["pro", "Pro", "Use the configured pro model"],
+          ] as const).map(([value, label, description]) => (
+            <button key={value} type="button" className={"composer-mode" + (mode === value ? " active" : "")}
+              aria-pressed={mode === value} title={description} onClick={() => setMode(value)}>
+              {value === "auto" ? <OzlindIcon name="sym-processing" size={15} /> :
+               value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
+               value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
+               <OzlindIcon name="sym-thinking" size={15} />}
+              <span>{label}</span>
+            </button>
+          ))}
+          <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
+            aria-pressed={researchEnabled} onClick={() => setResearchEnabled(current => !current)}
+            title="Search the web and include sources">
+            <OzlindIcon name="i-web-research" size={15} />
+            <span>Web search</span>
+          </button>
+        </div>
         <div className="composer">
-          <select value={model} onChange={(event) => setModel(event.target.value)} aria-label="Model">
-            <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B</option>
-            <option value="groq:deepseek-r1-distill-llama-70b">DeepThink</option>
-            <option value="google:gemini-2.0-flash">Gemini Flash</option>
-          </select>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple hidden
+            onChange={(event) => void addImages(event.target.files)} aria-label="Attach images" />
+          <button type="button" className="composer-attach" onClick={() => fileInputRef.current?.click()}
+            disabled={streaming || images.length >= 2} aria-label="Attach an image" title="Attach image for Vision mode">
+            <OzlindIcon name="i-attach" size={19} />
+          </button>
           <textarea
             ref={textareaRef}
             value={draft}
@@ -391,7 +515,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           )}
         </div>
         <p className="composer-note">
-          {online ? "Ozlind can make mistakes. Verify important information." : "You’re offline. Reconnect to send a message."}
+          {!online ? "You’re offline. Reconnect to send a message." :
+            researchEnabled ? "Web search is on · Results may be incomplete. Verify important information." :
+            mode === "vision" ? "Vision mode uses Gemini · Attach up to 2 images." :
+            "Ozlind can make mistakes. Verify important information."}
         </p>
       </div>
     </main>
