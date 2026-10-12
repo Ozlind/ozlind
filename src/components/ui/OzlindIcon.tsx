@@ -5,7 +5,7 @@ export type OzlindIconName =
   | "sym-conversation" | "sym-sources" | "sym-active" | "sym-thinking" | "sym-processing"
   | "sym-success" | "sym-warning" | "i-ai-chat" | "i-home" | "i-new-conversation"
   | "i-search" | "i-menu" | "i-settings" | "i-profile" | "i-history" | "i-back"
-  | "i-forward" | "i-close" | "i-research" | "i-web-research" | "i-sources"
+  | "i-forward" | "i-close" | "i-logout" | "i-research" | "i-web-research" | "i-sources"
   | "i-image-generator" | "i-photo-editor" | "i-code-assistant" | "i-documents"
   | "i-voice-ai" | "i-send" | "i-attach" | "i-microphone" | "i-stop" | "i-error"
   | "i-information" | "i-copy" | "i-edit" | "i-regenerate" | "i-delete" | "i-more"
