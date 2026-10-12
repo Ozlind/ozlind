@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
+
+export const metadata: Metadata = {
+  title: { default: "AI workspace", template: "%s | Ozlind" },
+  description: "Your private Ozlind workspace for AI conversations, saved work, and documents.",
+};
 
 export default async function AppLayout({
   children,
