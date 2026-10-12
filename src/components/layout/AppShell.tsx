@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -9,6 +9,11 @@ export function AppShell({ user, children }: { user: { id: string; email: string
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { preferences } = usePreferences();
+
+  const closeNavigation = useCallback((restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) requestAnimationFrame(() => menuButtonRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -35,11 +40,29 @@ export function AppShell({ user, children }: { user: { id: string; email: string
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.getElementById("sidebar-navigation")?.querySelector<HTMLButtonElement>(".mobile-close")?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        menuButtonRef.current?.focus();
+      if (event.key === "Escape") closeNavigation(true);
+      if (event.key === "Tab") {
+        const sidebar = document.getElementById("sidebar-navigation");
+        if (!sidebar) return;
+        const focusable = Array.from(sidebar.querySelectorAll<HTMLElement>(
+          'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        )).filter((element) => element.offsetParent !== null);
+        if (!focusable.length) {
+          event.preventDefault();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -48,17 +71,18 @@ export function AppShell({ user, children }: { user: { id: string; email: string
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, closeNavigation]);
 
   return (
     <div className="app-shell">
-      <Sidebar user={user} mobileOpen={open} onClose={() => setOpen(false)} />
+      <Sidebar user={user} mobileOpen={open} onClose={() => closeNavigation(false)} />
       {open && (
         <button
           type="button"
           className="sidebar-backdrop"
-          onClick={() => { setOpen(false); menuButtonRef.current?.focus(); }}
+          onClick={() => closeNavigation(true)}
           aria-label="Close navigation"
+          tabIndex={-1}
         />
       )}
       <div className="app-main">
@@ -66,12 +90,12 @@ export function AppShell({ user, children }: { user: { id: string; email: string
           ref={menuButtonRef}
           type="button"
           className="mobile-menu"
-          onClick={() => setOpen(true)}
-          aria-label="Open navigation"
+          onClick={() => setOpen((current) => !current)}
+          aria-label={open ? "Close navigation" : "Open navigation"}
           aria-expanded={open}
           aria-controls="sidebar-navigation"
         >
-          <OzlindIcon name="i-menu" size={20} />
+          <OzlindIcon name={open ? "i-close" : "i-menu"} size={20} />
         </button>
         {children}
       </div>

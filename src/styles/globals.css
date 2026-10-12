@@ -584,3 +584,57 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion: reduce) {
   .auth-spinner { animation-duration: 1ms; }
 }
+
+
+/* Stage 11 — mobile navigation, touch ergonomics, and small viewport resilience. */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform 180ms ease, visibility 180ms ease;
+  }
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  .mobile-menu {
+    position: absolute;
+    top: max(10px, env(safe-area-inset-top));
+    left: 12px;
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .mobile-menu:active { transform: scale(.97); }
+  .chat-header { padding-left: 64px; }
+  .sidebar .conversation-link,
+  .sidebar .sidebar-action { min-height: 44px; display: flex; align-items: center; }
+  .sidebar .mobile-close { display: inline-grid; place-items: center; width: 44px; height: 44px; }
+  .sidebar .search-box { min-height: 44px; }
+  .sidebar .search-clear { min-width: 32px; min-height: 32px; }
+  .sidebar .ui-button { min-height: 44px; }
+  .sidebar-user .icon-button { min-width: 44px; min-height: 44px; }
+  .message-list { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  .composer-wrap { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .mobile-menu { left: 8px; width: 42px; height: 42px; }
+  .chat-header { padding-left: 58px; }
+  .message-column { width: calc(100% - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none !important; }
+}
