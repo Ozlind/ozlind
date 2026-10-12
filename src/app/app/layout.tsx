@@ -20,29 +20,29 @@ export default async function AppLayout({
     redirect("/login?error=server_configuration");
   }
 
+  let user: Awaited<ReturnType<Awaited<ReturnType<typeof createClient>>["auth"]["getUser"]>>["data"]["user"] = null;
+
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      redirect("/login");
-    }
-
-    return (
-      <AppShell
-        user={{
-          id: user.id,
-          email: user.email ?? "",
-          displayName: user.user_metadata?.display_name ?? "",
-        }}
-      >
-        {children}
-      </AppShell>
-    );
+    const { data, error } = await supabase.auth.getUser();
+    if (!error) user = data.user;
   } catch {
-    redirect("/login?error=server_configuration");
+    // Authentication lookup failed; redirect below without swallowing Next.js redirects.
   }
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  return (
+    <AppShell
+      user={{
+        id: user.id,
+        email: user.email ?? "",
+        displayName: user.user_metadata?.display_name ?? "",
+      }}
+    >
+      {children}
+    </AppShell>
+  );
 }
