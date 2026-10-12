@@ -34,8 +34,8 @@ async function compressImage(file: File): Promise<string> {
       canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not prepare this image.")), "image/jpeg", quality);
     });
     let blob = await toBlob(0.82);
-    if (blob.size > 1_700_000) blob = await toBlob(0.66);
-    if (blob.size > 1_900_000) throw new Error("Image is too large after compression. Choose a smaller image.");
+    if (blob.size > 1_400_000) blob = await toBlob(0.66);
+    if (blob.size > 1_500_000) throw new Error("Image is too large after compression. Choose a smaller image.");
 
     return await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
