@@ -20,6 +20,7 @@ function authConfigError() {
 
 function errorMessage(error: unknown) {
   if (!(error instanceof Error)) return authConfigError();
+  if (error.message === "OZLIND_SUPABASE_CONFIG_MISSING") return authConfigError();
   const message = error.message.toLowerCase();
   if (message.includes("invalid login credentials")) return "That email and password combination doesn't match. Check your details and try again.";
   if (message.includes("email not confirmed")) return "Please confirm your email address before signing in.";
