@@ -32,8 +32,8 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
       return { allowed: false, remaining: 0, retryAfterSeconds: 0, unauthorized: true };
     }
 
-    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = process.env.SUPABASE_URL;
+    const secretKey = process.env.SUPABASE_SECRET_KEY;
     if (!url || !secretKey) throw new Error("Rate limiter server configuration is missing.");
 
     admin = createSupabaseClient(url, secretKey, {
