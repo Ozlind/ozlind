@@ -376,8 +376,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               <span className="empty-chat-mark" aria-hidden="true">
                 <OzlindIcon name="ozl-mark" size={36} aria-hidden="true" />
               </span>
-              <h1>Start anywhere.</h1>
-              <p>Bring a question, an unfinished thought, or something you want to get done.</p>
+              <h1>What can I help you with?</h1>
+              <p>Ask a question, work through an idea, or get help with a task.</p>
             </div>
           ) : (
             messages.map((message) => (
@@ -391,7 +391,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                   ) : message.status === "streaming" ? (
                     <div className="thinking-state" role="status">
                       <span className="thinking-indicator" aria-hidden="true" />
-                      {researchEnabled ? "Searching the web…" : "Thinking…"}
+                      {researchEnabled ? "Searching the web…" : "Preparing a response…"}
                     </div>
                   ) : (
                     <MarkdownRenderer content=" " />
@@ -489,15 +489,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             onKeyDown={handleKey}
             rows={1}
             maxLength={20000}
-            placeholder="Message Ozlind…"
-            aria-label="Message Ozlind"
+            placeholder="Ask Ozlind anything…"
+            aria-label="Write your message"
             aria-describedby="composer-help"
           />
           <Button
             className="send-button"
             disabled={streaming ? false : !online || !draft.trim()}
             onClick={() => (streaming ? abortRef.current?.abort() : void send())}
-            aria-label={streaming ? "Stop generation" : "Send message"}
+            aria-label={streaming ? "Stop response" : "Send message"}
           >
             {streaming ? (
               <>
@@ -514,7 +514,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
         <div className="composer-meta">
           <p id="composer-help" className="composer-keyboard-hint">
-            {preferences.enter_to_send ? "Enter to send · Shift + Enter for a new line" : "Enter for a new line · Use Send to submit"}
+            {preferences.enter_to_send ? "Enter to send · Shift + Enter for a new line" : "Shift + Enter for a new line · Tap Send to submit"}
           </p>
           {draft.length >= 18000 && (
             <p className="composer-counter" aria-live="polite">{draft.length.toLocaleString()} / 20,000</p>
@@ -522,9 +522,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
         <p className="composer-note">
           {!online ? "You’re offline. Reconnect to send a message." :
-            researchEnabled ? "Web search is on · Results may be incomplete. Verify important information." :
+            researchEnabled ? "Web search is on · Check sources and important details." :
             mode === "vision" ? "Vision mode uses Gemini · Attach up to 2 images." :
-            "Ozlind can make mistakes. Verify important information."}
+            "Ozlind can make mistakes. Check important details."}
         </p>
       </div>
     </main>
