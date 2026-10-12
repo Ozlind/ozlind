@@ -1,18 +1,90 @@
-# Ozlind — Stage 1
+# Ozlind
 
-Stage 1 establishes the production chat foundation: Next.js 15 App Router, TypeScript, Vercel AI SDK v4, Supabase SSR/Auth/RLS, responsive chat UI, persistent messages, streaming, stop/interruption handling, regeneration, model selection, Markdown/GFM, and offline state.
+Ozlind is a mobile-first AI chat application built with Next.js App Router, React, TypeScript, the Vercel AI SDK, and Supabase. This repository contains the application UI, server route handlers, authentication integration, database migrations, and repository verification checks.
 
-## Setup
+## Requirements
 
-1. Use Node.js 20.9+.
-2. Copy `.env.example` to `.env.local` and set the two public Supabase variables plus Groq and Gemini keys.
-3. Run `supabase/migrations/20261008_stage1_core.sql` in the Supabase SQL editor.
-4. Enable Email/Password and Google providers in Supabase Auth.
-5. Add `/auth/callback` to the Supabase redirect URLs.
-6. Run `npm install`, then `npm run dev`.
+- Node.js 20.9 or later, below 25 (see `.nvmrc` and `package.json`)
+- npm
+- A Supabase project
+- At least one configured AI provider: Groq or Google Generative AI
 
-## Verification
+## Local development
 
-Run `npm run typecheck`, `npm run lint`, and `npm run build`.
+1. Install dependencies:
 
-The chat persistence contract is: user row first, assistant row with `streaming`, partial content flushed during generation, `complete` on success, and `interrupted` on stream failure. Schedule `public.interrupt_stale_messages()` from a trusted database scheduler for 60-second cleanup.
+   ```bash
+   npm install
+   ```
+
+2. Copy `.env.example` to `.env.local` and fill in the values required for your enabled features. Never commit `.env.local` or place server secrets in `NEXT_PUBLIC_*` variables.
+
+3. In Supabase, enable the authentication providers you intend to support (Email and Google), and configure the application’s allowed redirect URLs, including `/auth/callback`.
+
+4. Check `supabase/migrations/` and the current database migration history before applying SQL. Migrations are ordered changes; do not blindly re-run them against a populated project. `supabase/schema.sql` is a reference schema snapshot, not a replacement for reviewing migration history.
+
+5. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Verification commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run typecheck` | TypeScript validation |
+| `npm run lint` | ESLint on `src/` |
+| `npm run verify:architecture` | Required-file, security-pattern, and architecture checks |
+| `npm run build` | Production Next.js build |
+| `npm run verify` | Runs typecheck, lint, architecture checks, and production build |
+
+GitHub Actions runs `npm run verify` for pushes to `main` and pull requests targeting `main`. The dependency audit is currently configured as informational (`continue-on-error`); it is not a release-blocking security gate.
+
+## Repository map
+
+```text
+.
+├── .github/workflows/     # CI workflow
+├── docs/
+│   ├── adr/               # Accepted architecture decisions
+│   └── architecture/      # Current file map and ownership boundaries
+├── public/                # Static brand assets and SVG icon sprite
+├── src/
+│   ├── app/               # Pages, layouts, auth callback, API handlers
+│   ├── components/        # Chat, layout, and reusable UI components
+│   ├── hooks/             # Client hooks, including preferences
+│   ├── lib/               # Shared utilities, Supabase clients, AI/RAG helpers
+│   ├── providers/         # React context providers
+│   ├── stores/            # Client-side state
+│   └── styles/            # Global CSS and theme tokens
+├── supabase/
+│   ├── migrations/        # Ordered SQL migrations
+│   └── schema.sql         # Reference schema snapshot
+├── tests/                 # Repository architecture verification
+├── types/                 # Shared TypeScript contracts
+├── middleware.ts          # Session refresh and route gating
+└── package.json           # Dependencies and scripts
+```
+
+For the detailed route inventory, file responsibilities, dependency direction, and safe future refactoring rules, see [Project structure](docs/architecture/project-structure.md).
+
+## Environment variables
+
+See `.env.example` for the full list of supported variable names. The main groups are:
+
+- **Public Supabase configuration:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- **Server-only provider / service credentials:** `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `TAVILY_API_KEY`
+- **Optional infrastructure and legacy embedding configuration:** Upstash Redis variables and Gemini embedding variables
+
+Only values intentionally safe for browser exposure should use the `NEXT_PUBLIC_` prefix. Never put private provider keys or the Supabase service-role key in client code.
+
+## Working safely in this repository
+
+- Preserve Supabase Auth, Google OAuth callback handling, row-level security (RLS), and existing data contracts unless a reviewed change explicitly requires otherwise.
+- Keep page and component code separate from API route handlers and server-only credentials.
+- Add database changes as new migrations; do not rewrite migrations that may already have been applied to shared environments.
+- Move files only after checking imports, runtime boundaries, and tests. Prefer small changes that can be verified independently.
+- Treat a successful build as one quality signal—not proof of live OAuth, database, provider, or deployment health.
