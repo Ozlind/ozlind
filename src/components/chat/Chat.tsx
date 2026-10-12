@@ -370,7 +370,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           ) : messages.length === 0 ? (
             <div className="empty-chat">
               <span className="empty-chat-mark" aria-hidden="true">
-                <OzlindIcon name="ozl-mark" size={42} />
+                <img src="/ozlind-mark.svg" alt="" width={42} height={42} />
               </span>
               <h1>How can I help?</h1>
               <p>Ask a question, draft something, or work through a problem.</p>
