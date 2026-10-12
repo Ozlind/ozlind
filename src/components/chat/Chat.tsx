@@ -386,8 +386,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 <div className="message-content">
                   {message.role === "user" ? (
                     <p>{message.content}</p>
+                  ) : message.content ? (
+                    <MarkdownRenderer content={message.content} />
+                  ) : message.status === "streaming" ? (
+                    <div className="thinking-state" role="status">
+                      <span className="thinking-indicator" aria-hidden="true" />
+                      {researchEnabled ? "Searching the web…" : "Thinking…"}
+                    </div>
                   ) : (
-                    <MarkdownRenderer content={message.content || " "} />
+                    <MarkdownRenderer content=" " />
                   )}
                 </div>
                 {message.status === "interrupted" && (
@@ -453,7 +460,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             ["pro", "Pro", "Use the configured pro model"],
           ] as const).map(([value, label, description]) => (
             <button key={value} type="button" className={"composer-mode" + (mode === value ? " active" : "")}
-              aria-pressed={mode === value} title={description} aria-label={label + ": " + description} onClick={() => setMode(value)}>
+              aria-pressed={mode === value} title={images.length > 0 && value !== "vision" ? "Attached images require Vision mode" : description} aria-label={label + ": " + (images.length > 0 && value !== "vision" ? "Unavailable while images are attached" : description)} disabled={streaming || (images.length > 0 && value !== "vision")} onClick={() => setMode(value)}>
               {value === "auto" ? <OzlindIcon name="sym-processing" size={15} /> :
                value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
                value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
@@ -462,7 +469,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             </button>
           ))}
           <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
-            aria-pressed={researchEnabled} onClick={() => setResearchEnabled(current => !current)}
+            aria-pressed={researchEnabled} disabled={streaming} onClick={() => setResearchEnabled(current => !current)}
             title="Search the web and include sources" aria-label={researchEnabled ? "Turn web search off" : "Turn web search on"}>
             <OzlindIcon name="i-web-research" size={15} />
             <span>Web search</span>
