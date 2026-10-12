@@ -1,3 +1,39 @@
-import type { Metadata,Viewport } from "next"; import "../styles/theme.css"; import "../styles/globals.css"; import { QueryProvider } from "@/providers/QueryProvider";
-export const metadata:Metadata={title:"Ozlind",description:"A calm, reliable AI workspace.",robots:{index:false,follow:false}}; export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",colorScheme:"light dark"};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" suppressHydrationWarning><body><QueryProvider>{children}</QueryProvider></body></html>}
+import type { Metadata, Viewport } from "next";
+import "../styles/theme.css";
+import "../styles/globals.css";
+import { QueryProvider } from "@/providers/QueryProvider";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://ozlind.vercel.app"),
+  title: {
+    default: "Ozlind — A calmer AI workspace",
+    template: "%s | Ozlind",
+  },
+  description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
+  applicationName: "Ozlind",
+  icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
+  robots: { index: false, follow: false },
+  openGraph: {
+    type: "website",
+    siteName: "Ozlind",
+    title: "Ozlind — A calmer AI workspace",
+    description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
+    url: "https://ozlind.vercel.app",
+  },
+  twitter: {
+    card: "summary",
+    title: "Ozlind — A calmer AI workspace",
+    description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
+  },
+};
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "light dark",
+  themeColor: "#f7f7f5",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html lang="en" suppressHydrationWarning><body><QueryProvider>{children}</QueryProvider></body></html>;
+}
