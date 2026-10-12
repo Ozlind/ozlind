@@ -142,7 +142,7 @@ export async function POST(request: Request) {
   // Resolve idempotent retries before creating a conversation or invoking
   // paid services. Return the original conversation id so the client can load it.
   if (input.action === "send") {
-    const { data: duplicate, error: duplicateError } = await supabase
+    const { data: duplicate, error: duplicateError } = await db
       .from("messages")
       .select("id,conversation_id")
       .eq("user_id", user.id)
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
   let conversationId = input.conversationId ?? null;
 
   if (conversationId) {
-    const { data } = await supabase
+    const { data } = await db
       .from("conversations")
       .select("id")
       .eq("id", conversationId)
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
 
     if (!data) return jsonError("NOT_FOUND", requestId, 404);
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("conversations")
       .insert({
         user_id: user.id,
@@ -224,7 +224,7 @@ export async function POST(request: Request) {
   }
 
   if (input.action === "regenerate") {
-    const { data: last } = await supabase
+    const { data: last } = await db
       .from("messages")
       .select("id")
       .eq("conversation_id", conversationId)
@@ -254,7 +254,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: history, error: historyError } = await supabase
+  const { data: history, error: historyError } = await db
     .from("messages")
     .select("role,content")
     .eq("conversation_id", conversationId)
@@ -284,7 +284,7 @@ export async function POST(request: Request) {
     };
   });
 
-  const { data: assistant, error: assistantError } = await supabase
+  const { data: assistant, error: assistantError } = await db
     .from("messages")
     .insert({
       conversation_id: conversationId,
@@ -348,7 +348,7 @@ export async function POST(request: Request) {
   }
 
   if (!result || !selectedKey) {
-    await supabase
+    await db
       .from("messages")
       .update({ status: "failed" })
       .eq("id", assistant.id)
@@ -364,7 +364,7 @@ export async function POST(request: Request) {
   }
 
   if (selectedKey !== input.model) {
-    await supabase
+    await db
       .from("messages")
       .update({ model: selectedKey })
       .eq("id", assistant.id)
@@ -390,7 +390,7 @@ export async function POST(request: Request) {
           controller.enqueue(encoder.encode(delta));
 
           if (Date.now() - lastFlush >= 150) {
-            await supabase
+            await db
               .from("messages")
               .update({ content: buffer })
               .eq("id", assistant.id)
@@ -399,7 +399,7 @@ export async function POST(request: Request) {
           }
         }
 
-        await supabase
+        await db
           .from("messages")
           .update({
             content: buffer,
@@ -411,7 +411,7 @@ export async function POST(request: Request) {
 
         controller.close();
       } catch (error) {
-        await supabase
+        await db
           .from("messages")
           .update({
             content: buffer,
