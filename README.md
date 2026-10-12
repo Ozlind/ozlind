@@ -73,13 +73,15 @@ For the detailed route inventory, file responsibilities, dependency direction, a
 
 ## Environment variables
 
-See `.env.example` for the full list of supported variable names. The main groups are:
+The app uses the same canonical variable names configured in Vercel:
 
-- **Public Supabase configuration:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- **Server-only provider / service credentials:** `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `TAVILY_API_KEY`
-- **Optional infrastructure and legacy embedding configuration:** Upstash Redis variables and Gemini embedding variables
+- **Public Supabase configuration:** `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+- **Server-only Supabase credential:** `SUPABASE_SECRET_KEY`
+- **Groq:** `GROQ_API_KEY`, `GROQ_FAST_MODEL`, `GROQ_PRO_MODEL`
+- **Gemini:** `GEMINI_API_KEY`, `GEMINI_MODEL`
+- **Web research:** `TAVILY_API_KEY`
 
-Only values intentionally safe for browser exposure should use the `NEXT_PUBLIC_` prefix. Never put private provider keys or the Supabase service-role key in client code.
+Only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are exposed to the browser by `next.config.ts`; these are public Supabase configuration values. Never expose `SUPABASE_SECRET_KEY` or provider API keys to client code.
 
 ## Working safely in this repository
 
