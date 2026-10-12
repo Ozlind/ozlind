@@ -14,10 +14,7 @@ function normalizeText(text) {
 }
 
 function getModel() {
-  return (
-    process.env.EMBEDDING_MODEL?.trim() ||
-    DEFAULT_MODEL
-  );
+  return DEFAULT_MODEL;
 }
 
 function isGeminiEmbedding2(model) {
@@ -117,9 +114,7 @@ async function requestEmbedding(
     title = null,
   } = {},
 ) {
-  const apiKey =
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-    process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     throw new Error(
@@ -244,9 +239,7 @@ export async function createEmbeddings(
     return [];
   }
 
-  const apiKey =
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-    process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     throw new Error(
