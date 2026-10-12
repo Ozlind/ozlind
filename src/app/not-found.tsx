@@ -10,7 +10,7 @@ export default function NotFound() {
       <p className="not-found-copy">The link may be outdated, or the page may have moved. Let’s get you back to somewhere useful.</p>
       <div className="not-found-actions">
         <Link className="ui-button ui-button-primary" href="/app"><Home size={16} aria-hidden="true" /> Go to Ozlind</Link>
-        <button className="ui-button ui-button-secondary" type="button" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/")}><ArrowLeft size={16} aria-hidden="true" /> Go back</button>
+        <Link className="ui-button ui-button-secondary" href="/"><ArrowLeft size={16} aria-hidden="true" /> Go to home</Link>
       </div>
     </main>
   );
