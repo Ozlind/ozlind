@@ -185,7 +185,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           aria-label={signingOut ? "Signing out" : "Sign out"}
           title={signingOut ? "Signing out…" : "Sign out"}
         >
-          <OzlindIcon name="i-forward" size={18} />
+          <OzlindIcon name="i-logout" size={18} />
         </button>
       </div>
     </aside>
