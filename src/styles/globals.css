@@ -1047,7 +1047,7 @@ img, video, canvas, svg {
     padding-right: max(10px, env(safe-area-inset-right));
   }
   .composer {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     gap: 6px;
   }
   .composer textarea {
