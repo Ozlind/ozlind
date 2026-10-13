@@ -61,6 +61,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   );
   const [researchEnabled, setResearchEnabled] = useState(preferences.research_enabled);
   const [showModeOptions, setShowModeOptions] = useState(false);
+  const modeOptionsRef = useRef<HTMLDivElement>(null);
+  const modeButtonRef = useRef<HTMLButtonElement>(null);
   const [images, setImages] = useState<ChatImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
@@ -82,6 +84,28 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
   }, [preferences.default_model]);
   useEffect(() => setResearchEnabled(preferences.research_enabled), [preferences.research_enabled]);
+
+  useEffect(() => {
+    if (!showModeOptions) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setShowModeOptions(false);
+      modeButtonRef.current?.focus();
+    };
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (event.target instanceof Node && !modeOptionsRef.current?.contains(event.target)) {
+        setShowModeOptions(false);
+      }
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+    };
+  }, [showModeOptions]);
 
   useEffect(() => {
     const onPrompt = (event: Event) => {
@@ -453,11 +477,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             ))}
           </div>
         )}
-        <div className="composer-modebar" role="group" aria-label="AI mode">
+        <div ref={modeOptionsRef} className="composer-modebar" role="group" aria-label="AI mode">
           <button
             type="button"
             className={"composer-mode" + (mode === "auto" ? " active" : "")}
             aria-pressed={mode === "auto"}
+            ref={modeButtonRef}
             aria-expanded={showModeOptions}
             aria-controls="composer-mode-options"
             title="Choose a response mode"
