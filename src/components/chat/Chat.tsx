@@ -515,7 +515,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           />
           <Button
             className="send-button"
-            disabled={streaming ? false : !online || !draft.trim()}
+            disabled={streaming ? false : !online || (!draft.trim() && images.length === 0)}
             onClick={() => (streaming ? abortRef.current?.abort() : void send())}
             aria-label={streaming ? "Stop response" : "Send message"}
           >
