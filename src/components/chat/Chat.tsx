@@ -525,10 +525,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 Stop
               </>
             ) : (
-              <>
-                <OzlindIcon name="ozl-mark" size={18} />
-                Send
-              </>
+              <OzlindIcon name="ozl-mark" size={18} />
             )}
           </Button>
         </div>
