@@ -514,7 +514,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             aria-describedby="composer-help"
           />
           <Button
-            className="send-button"
+            className={"send-button" + (streaming ? " is-stop" : "")}
             disabled={streaming ? false : !online || (!draft.trim() && images.length === 0)}
             onClick={() => (streaming ? abortRef.current?.abort() : void send())}
             aria-label={streaming ? "Stop response" : "Send message"}
