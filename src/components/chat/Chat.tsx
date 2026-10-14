@@ -514,8 +514,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             aria-describedby="composer-help"
           />
           <Button
-            className="send-button"
-            disabled={streaming ? false : !online || !draft.trim()}
+            className={"send-button" + (streaming ? " is-stop" : "")}
+            disabled={streaming ? false : !online || (!draft.trim() && images.length === 0)}
             onClick={() => (streaming ? abortRef.current?.abort() : void send())}
             aria-label={streaming ? "Stop response" : "Send message"}
           >
@@ -525,10 +525,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 Stop
               </>
             ) : (
-              <>
-                <OzlindIcon name="ozl-mark" size={18} />
-                Send
-              </>
+              <OzlindIcon name="ozl-mark" size={18} />
             )}
           </Button>
         </div>
