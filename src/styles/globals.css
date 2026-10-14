@@ -1106,10 +1106,8 @@ img, video, canvas, svg {
   width: min(800px, 100%);
   margin: 0 auto 8px;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   scrollbar-width: none;
-  overscroll-behavior-x: contain;
 }
 .composer-modebar::-webkit-scrollbar { display: none; }
 .composer-mode,
