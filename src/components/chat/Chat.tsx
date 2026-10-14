@@ -239,8 +239,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       const decoder = new TextDecoder();
       let pendingText = "";
       let lastUiFlush = 0;
+      // Keep streamed text responsive without triggering a React update for every tiny provider chunk.
+      const UI_STREAM_FLUSH_INTERVAL_MS = 32;
       const flushVisibleText = (force = false) => {
-        if (!pendingText || (!force && Date.now() - lastUiFlush < 48)) return;
+        if (!pendingText || (!force && Date.now() - lastUiFlush < UI_STREAM_FLUSH_INTERVAL_MS)) return;
         const chunk = pendingText;
         pendingText = "";
         lastUiFlush = Date.now();
