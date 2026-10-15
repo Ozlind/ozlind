@@ -161,6 +161,55 @@
   .oz-disclaimer { font-size: 9px; }
   .oz-scroll-down { right: 17px; bottom: 155px; }
 }
+
+/* Stage 6: fit short mobile viewports and keep the composer in the visible layout. */
+@media (max-width: 800px) {
+  .oz-chat-app {
+    min-height: 0;
+    height: 100dvh;
+  }
+  .oz-chat-main {
+    min-height: 0;
+  }
+  .oz-topbar,
+  .oz-composer-area {
+    flex-shrink: 0;
+  }
+  .oz-message-scroll {
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media (max-width: 800px) and (max-height: 560px) {
+  .oz-message-column {
+    padding-top: 12px;
+    padding-bottom: 20px;
+  }
+  .oz-welcome {
+    padding-top: 4px;
+    padding-bottom: 18px;
+  }
+  .oz-welcome-mark {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 12px;
+  }
+  .oz-welcome h1 {
+    font-size: clamp(27px, 6vw, 36px);
+  }
+  .oz-welcome-copy {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .oz-composer-area {
+    padding-top: 5px;
+  }
+  .oz-disclaimer {
+    margin-top: 5px;
+  }
+}
+
 @media (max-width: 420px) {
   .oz-chat-app { min-height: 420px; }
   .oz-topbar-title { font-size: 12px; }
