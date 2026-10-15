@@ -20,7 +20,10 @@
 }
 .oz-icon-button:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
 .oz-icon-button:focus-visible, .oz-new-chat:focus-visible, .oz-conversation-link:focus-visible,
-.oz-tool-button:focus-visible, .oz-send-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oz-tool-button:focus-visible, .oz-send-button:focus-visible, .oz-scroll-down:focus-visible,
+.oz-message-actions button:focus-visible, .oz-error-banner button:focus-visible,
+.oz-attachment-preview button:focus-visible, .oz-mode-menu button:focus-visible,
+.oz-sidebar-bottom button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .oz-new-chat {
   display: flex; align-items: center; gap: 10px; min-height: 42px; width: 100%; padding: 0 11px;
   border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text);
@@ -170,6 +173,10 @@
   .oz-tool-button { min-height: 31px; padding-inline: 7px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .oz-sidebar, .oz-icon-button, .oz-composer-shell { transition: none; }
-  .oz-mini-spinner, .oz-thinking-dot { animation-duration: 2s; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
