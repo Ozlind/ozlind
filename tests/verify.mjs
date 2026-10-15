@@ -8,7 +8,6 @@ const required=[
 "src/app/api/chat/route.ts","src/app/api/preferences/route.ts","src/app/api/documents/route.ts",
 "src/app/api/research/route.ts","src/app/api/presets/route.ts","src/app/api/artifacts/route.ts",
 "src/app/api/health/route.ts","src/app/api/ready/route.ts","src/lib/supabase/server.ts",
-"src/lib/supabase/middleware.ts",
 "supabase/migrations/20261008_stage2_preferences.sql","supabase/migrations/20261008_stage2_workspace.sql",
 "supabase/migrations/20261008_stage2_research_preference.sql",
 "supabase/migrations/20261009_stage3_rate_limit_user_scope.sql",
