@@ -268,11 +268,13 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     setAttachments(current => current.filter(image => image.id !== id));
   }
 
-  async function sendMessage(action: "send" | "regenerate" = "send", regenerateContent?: string) {
+  async function sendMessage(
+    action: "send" | "regenerate" = "send",
+    requestContent?: string,
+    retryingExistingUser = false,
+  ) {
     const content = (
-      action === "regenerate"
-        ? regenerateContent ?? ""
-        : draft
+      requestContent ?? (action === "regenerate" ? "" : draft)
     ).trim() || (action === "send" && attachments.length
       ? "Please describe and analyze the attached image(s)."
       : "");
@@ -284,10 +286,16 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
 
     const requestKey = crypto.randomUUID();
     const targetConversationId = conversationId;
-    const submittedAttachments = action === "send" ? attachments : [];
+    const latestUser = [...messages].reverse().find(message => message.role === "user");
     const latestAssistant = [...messages].reverse().find(message => message.role === "assistant");
-    const assistantId = action === "regenerate" && latestAssistant ? latestAssistant.id : crypto.randomUUID();
-    if (action === "send") {
+    const submittedAttachments = action === "regenerate"
+      ? (latestUser?.images?.length ? latestUser.images : attachments)
+      : attachments;
+    const assistantId = (action === "regenerate" || retryingExistingUser) && latestAssistant
+      ? latestAssistant.id
+      : crypto.randomUUID();
+
+    if (action === "send" && !retryingExistingUser) {
       const optimisticUser: ChatMessage = {
         id: requestKey,
         idempotency_key: requestKey,
@@ -297,16 +305,22 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
         images: submittedAttachments,
       };
       setMessages(current => [...current, optimisticUser, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
-      setDraft("");
     } else {
       setMessages(current => {
-        const existing = current.some(message => message.id === assistantId);
-        if (!existing) return [...current, { id: assistantId, role: "assistant", content: "", status: "streaming" }];
-        return current.map(message => message.id === assistantId
+        let next = current;
+        if (action === "send" && retryingExistingUser && latestUser) {
+          next = next.map(message => message.id === latestUser.id
+            ? { ...message, id: requestKey, idempotency_key: requestKey, status: "complete", images: submittedAttachments }
+            : message);
+        }
+        const existing = next.some(message => message.id === assistantId);
+        if (!existing) return [...next, { id: assistantId, role: "assistant", content: "", status: "streaming" }];
+        return next.map(message => message.id === assistantId
           ? { ...message, content: "", status: "streaming" }
           : message);
       });
     }
+    if (action === "send") setDraft("");
     setError("");
     setSending(true);
     stickToBottom.current = true;
@@ -518,7 +532,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
                       <div className="oz-message-actions">
                         {message.content && <button type="button" onClick={() => void copyMessage(message)}>{copiedId === message.id ? <Check size={14} /> : <Square size={13} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}
                         {message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage && (message.status === "failed" || message.status === "interrupted")
-                          ? <button type="button" onClick={() => void sendMessage("regenerate", lastUserMessage)}>Retry response</button>
+                          ? <button type="button" onClick={() => void sendMessage(conversationId ? "regenerate" : "send", lastUserMessage, !conversationId)}>Retry response</button>
                           : message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage && message.content
                             ? <button type="button" onClick={() => { setDraft("Continue from your last response: " + lastUserMessage); textareaRef.current?.focus(); }}>Continue</button>
                             : null}
