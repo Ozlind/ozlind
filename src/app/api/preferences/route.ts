@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const defaults = {
   theme: "system",
-  accent: "#E26F4A",
+  accent: "#5B63E8",
   language: "en",
   density: "comfortable",
   code_theme: "default",
