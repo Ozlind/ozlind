@@ -1191,7 +1191,7 @@ img, video, canvas, svg {
 /* Ozlind dark chat workspace */
 .app-shell:has(.chat-page){--bg:#0b0b14;--surface:#161624;--surface-elevated:#1d1d2e;--surface-subtle:#202033;--text:#ececf5;--text-muted:#9696b0;--text-subtle:#777792;--accent:#4d6bfe;--accent-hover:#657eff;--accent-fg:#fff;--border:#26263a;--border-strong:#383851;background:var(--bg);color:var(--text)}
 .chat-page{height:100dvh;min-height:0;overflow:hidden;background:#0b0b14;color:#ececf5;display:flex;flex-direction:column}
-.chat-header{height:62px;min-height:62px;flex:0 0 auto;justify-content:center;padding:10px 16px;background:rgb(11 11 20 / 88%);backdrop-filter:blur(14px);border-color:#26263a}
+.chat-header{height:62px;min-height:62px;flex:0 0 auto;justify-content:center;padding:10px 16px;background:#0b0b14;border-color:#26263a}
 .chat-header>div{text-align:center}.chat-header .eyebrow{display:none}.chat-header h2{margin:0;color:#ececf5;font-size:15px;font-weight:600}.chat-header h2:after{content:" · AI";font-size:11px;color:#9daaff}
 .message-list{flex:1 1 auto;min-height:0;background:#0b0b14;overscroll-behavior:contain;scrollbar-width:none}.message-list::-webkit-scrollbar{display:none}
 .message-column{width:min(720px,calc(100% - 32px));padding:26px 0 24px}
