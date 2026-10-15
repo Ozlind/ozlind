@@ -112,6 +112,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const sendLockRef = useRef(false);
   const conversationLoadRequest = useRef(0);
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -284,12 +285,14 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     ).trim() || (action === "send" && attachments.length
       ? "Please describe and analyze the attached image(s)."
       : "");
-    if (!content || sending || processingImages) return;
+    if (!content || sending || processingImages || sendLockRef.current) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setError("You're offline. Reconnect before sending your message.");
       return;
     }
 
+    // State updates render asynchronously; this ref blocks same-tick duplicate sends.
+    sendLockRef.current = true;
     const requestKey = crypto.randomUUID();
     const targetConversationId = conversationId;
     const latestUser = [...messages].reverse().find(message => message.role === "user");
@@ -432,6 +435,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
+      sendLockRef.current = false;
       setSending(false);
       // Changing App Router pages unmounts this client component. Navigate only
       // after the response body has settled so cleanup cannot abort active streaming.
