@@ -1,1 +1,5 @@
-import {Chat} from "@/components/chat/Chat"; export default function AppPage(){return <Chat/>}
+import ChatWorkspace from "@/components/chat/ChatWorkspace";
+
+export default function AppHomePage() {
+  return <ChatWorkspace />;
+}

@@ -1,39 +1,29 @@
 import type { Metadata, Viewport } from "next";
 import "../styles/theme.css";
 import "../styles/globals.css";
-import { QueryProvider } from "@/providers/QueryProvider";
+import "../styles/foundation.css";
+import "../styles/chat-workspace.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ozlind.vercel.app"),
-  title: {
-    default: "Ozlind — A calmer AI workspace",
-    template: "%s | Ozlind",
-  },
-  description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
+  title: { default: "Ozlind", template: "%s | Ozlind" },
+  description: "A focused AI workspace for thoughtful conversations and useful work.",
   applicationName: "Ozlind",
-  icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
+  icons: {
+    icon: "/ozlind-mark.svg",
+    shortcut: "/ozlind-mark.svg",
+    apple: "/ozlind-mark.svg",
+  },
   robots: { index: false, follow: false },
-  openGraph: {
-    type: "website",
-    siteName: "Ozlind",
-    title: "Ozlind — A calmer AI workspace",
-    description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
-    url: "https://ozlind.vercel.app",
-  },
-  twitter: {
-    card: "summary",
-    title: "Ozlind — A calmer AI workspace",
-    description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
-  },
 };
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light dark",
-  themeColor: "#f7f7f5",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en" suppressHydrationWarning><body><QueryProvider>{children}</QueryProvider></body></html>;
+  return <html lang="en" suppressHydrationWarning><body>{children}</body></html>;
 }

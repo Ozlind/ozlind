@@ -1,0 +1,236 @@
+/* Ozlind chat workspace — calm editorial layout, mobile-first controls. */
+.oz-chat-app {
+  --chat-sidebar: 264px;
+  display: flex; width: 100%; height: 100dvh; min-height: 520px; overflow: hidden;
+  background: var(--bg); color: var(--text);
+}
+.oz-sidebar {
+  width: var(--chat-sidebar); flex: 0 0 var(--chat-sidebar); min-width: 0;
+  display: flex; flex-direction: column; gap: 18px; padding: 20px 13px 12px;
+  border-right: 1px solid var(--border); background: var(--surface-subtle);
+  transition: width 180ms ease, flex-basis 180ms ease, transform 180ms ease;
+}
+.oz-sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 5px; }
+.oz-brand { display: inline-flex; align-items: center; gap: 9px; min-width: 0; color: var(--text); text-decoration: none; font-size: 16px; font-weight: 650; letter-spacing: -.04em; }
+.oz-brand img { width: 30px; height: 30px; object-fit: contain; }
+.oz-icon-button {
+  display: inline-grid; flex: 0 0 auto; place-items: center; width: 36px; height: 36px;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text-muted);
+  transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+}
+.oz-icon-button:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
+.oz-icon-button:focus-visible, .oz-new-chat:focus-visible, .oz-conversation-link:focus-visible,
+.oz-tool-button:focus-visible, .oz-send-button:focus-visible, .oz-scroll-down:focus-visible,
+.oz-message-actions button:focus-visible, .oz-error-banner button:focus-visible,
+.oz-attachment-preview button:focus-visible, .oz-mode-menu button:focus-visible,
+.oz-sidebar-bottom button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oz-new-chat {
+  display: flex; align-items: center; gap: 10px; min-height: 42px; width: 100%; padding: 0 11px;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text);
+  text-align: left; font-size: 13px; font-weight: 560;
+}
+.oz-new-chat svg { color: var(--text-muted); }
+.oz-shortcut { margin-left: auto; color: var(--text-subtle); font-size: 11px; }
+.oz-sidebar-section { display: flex; flex-direction: column; gap: 9px; min-height: 0; flex: 1; }
+.oz-sidebar-label { padding: 0 9px; color: var(--text-subtle); font-size: 10px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+.oz-conversation-list { display: flex; flex-direction: column; gap: 2px; overflow: auto; min-height: 0; }
+.oz-conversation-link {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 38px; padding: 8px 9px;
+  overflow: hidden; border: 1px solid transparent; border-radius: 9px; background: transparent;
+  color: var(--text-muted); text-align: left; font-size: 12px;
+}
+.oz-conversation-link svg { flex: 0 0 auto; opacity: .72; }
+.oz-conversation-link span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.oz-conversation-link:hover { background: var(--surface); color: var(--text); }
+.oz-conversation-link.active { border-color: var(--border); background: var(--surface); color: var(--text); }
+.oz-sidebar-empty, .oz-sidebar-loading { margin: 3px 9px; color: var(--text-subtle); font-size: 12px; line-height: 1.6; }
+.oz-sidebar-loading { display: flex; align-items: center; gap: 8px; }
+.oz-mini-spinner { display: inline-block; width: 13px; height: 13px; flex: 0 0 13px; border: 1.5px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: oz-chat-spin .75s linear infinite; }
+@keyframes oz-chat-spin { to { transform: rotate(360deg); } }
+.oz-sidebar-bottom { display: flex; align-items: center; gap: 9px; padding: 12px 5px 0; border-top: 1px solid var(--border); }
+.oz-account-mark { display: grid; place-items: center; width: 31px; height: 31px; flex: 0 0 31px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.oz-account-mark img { width: 22px; height: 22px; }
+.oz-account-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.oz-account-copy strong { font-size: 11px; font-weight: 600; }
+.oz-account-copy span { color: var(--text-subtle); font-size: 10px; }
+.oz-chat-main { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; height: 100%; }
+.oz-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; padding: 0 25px; border-bottom: 1px solid var(--border); }
+.oz-topbar-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.oz-topbar-title { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.oz-topbar-divider { width: 1px; height: 17px; background: var(--border-strong); }
+.oz-model-caption { color: var(--text-muted); font-size: 12px; }
+.mobile-menu-trigger, .mobile-close, .oz-sidebar-backdrop, .oz-reopen-sidebar { display: none; }
+.oz-message-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
+.oz-message-column { width: min(760px, calc(100% - 56px)); margin: 0 auto; padding: 36px 0 44px; }
+.oz-message-column.is-empty { min-height: 100%; display: flex; align-items: center; }
+.oz-welcome { width: 100%; padding: 20px 0 48px; }
+.oz-welcome-mark { display: block; width: 42px; height: 42px; margin-bottom: 27px; object-fit: contain; }
+.oz-eyebrow { margin: 0 0 14px; color: var(--text-muted); font-size: 10px; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; }
+.oz-welcome h1 { margin: 0; font-size: clamp(35px, 4.8vw, 54px); line-height: 1.07; letter-spacing: -.065em; font-weight: 520; text-wrap: balance; }
+.oz-welcome-copy { max-width: 450px; margin: 20px 0 0; color: var(--text-muted); font-size: 14px; line-height: 1.8; }
+.oz-message { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 31px; min-width: 0; }
+.oz-message-mark { width: 25px; height: 25px; flex: 0 0 25px; object-fit: contain; margin-top: 1px; }
+.oz-message-body { flex: 1; min-width: 0; }
+.oz-message-label { margin: 3px 0 9px; color: var(--text-muted); font-size: 11px; font-weight: 650; }
+.oz-user-bubble { display: inline-block; max-width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 15px 15px 5px 15px; background: var(--surface-subtle); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.75; }
+.oz-markdown { min-width: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; }
+.oz-markdown > :first-child { margin-top: 0; }
+.oz-markdown > :last-child { margin-bottom: 0; }
+.oz-markdown p { margin: 0 0 14px; }
+.oz-markdown h1, .oz-markdown h2, .oz-markdown h3 { margin: 22px 0 10px; font-weight: 620; line-height: 1.3; letter-spacing: -.025em; }
+.oz-markdown h1 { font-size: 23px; } .oz-markdown h2 { font-size: 19px; } .oz-markdown h3 { font-size: 16px; }
+.oz-markdown ul, .oz-markdown ol { padding-left: 23px; margin: 8px 0 16px; }
+.oz-markdown li { margin: 4px 0; padding-left: 3px; }
+.oz-markdown blockquote { margin: 14px 0; padding: 2px 0 2px 14px; border-left: 2px solid var(--border-strong); color: var(--text-muted); }
+.oz-markdown a { color: var(--accent); text-underline-offset: 3px; }
+.oz-markdown pre { max-width: 100%; overflow-x: auto; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-subtle); font-size: 12px; line-height: 1.7; }
+.oz-markdown code { padding: .15em .35em; border-radius: 5px; background: var(--surface-subtle); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+.oz-markdown pre code { padding: 0; background: transparent; }
+.oz-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 12px; }
+.oz-markdown th, .oz-markdown td { padding: 8px 10px; border: 1px solid var(--border); text-align: left; }
+.oz-thinking { display: inline-flex; align-items: center; gap: 9px; color: var(--text-muted); font-size: 13px; }
+.oz-thinking-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--accent); animation: oz-chat-pulse 1.2s ease-in-out infinite; }
+@keyframes oz-chat-pulse { 0%,100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+.oz-interrupted { color: var(--text-muted); font-size: 12px; }
+.oz-message-actions { display: flex; gap: 5px; margin-top: 10px; }
+.oz-message-actions button { display: inline-flex; align-items: center; gap: 5px; min-height: 29px; padding: 0 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text-muted); font-size: 11px; }
+.oz-message-actions button:hover { border-color: var(--border); background: var(--surface); color: var(--text); }
+.oz-history-state { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 160px; color: var(--text-muted); font-size: 13px; }
+.oz-composer-area { position: relative; z-index: 3; width: min(820px, 100%); margin: 0 auto; padding: 10px 24px max(14px, env(safe-area-inset-bottom)); }
+.oz-image-input { display: none; }
+.oz-composer-input-zone { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
+.oz-composer-input-zone textarea { width: 100%; flex: 0 1 auto; }
+.oz-attach-button { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text-muted); }
+.oz-attach-button:hover:not(:disabled) { border-color: var(--border); background: var(--bg); color: var(--text); }
+.oz-attach-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oz-attach-button:disabled { opacity: .45; cursor: not-allowed; }
+.oz-attachment-previews { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 2px 0 1px; }
+.oz-attachment-preview { position: relative; flex: 0 0 58px; width: 58px; height: 58px; }
+.oz-attachment-preview img { display: block; width: 58px; height: 58px; border: 1px solid var(--border); border-radius: 9px; object-fit: cover; background: #fff; }
+.oz-attachment-preview button { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface-raised, var(--surface)); color: var(--text); }
+.oz-attachment-preview button:disabled { opacity: .55; }
+.oz-attachment-note { flex: 1 1 150px; min-width: 0; color: var(--text-subtle); font-size: 10px; line-height: 1.45; }
+.oz-message-images { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
+.oz-message-images img { display: block; width: auto; max-width: min(180px, 100%); height: auto; max-height: 144px; border: 1px solid var(--border); border-radius: 12px; object-fit: cover; background: #fff; }
+.oz-composer-shell { display: flex; align-items: flex-end; gap: 10px; min-height: 60px; padding: 10px 10px 10px 17px; border: 1px solid var(--border-strong); border-radius: 17px; background: var(--surface); box-shadow: 0 5px 24px rgb(0 0 0 / 3%); transition: border-color 140ms ease, box-shadow 140ms ease; }
+.oz-composer-shell:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--border-strong)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.oz-composer-shell textarea { display: block; flex: 1; min-width: 0; max-height: 180px; min-height: 36px; padding: 8px 0; resize: none; border: 0; outline: 0; box-shadow: none; background: transparent; color: var(--text); font-size: 14px; line-height: 1.55; }
+.oz-composer-shell textarea::placeholder { color: var(--text-subtle); }
+.oz-send-button { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 38px; padding: 0; border: 0; border-radius: 12px; background: var(--text); color: var(--bg); }
+.oz-send-button img { width: 24px; height: 24px; object-fit: contain; }
+.oz-send-button:disabled { opacity: .35; cursor: not-allowed; }
+.oz-send-button:hover:not(:disabled) { opacity: .82; }
+.oz-composer-toolbar { display: flex; align-items: center; gap: 7px; padding: 8px 2px 0; }
+.oz-mode-wrap { position: relative; }
+.oz-tool-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.oz-tool-button:hover, .oz-tool-button.active { border-color: var(--border); background: var(--surface); color: var(--text); }
+.oz-tool-button:disabled { opacity: .55; cursor: not-allowed; }
+.oz-mode-indicator { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.oz-mode-menu { position: absolute; z-index: 20; left: 0; bottom: calc(100% + 9px); width: min(290px, calc(100vw - 36px)); padding: 6px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-elevated); box-shadow: var(--shadow-md); }
+.oz-mode-menu button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left; }
+.oz-mode-menu button:hover, .oz-mode-menu button.selected { background: var(--surface-subtle); }
+.oz-mode-menu button span { display: flex; flex-direction: column; gap: 3px; }
+.oz-mode-menu strong { font-size: 12px; font-weight: 600; }
+.oz-mode-menu small { color: var(--text-muted); font-size: 10px; }
+.oz-toolbar-spacer { flex: 1; }
+.oz-enter-hint { color: var(--text-subtle); font-size: 10px; white-space: nowrap; }
+.oz-disclaimer { margin: 9px 0 0; color: var(--text-subtle); text-align: center; font-size: 10px; }
+.oz-error-banner { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: 10px; background: var(--surface); color: var(--danger); font-size: 12px; line-height: 1.55; }
+.oz-error-banner span { min-width: 0; overflow-wrap: anywhere; }
+.oz-error-banner button { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; border: 0; border-radius: 7px; background: transparent; color: inherit; }
+.oz-scroll-down { position: absolute; z-index: 4; right: 28px; bottom: 180px; display: grid; place-items: center; width: 35px; height: 35px; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.oz-chat-app.sidebar-collapsed .oz-sidebar { display: none; }
+.oz-reopen-sidebar { position: absolute; z-index: 5; top: 11px; left: 12px; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-muted); }
+.oz-chat-app.sidebar-collapsed .oz-topbar { padding-left: 58px; }
+@media (max-width: 800px) {
+  .oz-sidebar { position: fixed; z-index: 51; inset: 0 auto 0 0; width: min(300px, calc(100vw - 46px)); max-width: 100%; height: 100dvh; padding-top: max(18px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-105%); visibility: hidden; box-shadow: none; }
+  .oz-sidebar.is-open { transform: translateX(0); visibility: visible; box-shadow: var(--shadow-md); }
+  .oz-sidebar-backdrop { position: fixed; z-index: 50; inset: 0; display: block; border: 0; background: rgb(15 15 14 / 40%); }
+  .desktop-collapse { display: none; }
+  .mobile-close, .mobile-menu-trigger { display: inline-grid; }
+  .oz-topbar { min-height: 54px; padding: 0 14px; }
+  .oz-topbar-left { gap: 8px; }
+  .oz-message-column { width: calc(100% - 32px); padding-top: 26px; }
+  .oz-message-column.is-empty { align-items: center; }
+  .oz-welcome { padding: 10px 0 40px; }
+  .oz-welcome h1 { font-size: clamp(34px, 8vw, 47px); }
+  .oz-composer-area { padding: 8px 12px max(10px, env(safe-area-inset-bottom)); }
+  .oz-composer-shell { min-height: 56px; padding: 7px 8px 7px 13px; border-radius: 15px; }
+  .oz-composer-shell textarea { font-size: 16px; }
+  .oz-enter-hint { display: none; }
+  .oz-disclaimer { font-size: 9px; }
+  .oz-scroll-down { right: 17px; bottom: 155px; }
+}
+
+/* Stage 6: fit short mobile viewports and keep the composer in the visible layout. */
+@media (max-width: 800px) {
+  .oz-chat-app {
+    min-height: 0;
+    height: 100dvh;
+  }
+  .oz-chat-main {
+    min-height: 0;
+  }
+  .oz-topbar,
+  .oz-composer-area {
+    flex-shrink: 0;
+  }
+  .oz-message-scroll {
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media (max-width: 800px) and (max-height: 560px) {
+  .oz-message-column {
+    padding-top: 12px;
+    padding-bottom: 20px;
+  }
+  .oz-welcome {
+    padding-top: 4px;
+    padding-bottom: 18px;
+  }
+  .oz-welcome-mark {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 12px;
+  }
+  .oz-welcome h1 {
+    font-size: clamp(27px, 6vw, 36px);
+  }
+  .oz-welcome-copy {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .oz-composer-area {
+    padding-top: 5px;
+  }
+  .oz-disclaimer {
+    margin-top: 5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .oz-chat-app { min-height: 420px; }
+  .oz-topbar-title { font-size: 12px; }
+  .oz-model-caption, .oz-topbar-divider { display: none; }
+  .oz-message-column { width: calc(100% - 26px); }
+  .oz-message { gap: 8px; margin-bottom: 25px; }
+  .oz-user-bubble, .oz-markdown { font-size: 13px; }
+  .oz-composer-area { padding-inline: 9px; }
+  .oz-composer-toolbar { gap: 2px; }
+  .oz-tool-button { min-height: 31px; padding-inline: 7px; font-size: 10px; }
+}
+/* On narrow landscape screens, override the narrow-phone minimum height. */
+@media (max-width: 420px) and (max-height: 560px) {
+  .oz-chat-app { min-height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
