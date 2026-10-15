@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, Check, ChevronDown, Menu, MessageSquarePlus, MoreHorizontal, PanelLeftClose, Plus, Search, Square, X } from "lucide-react";
+import { ArrowDown, Check, ChevronDown, Menu, MessageSquarePlus, PanelLeftClose, Plus, Search, Square, X, LogOut } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/client";
@@ -79,6 +79,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       setLoadingHistory(false);
       return;
     }
+    if (sending) return;
     let active = true;
     setLoadingHistory(true);
     setError("");
@@ -100,7 +101,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       }
     })();
     return () => { active = false; };
-  }, [conversationId]);
+  }, [conversationId, sending]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -262,6 +263,17 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     abortRef.current?.abort();
   }
 
+  async function signOut() {
+    try {
+      const supabase = createClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+      window.location.assign("/login");
+    } catch {
+      setError("Couldn't sign out right now. Please try again.");
+    }
+  }
+
   async function copyMessage(message: ChatMessage) {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -308,6 +320,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
           <div className="oz-account-mark"><Image src="/ozlind-mark.svg" alt="" width={26} height={26} /></div>
           <div className="oz-account-copy"><strong>Private workspace</strong><span>Synced with your account</span></div>
           <button type="button" className="oz-icon-button" onClick={() => void loadConversations()} aria-label="Refresh conversations" title="Refresh conversations"><ArrowDown size={15} /></button>
+          <button type="button" className="oz-icon-button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut size={15} /></button>
         </div>
       </aside>
 
