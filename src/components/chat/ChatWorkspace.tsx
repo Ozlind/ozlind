@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowDown, Check, ChevronDown, Menu, MessageSquarePlus, PanelLeftClose, Paperclip, Plus, Search, Square, X, LogOut } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -90,6 +90,7 @@ async function compressImageFile(file: File): Promise<string> {
 
 export default function ChatWorkspace({ conversationId: initialConversationId }: { conversationId?: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [conversationId, setConversationId] = useState(initialConversationId ?? null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -370,9 +371,9 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       }
 
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
-      if (nextId && nextId !== targetConversationId) {
+      if (nextId) {
         setConversationId(nextId);
-        routeAfterStream = nextId;
+        if (pathname !== "/app/" + nextId) routeAfterStream = nextId;
       }
 
       const reader = response.body?.getReader();
