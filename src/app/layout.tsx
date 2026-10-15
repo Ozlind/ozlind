@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "../styles/theme.css";
 import "../styles/globals.css";
 import "../styles/foundation.css";
+import "../styles/chat-workspace.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ozlind.vercel.app"),
