@@ -94,6 +94,21 @@
 .oz-message-actions button:hover { border-color: var(--border); background: var(--surface); color: var(--text); }
 .oz-history-state { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 160px; color: var(--text-muted); font-size: 13px; }
 .oz-composer-area { position: relative; z-index: 3; width: min(820px, 100%); margin: 0 auto; padding: 10px 24px max(14px, env(safe-area-inset-bottom)); }
+.oz-image-input { display: none; }
+.oz-composer-input-zone { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
+.oz-composer-input-zone textarea { width: 100%; flex: 0 1 auto; }
+.oz-attach-button { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text-muted); }
+.oz-attach-button:hover:not(:disabled) { border-color: var(--border); background: var(--bg); color: var(--text); }
+.oz-attach-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oz-attach-button:disabled { opacity: .45; cursor: not-allowed; }
+.oz-attachment-previews { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 2px 0 1px; }
+.oz-attachment-preview { position: relative; flex: 0 0 58px; width: 58px; height: 58px; }
+.oz-attachment-preview img { display: block; width: 58px; height: 58px; border: 1px solid var(--border); border-radius: 9px; object-fit: cover; background: #fff; }
+.oz-attachment-preview button { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface-raised, var(--surface)); color: var(--text); }
+.oz-attachment-preview button:disabled { opacity: .55; }
+.oz-attachment-note { flex: 1 1 150px; min-width: 0; color: var(--text-subtle); font-size: 10px; line-height: 1.45; }
+.oz-message-images { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
+.oz-message-images img { display: block; width: auto; max-width: min(180px, 100%); height: auto; max-height: 144px; border: 1px solid var(--border); border-radius: 12px; object-fit: cover; background: #fff; }
 .oz-composer-shell { display: flex; align-items: flex-end; gap: 10px; min-height: 60px; padding: 10px 10px 10px 17px; border: 1px solid var(--border-strong); border-radius: 17px; background: var(--surface); box-shadow: 0 5px 24px rgb(0 0 0 / 3%); transition: border-color 140ms ease, box-shadow 140ms ease; }
 .oz-composer-shell:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--border-strong)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
 .oz-composer-shell textarea { display: block; flex: 1; min-width: 0; max-height: 180px; min-height: 36px; padding: 8px 0; resize: none; border: 0; outline: 0; box-shadow: none; background: transparent; color: var(--text); font-size: 14px; line-height: 1.55; }
