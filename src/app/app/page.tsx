@@ -1,27 +1,36 @@
 export default function WorkspaceRebuildPage() {
   return (
-    <main
-      style={{
-        minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
-        padding: "32px 20px",
-        background: "var(--bg, #111216)",
-        color: "var(--text, #f1f1f6)",
-      }}
-    >
-      <section style={{ width: "100%", maxWidth: 520, textAlign: "center" }}>
-        <img src="/ozlind-mark.svg" alt="Ozlind" width="48" height="48" />
-        <p style={{ marginTop: 24, fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", opacity: .65 }}>
-          Ozlind
-        </p>
-        <h1 style={{ marginTop: 12, fontSize: "clamp(28px, 6vw, 40px)", lineHeight: 1.15, fontWeight: 600 }}>
-          A better workspace is taking shape.
-        </h1>
-        <p style={{ marginTop: 14, lineHeight: 1.7, opacity: .72 }}>
-          The previous workspace interface has been cleared for a fresh rebuild. Your account, authentication, and backend data remain in place.
-        </p>
-      </section>
+    <main className="workspace-foundation">
+      <div className="workspace-foundation__inner">
+        <header className="workspace-foundation__topbar">
+          <a className="workspace-foundation__brand" href="/app" aria-label="Ozlind workspace home">
+            <img src="/ozlind-mark.svg" alt="" width="34" height="34" />
+            <span>Ozlind</span>
+          </a>
+          <div className="workspace-foundation__status" role="status">
+            <span className="workspace-foundation__status-dot" aria-hidden="true" />
+            Workspace foundation
+          </div>
+        </header>
+
+        <section className="workspace-foundation__main" aria-labelledby="workspace-title">
+          <p className="workspace-foundation__eyebrow">A clearer space to think</p>
+          <h1 id="workspace-title" className="workspace-foundation__title">
+            Make room for <em>better thinking.</em>
+          </h1>
+          <p className="workspace-foundation__description">
+            Ozlind is being rebuilt around a calmer, more focused workspace. Your account,
+            Google sign-in, and existing backend services are being kept intact while the
+            new interface is put in place.
+          </p>
+          <div className="workspace-foundation__rule" aria-hidden="true" />
+          <p className="workspace-foundation__footnote">
+            This is the foundation stage, not the finished chat experience. Chat and workspace
+            features will return only after their interfaces are connected to the existing services
+            and verified.
+          </p>
+        </section>
+      </div>
     </main>
   );
 }
