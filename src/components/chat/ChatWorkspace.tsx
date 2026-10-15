@@ -533,8 +533,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
                     {message.role === "user" ? <>
                       {message.images?.length ? <div className="oz-message-images" aria-label="Images attached to this message">{message.images.map(image => <Image key={image.id} src={image.dataUrl} alt={image.name} width={180} height={144} unoptimized />)}</div> : null}
                       <div className="oz-user-bubble">{message.content}</div>
-                    </> : message.content ? <div className="oz-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> :
-                      {message.status === "failed" ? <p className="oz-interrupted" role="status">No response was received. Retry to try again.</p> : <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}}
+                    </> : message.content ? <div className="oz-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> : message.status === "failed" ? <p className="oz-interrupted" role="status">No response was received. Retry to try again.</p> : <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}
                     {message.status === "interrupted" && <p className="oz-interrupted">Response stopped. You can ask Ozlind to continue.</p>}
                     {message.role === "assistant" && message.status !== "streaming" && (message.content || message.status === "failed" || message.status === "interrupted") && (
                       <div className="oz-message-actions">
