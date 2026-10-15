@@ -1,38 +1,38 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces */
-  --bg: #f7f7f5;
+  /* Surfaces: quiet, neutral, and intentionally low-contrast. */
+  --bg: #f7f7f9;
   --surface: #ffffff;
   --surface-elevated: #ffffff;
-  --surface-subtle: #f0f0ec;
+  --surface-subtle: #f0f0f4;
 
   /* Content */
-  --text: #20201e;
-  --text-muted: #686862;
-  --text-subtle: #85857e;
+  --text: #1c1d24;
+  --text-muted: #666875;
+  --text-subtle: #858795;
 
-  /* Brand and feedback */
-  --accent: #b94f31;
-  --accent-hover: #9f4028;
+  /* Brand and semantic feedback */
+  --accent: #5b63e8;
+  --accent-hover: #4952d4;
   --accent-fg: #ffffff;
-  --border: #deded8;
-  --border-strong: #c7c7bf;
-  --danger: #b42318;
-  --success: #277a4a;
+  --border: #e3e4eb;
+  --border-strong: #c9cad6;
+  --danger: #b42332;
+  --success: #24764b;
   --warning: #8a5700;
   --info: #245ea8;
 
   /* Shape, depth, and interaction */
   --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
   --radius-pill: 9999px;
-  --shadow-sm: 0 1px 2px rgb(24 24 20 / 5%);
-  --shadow-md: 0 8px 24px rgb(24 24 20 / 8%);
-  --focus-ring: 0 0 0 3px rgb(185 79 49 / 18%);
+  --shadow-sm: 0 1px 2px rgb(24 25 38 / 5%);
+  --shadow-md: 0 10px 30px rgb(24 25 38 / 8%);
+  --focus-ring: 0 0 0 3px rgb(91 99 232 / 20%);
   --motion-fast: 120ms;
   --motion-normal: 180ms;
 }
@@ -40,26 +40,32 @@
 .dark {
   color-scheme: dark;
 
-  --bg: #171715;
-  --surface: #1f1f1c;
-  --surface-elevated: #272723;
-  --surface-subtle: #30302b;
+  /* Dark mode uses layered charcoal surfaces rather than pure black. */
+  --bg: #111216;
+  --surface: #18191f;
+  --surface-elevated: #202129;
+  --surface-subtle: #292a34;
 
-  --text: #f2f1ec;
-  --text-muted: #b0b0a7;
-  --text-subtle: #929289;
+  --text: #f1f1f6;
+  --text-muted: #b0b1bf;
+  --text-subtle: #8c8e9d;
 
-  --accent: #ee987b;
-  --accent-hover: #f3ad95;
-  --accent-fg: #24140f;
-  --border: #393933;
-  --border-strong: #505048;
-  --danger: #ff938a;
-  --success: #8bd4a0;
+  --accent: #9298ff;
+  --accent-hover: #a9adff;
+  --accent-fg: #111216;
+  --border: #30313d;
+  --border-strong: #444654;
+  --danger: #ff8d98;
+  --success: #80d5a0;
   --warning: #edc477;
   --info: #9bbfff;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 24%);
-  --shadow-md: 0 12px 30px rgb(0 0 0 / 26%);
-  --focus-ring: 0 0 0 3px rgb(238 152 123 / 22%);
+  --shadow-md: 0 14px 36px rgb(0 0 0 / 30%);
+  --focus-ring: 0 0 0 3px rgb(146 152 255 / 24%);
+}
+
+::selection {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
