@@ -26,6 +26,30 @@ function readableError(error: unknown) {
   return "Ozlind couldn't complete that request. Please try again.";
 }
 
+function responseErrorMessage(body: unknown, status: number): string {
+  const payload = body as { error?: { code?: unknown; message?: unknown } } | null;
+  const message = payload?.error?.message;
+  if (typeof message === "string" && message.trim()) return message;
+
+  const code = typeof payload?.error?.code === "string" ? payload.error.code : "";
+  switch (code) {
+    case "RATE_LIMITED": return "You’ve sent several requests in a short time. Please wait a moment and try again.";
+    case "RATE_LIMITER_UNAVAILABLE": return "Request protection is temporarily unavailable. Please try again shortly.";
+    case "AI_CONFIGURATION_ERROR":
+    case "SERVER_CONFIGURATION_ERROR": return "Ozlind is missing a required server configuration. Please try again later.";
+    case "AI_PROVIDER_UNAVAILABLE": return "The AI service is temporarily unavailable. Your message is still here; retry the response in a moment.";
+    case "CONVERSATION_CREATE_FAILED":
+    case "MESSAGE_SAVE_FAILED":
+    case "HISTORY_LOAD_FAILED":
+    case "ASSISTANT_CREATE_FAILED": return "Your message couldn’t be saved or loaded. Please retry the response.";
+    case "NOT_FOUND": return "This conversation could not be found. Start a new chat and try again.";
+    case "INVALID_INPUT": return "That message could not be processed. Check the message and any attachments, then try again.";
+    default: return status >= 500
+      ? "Ozlind ran into a temporary server issue. Your message is still here; retry the response."
+      : "Ozlind couldn’t process that request. Please try again.";
+  }
+}
+
 async function compressImageFile(file: File): Promise<string> {
   const objectUrl = URL.createObjectURL(file);
   try {
@@ -244,8 +268,14 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     setAttachments(current => current.filter(image => image.id !== id));
   }
 
-  async function sendMessage() {
-    const content = draft.trim();
+  async function sendMessage(action: "send" | "regenerate" = "send", regenerateContent?: string) {
+    const content = (
+      action === "regenerate"
+        ? regenerateContent ?? ""
+        : draft
+    ).trim() || (action === "send" && attachments.length
+      ? "Please describe and analyze the attached image(s)."
+      : "");
     if (!content || sending || processingImages) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setError("You're offline. Reconnect before sending your message.");
@@ -253,12 +283,30 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     }
 
     const requestKey = crypto.randomUUID();
-    const assistantId = crypto.randomUUID();
     const targetConversationId = conversationId;
-    const submittedAttachments = attachments;
-    const optimisticUser: ChatMessage = { id: requestKey, role: "user", content, status: "complete", idempotency_key: requestKey, images: submittedAttachments };
-    setMessages(current => [...current, optimisticUser, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
-    setDraft("");
+    const submittedAttachments = action === "send" ? attachments : [];
+    const latestAssistant = [...messages].reverse().find(message => message.role === "assistant");
+    const assistantId = action === "regenerate" && latestAssistant ? latestAssistant.id : crypto.randomUUID();
+    if (action === "send") {
+      const optimisticUser: ChatMessage = {
+        id: requestKey,
+        idempotency_key: requestKey,
+        role: "user",
+        content,
+        status: "complete",
+        images: submittedAttachments,
+      };
+      setMessages(current => [...current, optimisticUser, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
+      setDraft("");
+    } else {
+      setMessages(current => {
+        const existing = current.some(message => message.id === assistantId);
+        if (!existing) return [...current, { id: assistantId, role: "assistant", content: "", status: "streaming" }];
+        return current.map(message => message.id === assistantId
+          ? { ...message, content: "", status: "streaming" }
+          : message);
+      });
+    }
     setError("");
     setSending(true);
     stickToBottom.current = true;
@@ -274,7 +322,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
           conversationId: targetConversationId,
           content,
           model: MODEL[mode],
-          action: "send",
+          action,
           idempotencyKey: requestKey,
           research: webSearch,
           images: submittedAttachments.map(image => ({ dataUrl: image.dataUrl, mimeType: "image/jpeg" })),
@@ -284,8 +332,10 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
 
       if (response.status === 204) {
         const duplicateId = response.headers.get("X-OZLIND-Conversation-ID");
+        // Keep the optimistic user bubble until the normal history refresh replaces it
+        // with the saved row; remove only the empty assistant placeholder.
+        setMessages(current => current.filter(message => message.id !== assistantId));
         setAttachments([]);
-        setMessages(current => current.filter(message => message.id !== requestKey && message.id !== assistantId));
         if (duplicateId) {
           setConversationId(duplicateId);
           router.replace("/app/" + duplicateId);
@@ -298,7 +348,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
           router.replace("/login");
           throw new Error("Your session expired. Sign in again to continue.");
         }
-        throw new Error(body?.error?.message || body?.error?.code || "Ozlind couldn't generate a response.");
+        throw new Error(responseErrorMessage(body, response.status));
       }
 
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
@@ -333,17 +383,23 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       setMessages(current => current.map(message =>
         message.id === assistantId ? { ...message, status: "complete" } : message
       ));
-      setAttachments([]);
+      if (action === "send") setAttachments([]);
       await loadConversations();
     } catch (caught) {
       if (controller.signal.aborted) {
         setMessages(current => current.map(message =>
-          message.id === assistantId ? { ...message, status: message.content ? "interrupted" : "failed" } : message
+          message.id === assistantId
+            ? { ...message, status: message.content ? "interrupted" : "failed" }
+            : message
         ));
       } else {
         setError(readableError(caught));
-        setDraft(current => current.trim() ? current : content);
-        setMessages(current => current.filter(message => message.id !== assistantId || Boolean(message.content)));
+        if (action === "send") setDraft(current => current.trim() ? current : content);
+        setMessages(current => current.map(message =>
+          message.id === assistantId
+            ? { ...message, status: message.content ? "interrupted" : "failed" }
+            : message
+        ));
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -456,13 +512,16 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
                       {message.images?.length ? <div className="oz-message-images" aria-label="Images attached to this message">{message.images.map(image => <Image key={image.id} src={image.dataUrl} alt={image.name} width={180} height={144} unoptimized />)}</div> : null}
                       <div className="oz-user-bubble">{message.content}</div>
                     </> : message.content ? <div className="oz-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> :
-                      <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}
+                      {message.status === "failed" ? <p className="oz-interrupted" role="status">No response was received. Retry to try again.</p> : <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}}
                     {message.status === "interrupted" && <p className="oz-interrupted">Response stopped. You can ask Ozlind to continue.</p>}
-                    {message.role === "assistant" && message.content && message.status !== "streaming" && (
+                    {message.role === "assistant" && message.status !== "streaming" && (message.content || message.status === "failed" || message.status === "interrupted") && (
                       <div className="oz-message-actions">
-                        <button type="button" onClick={() => void copyMessage(message)}>{copiedId === message.id ? <Check size={14} /> : <Square size={13} />}{copiedId === message.id ? "Copied" : "Copy"}</button>
-                        {message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage &&
-                          <button type="button" onClick={() => { setDraft("Continue from your last response: " + lastUserMessage); textareaRef.current?.focus(); }}>Continue</button>}
+                        {message.content && <button type="button" onClick={() => void copyMessage(message)}>{copiedId === message.id ? <Check size={14} /> : <Square size={13} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}
+                        {message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage && (message.status === "failed" || message.status === "interrupted")
+                          ? <button type="button" onClick={() => void sendMessage("regenerate", lastUserMessage)}>Retry response</button>
+                          : message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage && message.content
+                            ? <button type="button" onClick={() => { setDraft("Continue from your last response: " + lastUserMessage); textareaRef.current?.focus(); }}>Continue</button>
+                            : null}
                       </div>
                     )}
                   </div>
@@ -491,7 +550,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); }
             }} placeholder={attachments.length ? "Ask about your images…" : "Message Ozlind…"} rows={1} maxLength={20000} disabled={sending} aria-label="Message Ozlind" />
             </div>
-            <button type="button" className="oz-send-button" onClick={sending ? stopGeneration : () => void sendMessage()} disabled={!sending && !draft.trim()} aria-label={sending ? "Stop response" : "Send message"} title={sending ? "Stop response" : "Send message"}>
+            <button type="button" className="oz-send-button" onClick={sending ? stopGeneration : () => void sendMessage()} disabled={!sending && (!draft.trim() && attachments.length === 0 || processingImages)} aria-label={sending ? "Stop response" : "Send message"} title={sending ? "Stop response" : "Send message"}>
               {sending ? <Square size={14} fill="currentColor" /> : <Image src="/ozlind-mark.svg" alt="" width={24} height={24} />}
             </button>
           </div>
