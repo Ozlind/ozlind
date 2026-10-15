@@ -221,6 +221,11 @@
   .oz-composer-toolbar { gap: 2px; }
   .oz-tool-button { min-height: 31px; padding-inline: 7px; font-size: 10px; }
 }
+/* On narrow landscape screens, override the narrow-phone minimum height. */
+@media (max-width: 420px) and (max-height: 560px) {
+  .oz-chat-app { min-height: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
