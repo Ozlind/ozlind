@@ -1,15 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, Check, ChevronDown, Menu, MessageSquarePlus, PanelLeftClose, Plus, Search, Square, X, LogOut } from "lucide-react";
+import { ArrowDown, Check, ChevronDown, Menu, MessageSquarePlus, PanelLeftClose, Paperclip, Plus, Search, Square, X, LogOut } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/client";
 
-type ChatMessage = { id: string; role: "user" | "assistant"; content: string; status?: string };
+type PendingImage = { id: string; name: string; dataUrl: string };
+type ChatMessage = { id: string; role: "user" | "assistant"; content: string; status?: string; idempotency_key?: string | null; images?: PendingImage[] };
 type Conversation = { id: string; title: string; updated_at?: string };
 type ModelMode = "auto" | "fast" | "vision" | "pro";
 
@@ -23,6 +24,44 @@ const MODEL: Record<ModelMode, string> = {
 function readableError(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   return "Ozlind couldn't complete that request. Please try again.";
+}
+
+async function compressImageFile(file: File): Promise<string> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new window.Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("This image couldn't be opened. Choose a JPEG, PNG, or WebP image."));
+      element.src = objectUrl;
+    });
+
+    const dimensions = [1600, 1280, 1024];
+    const qualities = [0.82, 0.72, 0.62, 0.52];
+    for (const maxDimension of dimensions) {
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Image processing isn't available in this browser.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+
+      for (const quality of qualities) {
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        // Keep two-image JSON requests within common serverless request-body limits.
+        if (dataUrl.length <= 1_800_000) return dataUrl;
+      }
+    }
+
+    throw new Error("This image is too large to attach after compression. Choose a smaller image.");
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export default function ChatWorkspace({ conversationId: initialConversationId }: { conversationId?: string }) {
@@ -41,9 +80,12 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<PendingImage[]>([]);
+  const [processingImages, setProcessingImages] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -89,12 +131,18 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
         const supabase = createClient();
         const { data, error: queryError } = await supabase
           .from("messages")
-          .select("id,role,content,status")
+          .select("id,role,content,status,idempotency_key")
           .eq("conversation_id", conversationId)
           .order("created_at", { ascending: true })
           .limit(100);
         if (queryError) throw queryError;
-        if (active) setMessages((data ?? []) as ChatMessage[]);
+        if (active) {
+          setMessages(current => (data ?? []).map(row => {
+            // Preserve this session's image previews by matching the request idempotency key.
+            const optimistic = current.find(message => message.id === row.idempotency_key && message.images?.length);
+            return optimistic ? { ...row, images: optimistic.images } as ChatMessage : row as ChatMessage;
+          }));
+        }
       } catch (caught) {
         if (active) setError("This conversation couldn't be loaded. Check your connection and try again.");
       } finally {
@@ -139,6 +187,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     setConversationId(null);
     setMessages([]);
     setDraft("");
+    setAttachments([]);
     setError("");
     setSending(false);
     setMobileSidebarOpen(false);
@@ -155,9 +204,49 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     router.push("/app/" + id);
   }
 
+  async function handleImageSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!files.length || sending || processingImages) return;
+
+    const availableSlots = 2 - attachments.length;
+    if (availableSlots <= 0) {
+      setError("You can attach up to two images to one message.");
+      return;
+    }
+
+    const selectedFiles = files.slice(0, availableSlots);
+    const extraFilesSkipped = files.length > selectedFiles.length;
+    setProcessingImages(true);
+    setError("");
+    try {
+      const processed: PendingImage[] = [];
+      for (const file of selectedFiles) {
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+          throw new Error("Choose a JPEG, PNG, or WebP image.");
+        }
+        if (file.size > 12 * 1024 * 1024) {
+          throw new Error("Each image must be smaller than 12 MB before compression.");
+        }
+        processed.push({ id: crypto.randomUUID(), name: file.name, dataUrl: await compressImageFile(file) });
+      }
+      setAttachments(current => [...current, ...processed].slice(0, 2));
+      setMode("vision");
+      setError(extraFilesSkipped ? "Only two images can be attached to a message; extra files were skipped." : "");
+    } catch (caught) {
+      setError(readableError(caught));
+    } finally {
+      setProcessingImages(false);
+    }
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments(current => current.filter(image => image.id !== id));
+  }
+
   async function sendMessage() {
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sending || processingImages) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setError("You're offline. Reconnect before sending your message.");
       return;
@@ -166,7 +255,8 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     const requestKey = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
     const targetConversationId = conversationId;
-    const optimisticUser: ChatMessage = { id: requestKey, role: "user", content, status: "complete" };
+    const submittedAttachments = attachments;
+    const optimisticUser: ChatMessage = { id: requestKey, role: "user", content, status: "complete", idempotency_key: requestKey, images: submittedAttachments };
     setMessages(current => [...current, optimisticUser, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
     setDraft("");
     setError("");
@@ -187,13 +277,14 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
           action: "send",
           idempotencyKey: requestKey,
           research: webSearch,
-          images: [],
+          images: submittedAttachments.map(image => ({ dataUrl: image.dataUrl, mimeType: "image/jpeg" })),
         }),
         signal: controller.signal,
       });
 
       if (response.status === 204) {
         const duplicateId = response.headers.get("X-OZLIND-Conversation-ID");
+        setAttachments([]);
         setMessages(current => current.filter(message => message.id !== requestKey && message.id !== assistantId));
         if (duplicateId) {
           setConversationId(duplicateId);
@@ -242,6 +333,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       setMessages(current => current.map(message =>
         message.id === assistantId ? { ...message, status: "complete" } : message
       ));
+      setAttachments([]);
       await loadConversations();
     } catch (caught) {
       if (controller.signal.aborted) {
@@ -360,8 +452,10 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
                   {message.role === "assistant" && <Image src="/ozlind-mark.svg" alt="" width={25} height={25} className="oz-message-mark" />}
                   <div className="oz-message-body">
                     <div className="oz-message-label">{message.role === "user" ? "You" : "Ozlind"}</div>
-                    {message.role === "user" ? <div className="oz-user-bubble">{message.content}</div> :
-                      message.content ? <div className="oz-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> :
+                    {message.role === "user" ? <>
+                      {message.images?.length ? <div className="oz-message-images" aria-label="Images attached to this message">{message.images.map(image => <Image key={image.id} src={image.dataUrl} alt={image.name} width={180} height={144} unoptimized />)}</div> : null}
+                      <div className="oz-user-bubble">{message.content}</div>
+                    </> : message.content ? <div className="oz-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> :
                       <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}
                     {message.status === "interrupted" && <p className="oz-interrupted">Response stopped. You can ask Ozlind to continue.</p>}
                     {message.role === "assistant" && message.content && message.status !== "streaming" && (
@@ -383,9 +477,20 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
         <footer className="oz-composer-area">
           {error && <div className="oz-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
           <div className="oz-composer-shell">
-            <textarea ref={textareaRef} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => {
+            <input ref={imageInputRef} className="oz-image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={event => void handleImageSelection(event)} aria-label="Choose images to attach" />
+            <button type="button" className="oz-attach-button" onClick={() => imageInputRef.current?.click()} disabled={sending || processingImages || attachments.length >= 2} aria-label="Attach images" title={attachments.length >= 2 ? "Two images attached" : "Attach images"}><Paperclip size={17} /></button>
+            <div className="oz-composer-input-zone">
+              {attachments.length > 0 && <div className="oz-attachment-previews" aria-label="Attached images">
+                {attachments.map(image => <div className="oz-attachment-preview" key={image.id}>
+                  <Image src={image.dataUrl} alt={image.name} width={58} height={58} unoptimized />
+                  <button type="button" onClick={() => removeAttachment(image.id)} disabled={sending} aria-label={"Remove " + image.name} title="Remove image"><X size={12} /></button>
+                </div>)}
+                <span className="oz-attachment-note">Images are used for this reply and aren’t saved to history.</span>
+              </div>}
+              <textarea ref={textareaRef} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); }
-            }} placeholder="Message Ozlind…" rows={1} maxLength={20000} disabled={sending} aria-label="Message Ozlind" />
+            }} placeholder={attachments.length ? "Ask about your images…" : "Message Ozlind…"} rows={1} maxLength={20000} disabled={sending} aria-label="Message Ozlind" />
+            </div>
             <button type="button" className="oz-send-button" onClick={sending ? stopGeneration : () => void sendMessage()} disabled={!sending && !draft.trim()} aria-label={sending ? "Stop response" : "Send message"} title={sending ? "Stop response" : "Send message"}>
               {sending ? <Square size={14} fill="currentColor" /> : <Image src="/ozlind-mark.svg" alt="" width={24} height={24} />}
             </button>
@@ -396,7 +501,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
                 <span className="oz-mode-indicator" />{mode === "auto" ? "Auto" : mode === "fast" ? "Fast" : mode === "vision" ? "Vision" : "Pro"}<ChevronDown size={13} />
               </button>
               {modeOpen && <div className="oz-mode-menu" role="menu" aria-label="Choose AI mode">
-                {(["auto", "fast", "vision", "pro"] as ModelMode[]).map(option => <button type="button" role="menuitemradio" aria-checked={mode === option} key={option} className={mode === option ? "selected" : ""} onClick={() => { setMode(option); setModeOpen(false); }}><span><strong>{option === "auto" ? "Auto" : option[0].toUpperCase() + option.slice(1)}</strong><small>{option === "auto" ? "Choose a suitable model" : option === "fast" ? "Quick everyday answers" : option === "vision" ? "Image understanding" : "More deliberate reasoning"}</small></span>{mode === option && <Check size={15} />}</button>)}
+                {(["auto", "fast", "vision", "pro"] as ModelMode[]).map(option => <button type="button" role="menuitemradio" aria-checked={mode === option} key={option} className={mode === option ? "selected" : ""} onClick={() => { if (attachments.length && option !== "vision") { setError("Remove attached images before switching away from Vision."); setModeOpen(false); return; } setMode(option); setModeOpen(false); setError(""); }}><span><strong>{option === "auto" ? "Auto" : option[0].toUpperCase() + option.slice(1)}</strong><small>{option === "auto" ? "Choose a suitable model" : option === "fast" ? "Quick everyday answers" : option === "vision" ? "Image understanding" : "More deliberate reasoning"}</small></span>{mode === option && <Check size={15} />}</button>)}
               </div>}
             </div>
             <button type="button" className={"oz-tool-button" + (webSearch ? " active" : "")} onClick={() => setWebSearch(value => !value)} aria-pressed={webSearch} disabled={sending}><Search size={14} />Web Search</button>
