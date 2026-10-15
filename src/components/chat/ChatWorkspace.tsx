@@ -195,7 +195,10 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setModeOpen(false);
+      if (event.key === "Escape") {
+        setModeOpen(false);
+        setMobileSidebarOpen(false);
+      }
     };
     const onPointerDown = (event: PointerEvent) => {
       if (modeMenuRef.current && !modeMenuRef.current.contains(event.target as Node)) setModeOpen(false);
@@ -463,6 +466,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
   }
 
   const lastUserMessage = [...messages].reverse().find(message => message.role === "user")?.content;
+  const latestAssistantId = [...messages].reverse().find(message => message.role === "assistant")?.id;
 
   return (
     <div className={"oz-chat-app" + (sidebarCollapsed ? " sidebar-collapsed" : "")}>
@@ -487,7 +491,8 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
             <nav className="oz-conversation-list">
               {conversations.map(conversation => (
                 <button key={conversation.id} type="button" className={"oz-conversation-link" + (conversation.id === conversationId ? " active" : "")}
-                  onClick={() => openConversation(conversation.id)} title={conversation.title || "Untitled conversation"}>
+                  onClick={() => openConversation(conversation.id)} title={conversation.title || "Untitled conversation"}
+                  aria-current={conversation.id === conversationId ? "page" : undefined}>
                   <MessageSquarePlus size={15} /><span>{conversation.title || "Untitled conversation"}</span>
                 </button>
               ))}
@@ -518,8 +523,9 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
         <div className="oz-message-scroll" ref={scrollRef}
           onScroll={event => {
             const element = event.currentTarget;
-            stickToBottom.current = element.scrollTop + element.clientHeight >= element.scrollHeight - 56;
-            setShowScrollDown(!stickToBottom.current);
+            const isAtBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 56;
+            stickToBottom.current = isAtBottom;
+            setShowScrollDown(current => current === !isAtBottom ? current : !isAtBottom);
           }}>
           <div className={"oz-message-column" + (messages.length === 0 ? " is-empty" : "")}>
             {loadingHistory ? (
@@ -540,14 +546,14 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
                     {message.role === "user" ? <>
                       {message.images?.length ? <div className="oz-message-images" aria-label="Images attached to this message">{message.images.map(image => <Image key={image.id} src={image.dataUrl} alt={image.name} width={180} height={144} unoptimized />)}</div> : null}
                       <div className="oz-user-bubble">{message.content}</div>
-                    </> : message.content ? <div className="oz-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> : message.status === "failed" ? <p className="oz-interrupted" role="status">No response was received. Retry to try again.</p> : <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}
-                    {message.status === "interrupted" && <p className="oz-interrupted">Response stopped. You can ask Ozlind to continue.</p>}
+                    </> : message.content ? <div className="oz-markdown" aria-live={message.status === "streaming" ? "off" : "polite"}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div> : message.status === "failed" ? <p className="oz-interrupted" role="status">No response was received. Retry to try again.</p> : <div className="oz-thinking" role="status"><span className="oz-thinking-dot" />{webSearch ? "Searching the web and preparing a response…" : "Thinking through your question…"}</div>}
+                    {message.status === "interrupted" && <p className="oz-interrupted" role="status">Response stopped. You can retry this response.</p>}
                     {message.role === "assistant" && message.status !== "streaming" && (message.content || message.status === "failed" || message.status === "interrupted") && (
                       <div className="oz-message-actions">
                         {message.content && <button type="button" onClick={() => void copyMessage(message)}>{copiedId === message.id ? <Check size={14} /> : <Square size={13} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}
-                        {message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage && (message.status === "failed" || message.status === "interrupted")
+                        {message.id === latestAssistantId && lastUserMessage && (message.status === "failed" || message.status === "interrupted")
                           ? <button type="button" onClick={() => void sendMessage(conversationId ? "regenerate" : "send", lastUserMessage, !conversationId)}>Retry response</button>
-                          : message.id === [...messages].reverse().find(item => item.role === "assistant")?.id && lastUserMessage && message.content
+                          : message.id === latestAssistantId && lastUserMessage && message.content
                             ? <button type="button" onClick={() => { setDraft("Continue from your last response: " + lastUserMessage); textareaRef.current?.focus(); }}>Continue</button>
                             : null}
                       </div>
