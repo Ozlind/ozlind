@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, Check, ChevronDown, Menu, MessageSquarePlus, PanelLeftClose, Plus, Search, Square, X, LogOut } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -291,10 +292,10 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       {mobileSidebarOpen && <button className="oz-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} aria-label="Close navigation" />}
       <aside className={"oz-sidebar" + (mobileSidebarOpen ? " is-open" : "")} aria-label="Conversation navigation">
         <div className="oz-sidebar-head">
-          <a href="/app" className="oz-brand" aria-label="Ozlind home" onClick={event => { event.preventDefault(); newChat(); }}>
+          <Link href="/app" className="oz-brand" aria-label="Ozlind home" onClick={event => { event.preventDefault(); newChat(); }}>
             <Image src="/ozlind-mark.svg" alt="" width={30} height={30} priority />
             <span>Ozlind</span>
-          </a>
+          </Link>
           <button type="button" className="oz-icon-button desktop-collapse" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={17} /></button>
           <button type="button" className="oz-icon-button mobile-close" onClick={() => setMobileSidebarOpen(false)} aria-label="Close sidebar"><X size={18} /></button>
         </div>
