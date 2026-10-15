@@ -350,7 +350,7 @@ grant execute on function public.match_document_chunks(vector(768), double preci
 create table if not exists public.user_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
   theme text not null default 'system' check (theme in ('system','light','dark')),
-  accent text not null default '#E26F4A' check (accent ~ '^#[0-9A-Fa-f]{6}$'),
+  accent text not null default '#5B63E8' check (accent ~ '^#[0-9A-Fa-f]{6}$'),
   language text not null default 'en' check (language in ('en','ml')),
   density text not null default 'comfortable' check (density in ('compact','comfortable','spacious')),
   code_theme text not null default 'default',
