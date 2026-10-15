@@ -330,6 +330,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     const controller = new AbortController();
     abortRef.current = controller;
     let routeAfterStream: string | null = null;
+    let streamCompleted = false;
 
     try {
       const response = await fetch("/api/chat", {
@@ -403,10 +404,11 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       pending += decoderTail;
       flush(true);
       if (!receivedText) throw new Error("The response stream ended before Ozlind returned an answer.");
+      streamCompleted = true;
       setMessages(current => current.map(message =>
         message.id === assistantId ? { ...message, status: "complete" } : message
       ));
-      if (action === "send") setAttachments([]);
+      setAttachments([]);
       await loadConversations();
     } catch (caught) {
       if (controller.signal.aborted) {
@@ -429,7 +431,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       setSending(false);
       // Changing App Router pages unmounts this client component. Navigate only
       // after the response body has settled so cleanup cannot abort active streaming.
-      if (routeAfterStream) router.replace("/app/" + routeAfterStream);
+      if (streamCompleted && routeAfterStream) router.replace("/app/" + routeAfterStream);
       textareaRef.current?.focus();
     }
   }
