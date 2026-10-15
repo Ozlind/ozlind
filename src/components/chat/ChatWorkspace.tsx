@@ -111,12 +111,14 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const conversationLoadRequest = useRef(0);
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
 
   useEffect(() => setConversationId(initialConversationId ?? null), [initialConversationId]);
 
   const loadConversations = useCallback(async () => {
+    const requestId = ++conversationLoadRequest.current;
     setLoadingConversations(true);
     try {
       const supabase = createClient();
@@ -130,11 +132,11 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
         .order("updated_at", { ascending: false })
         .limit(100);
       if (queryError) throw queryError;
-      setConversations((data ?? []) as Conversation[]);
+      if (requestId === conversationLoadRequest.current) setConversations((data ?? []) as Conversation[]);
     } catch (caught) {
-      setError(readableError(caught));
+      if (requestId === conversationLoadRequest.current) setError(readableError(caught));
     } finally {
-      setLoadingConversations(false);
+      if (requestId === conversationLoadRequest.current) setLoadingConversations(false);
     }
   }, []);
 
@@ -375,6 +377,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       if (!reader) throw new Error("Streaming isn't available for this response.");
       const decoder = new TextDecoder();
       let pending = "";
+      let receivedText = false;
       let lastFlush = 0;
       const flush = (force = false) => {
         if (!pending || (!force && Date.now() - lastFlush < 32)) return;
@@ -389,11 +392,16 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       while (true) {
         const part = await reader.read();
         if (part.done) break;
-        pending += decoder.decode(part.value, { stream: true });
+        const decoded = decoder.decode(part.value, { stream: true });
+        if (decoded) receivedText = true;
+        pending += decoded;
         flush();
       }
-      pending += decoder.decode();
+      const decoderTail = decoder.decode();
+      if (decoderTail) receivedText = true;
+      pending += decoderTail;
       flush(true);
+      if (!receivedText) throw new Error("The response stream ended before Ozlind returned an answer.");
       setMessages(current => current.map(message =>
         message.id === assistantId ? { ...message, status: "complete" } : message
       ));
