@@ -342,8 +342,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       <OfflineBanner />
       <header className="chat-header">
         <div>
-          <p className="eyebrow">Workspace</p>
-          <h2>{id ? "Conversation" : "New chat"}</h2>
+          <h2>Ozlind</h2>
         </div>
       </header>
 
@@ -377,8 +376,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               <span className="empty-chat-mark" aria-hidden="true">
                 <OzlindIcon name="ozl-mark" size={36} aria-hidden="true" />
               </span>
-              <h1>What can I help you with?</h1>
-              <p>Ask a question, work through an idea, or get help with a task.</p>
+              <h1>Hi, I’m Ozlind.</h1>
+              <p>What would you like to work through today? Ask a question, explore an idea, or get help with a task.</p>
             </div>
           ) : (
             messages.map((message) => (
