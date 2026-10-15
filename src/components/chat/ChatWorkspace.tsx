@@ -329,6 +329,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
 
     const controller = new AbortController();
     abortRef.current = controller;
+    let routeAfterStream: string | null = null;
 
     try {
       const response = await fetch("/api/chat", {
@@ -370,7 +371,7 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
       if (nextId && nextId !== targetConversationId) {
         setConversationId(nextId);
-        router.replace("/app/" + nextId);
+        routeAfterStream = nextId;
       }
 
       const reader = response.body?.getReader();
@@ -426,6 +427,9 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setSending(false);
+      // Changing App Router pages unmounts this client component. Navigate only
+      // after the response body has settled so cleanup cannot abort active streaming.
+      if (routeAfterStream) router.replace("/app/" + routeAfterStream);
       textareaRef.current?.focus();
     }
   }
