@@ -53,11 +53,15 @@ export default function ChatWorkspace({ conversationId: initialConversationId }:
     setLoadingConversations(true);
     try {
       const supabase = createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("Your session has expired. Please sign in again.");
       const { data, error: queryError } = await supabase
         .from("conversations")
         .select("id,title,updated_at")
+        .eq("user_id", user.id)
+        .eq("archived", false)
         .order("updated_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       if (queryError) throw queryError;
       setConversations((data ?? []) as Conversation[]);
     } catch (caught) {
