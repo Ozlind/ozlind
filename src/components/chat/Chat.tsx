@@ -342,7 +342,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       <OfflineBanner />
       <header className="chat-header">
         <div>
-          <h2>Ozlind</h2>
+          <h2>New chat</h2>
         </div>
       </header>
 
@@ -376,7 +376,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               <span className="empty-chat-mark" aria-hidden="true">
                 <OzlindIcon name="ozl-mark" size={36} aria-hidden="true" />
               </span>
-              <h1>Hi, I’m Ozlind.</h1>
+              <h1>How can I help you today?</h1>
               <p>What would you like to work through today? Ask a question, explore an idea, or get help with a task.</p>
             </div>
           ) : (
