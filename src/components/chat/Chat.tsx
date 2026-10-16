@@ -93,6 +93,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(() => new Set());
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -450,7 +451,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
   }
 
-  async function addImages(files: FileList | null) {
+  async function addImages(files: FileList | File[] | null) {
     if (!files?.length) return;
     const remaining = Math.max(0, 2 - images.length);
     if (!remaining) {
@@ -459,10 +460,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
     const selected = Array.from(files).filter(file => file.type.startsWith("image/")).slice(0, remaining);
     if (!selected.length) {
-      setError("Choose an image file to use Vision mode.");
+      setError("Chat attachments currently support image files only. Choose an image to use Vision mode.");
       return;
     }
-    setError("");
+    setError(selected.length < files.length ? "Only image files can be attached to chat. The supported images are being prepared." : "");
     try {
       const prepared = await Promise.all(selected.map(async file => ({
         dataUrl: await compressImage(file),
@@ -540,7 +541,28 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   }
 
   return (
-    <main className="chat-page">
+    <main
+      className="chat-page"
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.types).includes("Files")) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          setIsDraggingFiles(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        const next = event.relatedTarget;
+        if (!(next instanceof Node) || !event.currentTarget.contains(next)) setIsDraggingFiles(false);
+      }}
+      onDrop={(event) => {
+        if (Array.from(event.dataTransfer.types).includes("Files")) {
+          event.preventDefault();
+          setIsDraggingFiles(false);
+          void addImages(event.dataTransfer.files);
+        }
+      }}
+    >
+      {isDraggingFiles && <div className="file-drop-overlay" role="status">Drop images to attach</div>}
       <OfflineBanner />
       <header className="chat-header">
         <div>
@@ -808,6 +830,16 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKey}
+            onPaste={(event) => {
+              const pastedImages = Array.from(event.clipboardData.items)
+                .filter(item => item.kind === "file" && item.type.startsWith("image/"))
+                .map(item => item.getAsFile())
+                .filter((file): file is File => Boolean(file));
+              if (pastedImages.length) {
+                event.preventDefault();
+                void addImages(pastedImages);
+              }
+            }}
             rows={1}
             maxLength={20000}
             placeholder="Ask Ozlind anything…"
