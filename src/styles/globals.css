@@ -1605,3 +1605,21 @@ img, video, canvas, svg {
 @media (prefers-reduced-motion: reduce) {
   .sidebar-skeleton { animation: none; background: var(--surface-elevated); }
 }
+
+
+.file-drop-overlay {
+  position: absolute;
+  z-index: 70;
+  inset: 12px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+}
