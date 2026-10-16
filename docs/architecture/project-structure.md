@@ -50,12 +50,10 @@ ozlind/
 │   │   │   ├── rag.js
 │   │   │   └── rag.d.ts
 │   │   ├── supabase/         # Browser, server, and middleware clients
-│   │   ├── design-tokens.ts
 │   │   ├── i18n.ts
 │   │   ├── rate-limit.ts
 │   │   └── utils.ts
 │   ├── providers/QueryProvider.tsx
-│   ├── stores/chat-store.ts
 │   └── styles/
 │       ├── globals.css
 │       └── theme.css
@@ -84,9 +82,8 @@ ozlind/
 | `src/components/chat/` | Chat presentation and message interaction | Supabase service-role access |
 | `src/hooks/` | Client-side reusable state and behavior | Server-only SDKs and secrets |
 | `src/providers/` | React context/provider setup | Route-specific page layout |
-| `src/stores/` | Client state only | Authoritative server persistence or secrets |
 | `src/lib/supabase/` | Browser/server/middleware Supabase client factories | UI components |
-| `src/lib/` | Shared utilities, rate limiting, design tokens, i18n, current AI/RAG helpers | Unrelated miscellaneous features without a clear owner |
+| `src/lib/` | Rate limiting, i18n, Supabase clients, and current AI/RAG helpers | Unused duplicate utilities or unrelated miscellaneous features |
 | `src/styles/` | Global styling, semantic theme tokens, responsive states | Application data logic |
 | `types/` | Shared TypeScript contracts | Runtime implementations |
 | `supabase/migrations/` | Append-only database changes | Application UI or provider code |
