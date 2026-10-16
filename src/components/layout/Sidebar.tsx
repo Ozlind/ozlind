@@ -14,6 +14,33 @@ type SidebarProps = {
   onClose: () => void;
 };
 
+function conversationGroup(updatedAt: string | null | undefined): "Today" | "Yesterday" | "Previous 7 days" | "Older" {
+  const timestamp = updatedAt ? new Date(updatedAt) : new Date(0);
+  if (!Number.isFinite(timestamp.getTime())) return "Older";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(timestamp);
+  day.setHours(0, 0, 0, 0);
+  const difference = Math.floor((today.getTime() - day.getTime()) / 86_400_000);
+  if (difference <= 0) return "Today";
+  if (difference === 1) return "Yesterday";
+  if (difference <= 7) return "Previous 7 days";
+  return "Older";
+}
+
+function highlightedTitle(title: string, query: string) {
+  if (!query) return title;
+  const index = title.toLocaleLowerCase().indexOf(query);
+  if (index < 0) return title;
+  return (
+    <>
+      {title.slice(0, index)}
+      <mark className="conversation-search-match">{title.slice(index, index + query.length)}</mark>
+      {title.slice(index + query.length)}
+    </>
+  );
+}
+
 export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const path = usePathname();
@@ -74,6 +101,12 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       .toLocaleLowerCase()
       .includes(normalizedQuery),
   );
+  const conversationGroups = (["Today", "Yesterday", "Previous 7 days", "Older"] as const)
+    .map(label => ({
+      label,
+      items: filteredConversations.filter(conversation => conversationGroup(conversation.updated_at) === label),
+    }))
+    .filter(group => group.items.length > 0);
 
   return (
     <aside
@@ -128,7 +161,10 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
 
       <nav className="conversation-list" aria-label="Conversation history">
         {isLoading ? (
-          <p className="sidebar-state" role="status">Loading conversations…</p>
+          <div className="sidebar-skeletons" role="status" aria-label="Loading conversations">
+            <span className="sidebar-skeleton" /><span className="sidebar-skeleton" />
+            <span className="sidebar-skeleton" /><span className="sidebar-skeleton" />
+          </div>
         ) : isError ? (
           <div className="sidebar-state sidebar-state-error" role="alert">
             <span>Could not load conversations.</span>
@@ -141,18 +177,28 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
             {normalizedQuery ? "No conversations match your search." : "Your conversations will appear here."}
           </p>
         ) : (
-          filteredConversations.map((conversation) => (
-            <Link
-              key={conversation.id}
-              href={"/app/" + conversation.id}
-              onClick={onClose}
-              className={path === "/app/" + conversation.id ? "conversation-link active" : "conversation-link"}
-              aria-current={path === "/app/" + conversation.id ? "page" : undefined}
-              title={conversation.title || "New conversation"}
-            >
-              {conversation.title || "New conversation"}
-            </Link>
-          ))
+          <div className="conversation-groups">
+            {conversationGroups.map(group => (
+              <section key={group.label} className="conversation-group" aria-label={group.label + " conversations"}>
+                <h2 className="conversation-group-label">{group.label}</h2>
+                {group.items.map(conversation => {
+                  const title = conversation.title || "New conversation";
+                  return (
+                    <Link
+                      key={conversation.id}
+                      href={"/app/" + conversation.id}
+                      onClick={onClose}
+                      className={path === "/app/" + conversation.id ? "conversation-link active" : "conversation-link"}
+                      aria-current={path === "/app/" + conversation.id ? "page" : undefined}
+                      title={title}
+                    >
+                      {highlightedTitle(title, normalizedQuery)}
+                    </Link>
+                  );
+                })}
+              </section>
+            ))}
+          </div>
         )}
       </nav>
 
