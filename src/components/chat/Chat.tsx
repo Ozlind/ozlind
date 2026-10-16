@@ -15,6 +15,8 @@ type Message = {
   content: string;
   status?: string;
   created_at?: string;
+  model?: string;
+  researchUsed?: boolean;
   images?: ChatImage[];
 };
 
@@ -44,6 +46,15 @@ const slashCommands = [
   { command: "/explain", title: "Explain", description: "Explain a topic in plain language", prompt: "Explain the following topic in plain language, with one practical example:\n" },
   { command: "/code", title: "Code helper", description: "Work through a coding task", prompt: "Help me solve this coding task. Ask me for any missing context before making assumptions:\n" },
 ] as const;
+
+function visibleModelName(key?: string): string {
+  switch (key) {
+    case "groq:llama-3.3-70b-versatile": return "Fast · Llama 3.3 70B";
+    case "groq:deepseek-r1-distill-llama-70b": return "Pro · DeepThink";
+    case "google:gemini-2.0-flash": return "Vision · Gemini Flash";
+    default: return "Ozlind AI";
+  }
+}
 
 function messageDayLabel(timestamp?: string): string {
   if (!timestamp) return "";
@@ -267,7 +278,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const supabase = createClient();
         const { data, error: queryError } = await supabase
           .from("messages")
-          .select("id,role,content,status,created_at")
+          .select("id,role,content,status,created_at,model")
           .eq("conversation_id", id)
           .order("created_at", { ascending: true });
 
@@ -427,6 +438,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         setId(nextId);
         router.replace("/app/" + nextId);
       }
+
+      const responseModel = response.headers.get("X-OZLIND-Model");
+      const researchWasUsed = response.headers.get("X-OZLIND-Research") === "1";
+      setMessages(current => current.map(message =>
+        message.id === assistantId
+          ? { ...message, model: responseModel ?? message.model, researchUsed: researchWasUsed }
+          : message
+      ));
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("Streaming response unavailable.");
@@ -625,6 +644,25 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     setSpeechPaused(false);
   }
 
+  function prepareFollowUp(instruction: string) {
+    setDraft(instruction);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
+  function quoteMessage(message: Message) {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim() ?? "";
+    const article = document.querySelector<HTMLElement>(`[data-message-id="${message.id}"]`);
+    const selectionIsInsideMessage = Boolean(article && selection?.anchorNode && article.contains(selection.anchorNode));
+    const quoteSource = selectionIsInsideMessage && selectedText ? selectedText : message.content;
+    const quote = quoteSource.split("\n").slice(0, 20).map(line => "> " + line).join("\n");
+    setDraft(current => {
+      const prefix = current.trim() ? current.trimEnd() + "\n\n" : "";
+      return (prefix + quote + "\n\n").slice(0, 20000);
+    });
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
   async function shareMessage(message: Message) {
     if (typeof navigator.share === "function") {
       try {
@@ -781,7 +819,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               return (
                 <Fragment key={message.id}>
                   {showDateSeparator && <div className="message-date-separator">{dayLabel}</div>}
-                  <article key={message.id} className={"message " + message.role}>
+                  <article key={message.id} data-message-id={message.id} className={"message " + message.role}>
                 <div className="message-role">{message.role === "user" ? "You" : "Ozlind"}</div>
                 <div
                   dir="auto"
@@ -829,6 +867,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     {expandedMessages.has(message.id) ? "Show less" : "Show more"}
                   </button>
                 )}
+                {message.role === "assistant" && message.model && (
+                  <div className="message-provenance" aria-label="Response details">
+                    <span>{visibleModelName(message.model)}</span>
+                    {message.researchUsed && (
+                      <span><OzlindIcon name="i-web-research" size={13} /> Web research used</span>
+                    )}
+                  </div>
+                )}
                 {message.status === "interrupted" && (
                   <div className="interrupted">
                     Generation stopped.{" "}
@@ -837,6 +883,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 )}
                 {message.role === "assistant" && message.status === "streaming" && (
                   <span className="stream-cursor" aria-label="Ozlind is responding" />
+                )}
+                {message.role === "user" && message.content && message.status !== "streaming" && (
+                  <div className="message-actions" aria-label="User message actions">
+                    <button type="button" className="message-action" onClick={() => void copyMessage(message)}>
+                      <OzlindIcon name={copiedMessageId === message.id ? "i-check" : "i-copy"} size={14} />
+                      {copiedMessageId === message.id ? "Copied" : "Copy"}
+                    </button>
+                    <button type="button" className="message-action" onClick={() => quoteMessage(message)}>Quote</button>
+                  </div>
                 )}
                 {message.role === "assistant" && message.content && message.status !== "streaming" && (
                   <div className="message-actions" aria-label="Message actions">
@@ -851,11 +906,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                       {speakingMessageId === message.id ? (speechPaused ? "Resume audio" : "Pause audio") : "Read aloud"}
                     </button>
                     <button type="button" className="message-action" onClick={() => void shareMessage(message)}>
-                      Share
+                      <OzlindIcon name="i-share" size={14} /> Share
                     </button>
+                    <button type="button" className="message-action" onClick={() => quoteMessage(message)}>Quote</button>
                     {speakingMessageId === message.id && (
                       <button type="button" className="message-action" onClick={stopReadAloud}>Stop audio</button>
                     )}
+                    <button type="button" className="message-action" onClick={() => prepareFollowUp("Make your previous answer shorter while preserving the key details.")}>Shorter</button>
+                    <button type="button" className="message-action" onClick={() => prepareFollowUp("Rewrite your previous answer in simpler language, with a practical example.")}>Simpler</button>
+                    <button type="button" className="message-action" onClick={() => prepareFollowUp("Expand your previous answer with more detail, examples, and useful caveats.")}>More detail</button>
                     {message.id === lastAssistantMessageId && message.status !== "interrupted" && lastUserMessage && (
                       <button
                         type="button"
