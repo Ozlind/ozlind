@@ -87,6 +87,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [mobileKeyboard, setMobileKeyboard] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [speechPaused, setSpeechPaused] = useState(false);
+  const [chatLinkCopied, setChatLinkCopied] = useState(false);
   const draftKeyRef = useRef("");
   const skipNextDraftSave = useRef(false);
   const [online, setOnline] = useState(true);
@@ -528,6 +529,41 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     setSpeechPaused(false);
   }
 
+  async function shareMessage(message: Message) {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "Ozlind response", text: message.content });
+        return;
+      } catch (caught) {
+        if (caught instanceof Error && caught.name === "AbortError") return;
+      }
+    }
+    await copyMessage(message);
+  }
+
+  async function shareChat() {
+    const chatUrl = new URL(id ? "/app/" + id : "/app", window.location.origin).toString();
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: conversationTitle,
+          text: "Open this private Ozlind conversation",
+          url: chatUrl,
+        });
+        return;
+      } catch (caught) {
+        if (caught instanceof Error && caught.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(chatUrl);
+      setChatLinkCopied(true);
+      window.setTimeout(() => setChatLinkCopied(false), 1800);
+    } catch {
+      setError("Could not share this link. Copy the page URL from your browser instead.");
+    }
+  }
+
   async function copyMessage(message: Message) {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -565,8 +601,17 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       {isDraggingFiles && <div className="file-drop-overlay" role="status">Drop images to attach</div>}
       <OfflineBanner />
       <header className="chat-header">
-        <div>
-          <h2>{conversationTitle}</h2>
+        <div className="chat-header-title">
+          <h2 title={conversationTitle}>{conversationTitle}</h2>
+        </div>
+        <div className="chat-header-actions">
+          <button type="button" className="chat-header-action" onClick={shareChat} aria-label="Share conversation">
+            {chatLinkCopied ? "Link copied" : "Share"}
+          </button>
+          <button type="button" className="chat-header-action chat-new-action" onClick={() => router.push("/app")} aria-label="Start a new chat">
+            <OzlindIcon name="i-new-conversation" size={15} />
+            <span>New chat</span>
+          </button>
         </div>
       </header>
 
@@ -708,6 +753,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     </button>
                     <button type="button" className="message-action" onClick={() => toggleReadAloud(message)}>
                       {speakingMessageId === message.id ? (speechPaused ? "Resume audio" : "Pause audio") : "Read aloud"}
+                    </button>
+                    <button type="button" className="message-action" onClick={() => void shareMessage(message)}>
+                      Share
                     </button>
                     {speakingMessageId === message.id && (
                       <button type="button" className="message-action" onClick={stopReadAloud}>Stop audio</button>
