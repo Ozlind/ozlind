@@ -20,6 +20,30 @@ type Message = {
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
 type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
+type SpeechResultLike = { isFinal: boolean; 0?: { transcript: string } };
+type SpeechResultEventLike = { resultIndex: number; results: ArrayLike<SpeechResultLike> };
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechResultEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: new () => SpeechRecognitionLike;
+  webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+};
+
+const slashCommands = [
+  { command: "/summarize", title: "Summarize", description: "Turn long text into key points", prompt: "Summarize the following text into key points and action items:\n" },
+  { command: "/translate", title: "Translate", description: "Translate text into Malayalam", prompt: "Translate the following text into Malayalam, preserving its meaning and tone:\n" },
+  { command: "/explain", title: "Explain", description: "Explain a topic in plain language", prompt: "Explain the following topic in plain language, with one practical example:\n" },
+  { command: "/code", title: "Code helper", description: "Work through a coding task", prompt: "Help me solve this coding task. Ask me for any missing context before making assumptions:\n" },
+] as const;
 
 function messageDayLabel(timestamp?: string): string {
   if (!timestamp) return "";
@@ -88,6 +112,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [speechPaused, setSpeechPaused] = useState(false);
   const [chatLinkCopied, setChatLinkCopied] = useState(false);
+  const [dictating, setDictating] = useState(false);
   const draftKeyRef = useRef("");
   const skipNextDraftSave = useRef(false);
   const [online, setOnline] = useState(true);
@@ -99,6 +124,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const dictationBaseRef = useRef("");
+  const lastSubmittedDraftRef = useRef("");
 
   useEffect(() => setId(initialId), [initialId]);
 
@@ -310,6 +338,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   useEffect(() => () => {
     abortRef.current?.abort();
+    recognitionRef.current?.abort();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
@@ -320,6 +349,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     if ((action === "send" && !outgoingContent) || streaming || !online) return;
 
     if (action === "send") {
+      lastSubmittedDraftRef.current = outgoingContent;
       setDraft("");
       setImages([]);
     }
@@ -480,6 +510,18 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   }
 
   const handleKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "ArrowUp" && !draft.trim() && lastSubmittedDraftRef.current) {
+      event.preventDefault();
+      const previous = lastSubmittedDraftRef.current;
+      setDraft(previous);
+      requestAnimationFrame(() => {
+        const textarea = textareaRef.current;
+        textarea?.focus();
+        textarea?.setSelectionRange(previous.length, previous.length);
+      });
+      return;
+    }
+
     // Do not submit while an IME (for example, Malayalam input) is composing text.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && preferences.enter_to_send && !mobileKeyboard) {
       event.preventDefault();
@@ -489,6 +531,60 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content;
   const lastAssistantMessageId = [...messages].reverse().find((message) => message.role === "assistant")?.id;
+  const slashPrefix = draft.startsWith("/") && !/\s/.test(draft) ? draft.toLocaleLowerCase() : "";
+  const matchingSlashCommands = slashPrefix
+    ? slashCommands.filter(item => item.command.startsWith(slashPrefix))
+    : [];
+
+  function toggleDictation() {
+    if (dictating) {
+      recognitionRef.current?.stop();
+      setDictating(false);
+      return;
+    }
+
+    const speechWindow = window as SpeechRecognitionWindow;
+    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setError("Voice typing is not supported in this browser. You can still type your message.");
+      return;
+    }
+
+    try {
+      const recognition = new Recognition();
+      dictationBaseRef.current = draft.trim() ? draft.trimEnd() + " " : "";
+      recognition.lang = preferences.language === "ml" ? "ml-IN" : "en-IN";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (event) => {
+        let finalText = "";
+        let interimText = "";
+        for (let index = 0; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          const transcript = result?.[0]?.transcript ?? "";
+          if (result?.isFinal) finalText += transcript + " ";
+          else interimText += transcript;
+        }
+        setDraft((dictationBaseRef.current + finalText + interimText).slice(0, 20000));
+      };
+      recognition.onerror = () => {
+        setDictating(false);
+        setError("Voice typing stopped. Check microphone permission and try again.");
+      };
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setDictating(false);
+      };
+      recognitionRef.current = recognition;
+      setError("");
+      setDictating(true);
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setDictating(false);
+      setError("Could not start voice typing. Check microphone permission and try again.");
+    }
+  }
 
   function toggleReadAloud(message: Message) {
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
@@ -813,6 +909,28 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       )}
 
       <div className="composer-wrap">
+        {matchingSlashCommands.length > 0 && (
+          <div className="slash-command-menu" role="group" aria-label="Slash commands">
+            {matchingSlashCommands.map(item => (
+              <button
+                key={item.command}
+                type="button"
+                className="slash-command-option"
+                onClick={() => {
+                  setDraft(item.prompt);
+                  requestAnimationFrame(() => {
+                    const textarea = textareaRef.current;
+                    textarea?.focus();
+                    textarea?.setSelectionRange(item.prompt.length, item.prompt.length);
+                  });
+                }}
+              >
+                <span className="slash-command-name">{item.command}</span>
+                <span className="slash-command-description">{item.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {images.length > 0 && (
           <div className="composer-attachments" aria-label="Attached images">
             {images.map((image, index) => (
@@ -894,9 +1012,20 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             aria-label="Write your message"
             aria-describedby="composer-help"
           />
+          <button
+            type="button"
+            className={"composer-mic" + (dictating ? " active" : "")}
+            disabled={streaming}
+            onClick={toggleDictation}
+            aria-label={dictating ? "Stop voice typing" : "Start voice typing"}
+            aria-pressed={dictating}
+            title={dictating ? "Stop voice typing" : "Dictate your message"}
+          >
+            <OzlindIcon name={dictating ? "i-stop" : "i-microphone"} size={17} />
+          </button>
           <Button
             className="send-button"
-            disabled={streaming ? false : !online || !draft.trim()}
+            disabled={streaming ? false : !online || (!draft.trim() && images.length === 0)}
             onClick={() => (streaming ? abortRef.current?.abort() : void send())}
             aria-label={streaming ? "Stop response" : "Send message"}
           >
