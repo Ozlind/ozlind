@@ -70,12 +70,38 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [historyAttempt, setHistoryAttempt] = useState(0);
   const [online, setOnline] = useState(true);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(() => new Set());
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setId(initialId), [initialId]);
+
+  // Keep the chat inside the visible viewport when a mobile software keyboard opens.
+  useEffect(() => {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      const height = viewport?.height ?? window.innerHeight;
+      root.style.setProperty("--chat-viewport-height", Math.round(height) + "px");
+    };
+
+    updateViewportHeight();
+    window.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("orientationchange", updateViewportHeight);
+    viewport?.addEventListener("resize", updateViewportHeight);
+    viewport?.addEventListener("scroll", updateViewportHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("orientationchange", updateViewportHeight);
+      viewport?.removeEventListener("resize", updateViewportHeight);
+      viewport?.removeEventListener("scroll", updateViewportHeight);
+      root.style.removeProperty("--chat-viewport-height");
+    };
+  }, []);
   useEffect(() => {
     setModel(preferences.default_model);
     setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
@@ -351,7 +377,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         className="message-list"
         onScroll={(event) => {
           const element = event.currentTarget;
-          stick.current = element.scrollTop + element.clientHeight >= element.scrollHeight - 40;
+          const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 40;
+          stick.current = atBottom;
+          setShowScrollToBottom(!atBottom);
         }}
         role="log"
         aria-live="polite"
@@ -378,12 +406,31 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               </span>
               <h1>How can I help you today?</h1>
               <p>What would you like to work through today? Ask a question, explore an idea, or get help with a task.</p>
+              <div className="prompt-grid home-suggestions" role="group" aria-label="Suggested ways to start">
+                {([
+                  ["Explain a topic", "Explain [topic] in plain language, with one practical example."],
+                  ["Draft a message", "Help me write a clear, natural message about [topic]. Ask any questions you need first."],
+                  ["Help with code", "Help me solve this coding problem. Ask me for the relevant code and error if needed."],
+                  ["Translate text", "Translate the following text to [language], preserving its meaning and tone:\n"],
+                ] as const).map(([label, prompt]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => {
+                      setDraft(prompt);
+                      requestAnimationFrame(() => textareaRef.current?.focus());
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
               <article key={message.id} className={"message " + message.role}>
                 <div className="message-role">{message.role === "user" ? "You" : "Ozlind"}</div>
-                <div className="message-content">
+                <div className={"message-content" + (message.content.length > 1600 && !expandedMessages.has(message.id) ? " message-content-collapsed" : "")}>
                   {message.role === "user" ? (
                     <p>{message.content}</p>
                   ) : message.content ? (
@@ -397,6 +444,21 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <MarkdownRenderer content=" " />
                   )}
                 </div>
+                {message.content.length > 1600 && (
+                  <button
+                    type="button"
+                    className="message-expand"
+                    aria-expanded={expandedMessages.has(message.id)}
+                    onClick={() => setExpandedMessages(current => {
+                      const next = new Set(current);
+                      if (next.has(message.id)) next.delete(message.id);
+                      else next.add(message.id);
+                      return next;
+                    })}
+                  >
+                    {expandedMessages.has(message.id) ? "Show less" : "Show more"}
+                  </button>
+                )}
                 {message.status === "interrupted" && (
                   <div className="interrupted">
                     Generation stopped.{" "}
@@ -433,9 +495,34 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
       </div>
 
+      {showScrollToBottom && messages.length > 0 && (
+        <button
+          type="button"
+          className="scroll-to-bottom"
+          onClick={() => {
+            const element = scrollRef.current;
+            if (!element) return;
+            element.scrollTo({
+              top: element.scrollHeight,
+              behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+            });
+            stick.current = true;
+            setShowScrollToBottom(false);
+          }}
+          aria-label="Scroll to latest message"
+        >
+          <span aria-hidden="true">↓</span> Latest message
+        </button>
+      )}
+
       {error && (
         <div className="error-card" role="alert">
           <span>{error}</span>
+          {draft.trim() && !streaming && online && (
+            <button type="button" className="error-retry" onClick={() => void send()}>
+              Retry
+            </button>
+          )}
           <button type="button" onClick={() => setError("")} aria-label="Dismiss error"><OzlindIcon name="i-close" size={16} /></button>
         </div>
       )}
