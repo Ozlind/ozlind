@@ -6,7 +6,7 @@ import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SidebarProps = {
   user: { id: string; email: string; displayName: string };
@@ -45,7 +45,14 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const path = usePathname();
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const focusSearch = () => requestAnimationFrame(() => searchInputRef.current?.focus());
+    window.addEventListener("ozlind:focus-chat-search", focusSearch);
+    return () => window.removeEventListener("ozlind:focus-chat-search", focusSearch);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 768px)");
@@ -132,7 +139,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <Button onClick={() => { router.push("/app"); onClose(); }}>
+        <Button title="New chat · Ctrl/⌘ + Alt + N" onClick={() => { router.push("/app"); onClose(); }}>
           <OzlindIcon name="i-new-conversation" size={18} />
           New chat
         </Button>
@@ -140,11 +147,13 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         <label className="search-box">
           <OzlindIcon name="i-search" size={16} />
           <input
+            ref={searchInputRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search chats…"
-            aria-label="Search your chats"
+            aria-label="Search your chats (Ctrl or Command + K)"
+            title="Search chats · Ctrl/⌘ + K"
           />
           {query && (
             <button
