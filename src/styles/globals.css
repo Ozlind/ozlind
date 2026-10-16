@@ -1216,3 +1216,295 @@ img, video, canvas, svg {
 @media(max-width:768px){.app-shell:has(.chat-page) .app-main{width:100%;min-width:0;height:100dvh;overflow:hidden}.chat-header{padding-left:60px;padding-right:60px}.message-column{width:calc(100% - 28px);padding-top:20px}.composer-wrap{padding:8px 10px calc(8px + env(safe-area-inset-bottom))}.app-shell:has(.chat-page) .sidebar{width:min(82vw,330px);padding-top:env(safe-area-inset-top)}}
 @media(max-width:360px){.composer{grid-template-columns:30px minmax(0,1fr) 36px;padding:6px;gap:3px}.composer-attach{width:30px}.send-button{width:34px;min-width:34px;height:34px;min-height:34px}}
 @media(prefers-reduced-motion:reduce){.empty-chat-mark{animation:none}}
+
+
+/* Unified Ozlind workspace: chat, workspace, documents and settings share one visual system. */
+.app-shell {
+  --bg: #0b0b14;
+  --surface: #11111d;
+  --surface-elevated: #171725;
+  --surface-subtle: #1d1d2e;
+  --text: #ececf5;
+  --text-muted: #a0a0b8;
+  --text-subtle: #777792;
+  --accent: #6b7cff;
+  --accent-hover: #8190ff;
+  --accent-fg: #fff;
+  --border: #292940;
+  --border-strong: #383851;
+  background: var(--bg);
+  color: var(--text);
+}
+.app-shell .sidebar {
+  background: #11111d;
+  border-color: #26263a;
+}
+.sidebar-brand {
+  min-height: 40px;
+  gap: 10px;
+}
+.sidebar-brand-link {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1;
+}
+.sidebar-brand-link > span {
+  display: block;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+.sidebar-brand-link .sidebar-logo-icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  color: #aab5ff;
+  overflow: visible;
+}
+.app-shell .brand-mark {
+  background: transparent;
+  color: #aab5ff;
+  border: 1px solid #303047;
+  border-radius: 10px;
+}
+.app-shell .conversation-link:hover,
+.app-shell .conversation-link.active,
+.app-shell .sidebar-action:hover,
+.app-shell .sidebar-action[aria-current="page"] {
+  background: #1d1d2e;
+  color: #f1f1fa;
+}
+.app-shell .mobile-menu {
+  background: #161624;
+  border: 1px solid #292940;
+  color: #a0a0b8;
+  border-radius: 12px;
+}
+.app-shell .settings-page,
+.app-shell .workspace-page,
+.app-shell .documents-page {
+  min-width: 0;
+  min-height: 100dvh;
+  padding: clamp(22px, 4vw, 42px);
+  background: #0b0b14;
+  color: #ececf5;
+}
+.app-shell .settings-header {
+  width: min(100%, 1040px);
+  margin: 0 auto 28px;
+  padding: 0 0 22px;
+  border-bottom: 1px solid #26263a;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.app-shell .settings-header > div { min-width: 0; }
+.app-shell .settings-header .eyebrow {
+  margin: 0 0 9px;
+  color: #aab5ff;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.app-shell .settings-header h1 {
+  margin: 0;
+  color: #f0f0fa;
+  font-size: clamp(26px, 4vw, 34px);
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -.045em;
+}
+.app-shell .settings-header p:not(.eyebrow) {
+  max-width: 620px;
+  margin: 10px 0 0;
+  color: #a0a0b8;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.app-shell .settings-back,
+.app-shell .workspace-back,
+.app-shell .settings-header > .text-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #303047;
+  border-radius: 10px;
+  color: #d4d4e4;
+  background: #151522;
+  text-decoration: none;
+  font-size: 12px;
+}
+.app-shell .settings-section,
+.app-shell .workspace-primary,
+.app-shell .workspace-secondary {
+  width: min(100%, 1040px);
+  margin: 0 auto 18px;
+  padding: clamp(16px, 2.5vw, 24px);
+  border: 1px solid #292940;
+  border-radius: 16px;
+  background: #11111d;
+  color: #ececf5;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 10%);
+}
+.app-shell .settings-section-intro h2,
+.app-shell .documents-section-heading h2,
+.app-shell .workspace-list-heading h2,
+.app-shell .settings-section h2 {
+  margin: 0;
+  color: #ededf7;
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -.015em;
+}
+.app-shell .settings-section-intro p,
+.app-shell .documents-section-heading p,
+.app-shell .workspace-list-heading p {
+  margin: 6px 0 0;
+  color: #9292ad;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.app-shell .setting-row,
+.app-shell .setting-row-polished {
+  min-width: 0;
+  border-color: #292940;
+  background: #151522;
+  color: #ececf5;
+}
+.app-shell .setting-row strong { color: #ececf5; font-size: 12px; }
+.app-shell .setting-row small { color: #9292ad; line-height: 1.5; }
+.app-shell .settings-page select,
+.app-shell .settings-page input:not([type="color"]),
+.app-shell .settings-page textarea,
+.app-shell .workspace-page input,
+.app-shell .workspace-page textarea,
+.app-shell .workspace-page select,
+.app-shell .documents-page input:not([type="file"]),
+.app-shell .documents-page textarea {
+  max-width: 100%;
+  border-color: #34344e;
+  background: #0d0d18;
+  color: #ececf5;
+}
+.app-shell .workspace-tabs {
+  width: min(100%, 1040px);
+  margin: 0 auto 18px;
+  border-bottom: 1px solid #292940;
+  gap: 8px;
+}
+.app-shell .workspace-tab {
+  color: #9292ad;
+  border-bottom: 2px solid transparent;
+}
+.app-shell .workspace-tab.active {
+  color: #c0c8ff;
+  border-bottom-color: #6b7cff;
+}
+.app-shell .workspace-item,
+.app-shell .documents-item {
+  min-width: 0;
+  border-color: #292940;
+  background: #151522;
+  color: #ececf5;
+}
+.app-shell .workspace-item h3,
+.app-shell .documents-item strong { color: #ececf5; }
+.app-shell .workspace-item p,
+.app-shell .documents-item p,
+.app-shell .settings-muted,
+.app-shell .documents-count { color: #9292ad; }
+.app-shell .workspace-item-icon,
+.app-shell .documents-file-icon,
+.app-shell .documents-upload-icon {
+  color: #aab5ff;
+  background: #1d1d34;
+  border: 1px solid #303047;
+}
+.app-shell .documents-upload-panel {
+  border-color: #34344e;
+  background: #151522;
+}
+.app-shell .documents-state,
+.app-shell .workspace-empty,
+.app-shell .settings-loading {
+  color: #a0a0b8;
+}
+.app-shell .workspace-feedback,
+.app-shell .documents-feedback,
+.app-shell .settings-feedback {
+  width: min(100%, 1040px);
+  margin: 0 auto 16px;
+  border-color: #34344e;
+  background: #151522;
+  color: #e6e6f1;
+}
+.app-shell .workspace-feedback-error,
+.app-shell .documents-feedback-error,
+.app-shell .settings-feedback-error {
+  border-color: #643b49;
+  background: #21141d;
+}
+.app-shell .ui-button-primary,
+.app-shell .workspace-submit,
+.app-shell .documents-upload-button {
+  border-color: transparent;
+  background: #586cf5;
+  color: #fff;
+}
+.app-shell .ui-button-primary:hover:not(:disabled),
+.app-shell .workspace-submit:hover:not(:disabled),
+.app-shell .documents-upload-button:hover:not(:disabled) {
+  background: #6b7cff;
+}
+.app-shell .icon-button {
+  color: #a0a0b8;
+}
+.app-shell .icon-button:hover:not(:disabled) {
+  color: #f1f1fa;
+  background: #232338;
+}
+@media (max-width: 768px) {
+  .app-shell .settings-page,
+  .app-shell .workspace-page,
+  .app-shell .documents-page {
+    padding: calc(58px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom));
+  }
+  .app-shell .settings-header {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    gap: 12px;
+  }
+  .app-shell .settings-header h1 { font-size: 27px; }
+  .app-shell .settings-header p:not(.eyebrow) { font-size: 12px; }
+  .app-shell .settings-back,
+  .app-shell .workspace-back,
+  .app-shell .settings-header > .text-button {
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+  .app-shell .settings-section,
+  .app-shell .workspace-primary,
+  .app-shell .workspace-secondary {
+    padding: 15px;
+    border-radius: 14px;
+  }
+}
+@media (max-width: 420px) {
+  .app-shell .settings-header { flex-direction: column; align-items: stretch; }
+  .app-shell .settings-back,
+  .app-shell .workspace-back,
+  .app-shell .settings-header > .text-button { align-self: flex-start; }
+}
