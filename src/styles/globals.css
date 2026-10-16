@@ -1663,3 +1663,120 @@ img, video, canvas, svg {
   .chat-new-action { width: 40px; padding: 0; }
   .chat-header-title h2 { font-size: 14px; }
 }
+
+
+/* Composer enhancements — slash shortcuts and browser-based dictation. */
+.slash-command-menu {
+  display: grid;
+  gap: 2px;
+  width: min(620px, 100%);
+  max-height: 220px;
+  margin: 0 auto 8px;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.slash-command-option {
+  display: grid;
+  gap: 3px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.slash-command-option:hover,
+.slash-command-option:focus-visible { background: var(--surface-elevated); }
+.slash-command-name { font-size: 12px; font-weight: 650; }
+.slash-command-description { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+.composer-mic {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.composer-mic:hover:not(:disabled) { background: var(--surface-elevated); color: var(--text); }
+.composer-mic.active {
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+  color: var(--accent);
+  animation: dictation-pulse 1.4s ease-in-out infinite;
+}
+.composer-mic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@keyframes dictation-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent); }
+}
+.app-shell:has(.chat-page) .composer {
+  grid-template-columns: 40px minmax(0, 1fr) 44px 44px;
+}
+.app-shell:has(.chat-page) .composer .composer-attach {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 40px;
+  width: 40px;
+  min-height: 44px;
+}
+.app-shell:has(.chat-page) .composer textarea {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  width: 100%;
+}
+.app-shell:has(.chat-page) .composer .composer-mic {
+  grid-column: 3;
+  grid-row: 1;
+}
+.app-shell:has(.chat-page) .composer .send-button {
+  grid-column: 4;
+  grid-row: 1;
+  min-width: 44px;
+  width: 44px;
+  min-height: 44px;
+}
+@media (max-width: 768px) {
+  .app-shell:has(.chat-page) .composer {
+    grid-template-columns: 34px minmax(0, 1fr) 40px 40px;
+  }
+  .app-shell:has(.chat-page) .composer .composer-attach {
+    width: 34px;
+    min-width: 34px;
+  }
+  .app-shell:has(.chat-page) .composer .composer-mic,
+  .app-shell:has(.chat-page) .composer .send-button {
+    width: 40px;
+    min-width: 40px;
+  }
+  .slash-command-menu { max-height: 180px; }
+}
+@media (max-width: 380px) {
+  .app-shell:has(.chat-page) .composer {
+    grid-template-columns: 30px minmax(0, 1fr) 36px 36px;
+    gap: 3px;
+    padding: 6px;
+  }
+  .app-shell:has(.chat-page) .composer .composer-attach {
+    width: 30px;
+    min-width: 30px;
+  }
+  .app-shell:has(.chat-page) .composer .composer-mic,
+  .app-shell:has(.chat-page) .composer .send-button {
+    width: 36px;
+    min-width: 36px;
+    min-height: 40px;
+  }
+  .app-shell:has(.chat-page) .composer .composer-mic { padding: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-mic.active { animation: none; }
+}
