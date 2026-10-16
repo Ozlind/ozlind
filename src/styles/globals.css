@@ -1623,3 +1623,43 @@ img, video, canvas, svg {
   pointer-events: none;
   backdrop-filter: blur(5px);
 }
+
+
+/* Chat header actions and link-sharing feedback. */
+.app-shell:has(.chat-page) .chat-header {
+  justify-content: space-between;
+  gap: 12px;
+}
+.chat-header-title { flex: 1 1 auto; min-width: 0; }
+.chat-header-title h2 {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+.chat-header-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.chat-header-action:hover { color: var(--text); border-color: var(--accent); }
+.chat-header-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 480px) {
+  .app-shell:has(.chat-page) .chat-header { gap: 6px; }
+  .chat-header-actions { gap: 4px; }
+  .chat-header-action { min-height: 40px; padding: 0 8px; font-size: 11px; }
+  .chat-new-action span { display: none; }
+  .chat-new-action { width: 40px; padding: 0; }
+  .chat-header-title h2 { font-size: 14px; }
+}
