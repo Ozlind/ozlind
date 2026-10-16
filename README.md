@@ -58,7 +58,6 @@ GitHub Actions runs `npm run verify` for pushes to `main` and pull requests targ
 │   ├── hooks/             # Client hooks, including preferences
 │   ├── lib/               # Shared utilities, Supabase clients, AI/RAG helpers
 │   ├── providers/         # React context providers
-│   ├── stores/            # Client-side state
 │   └── styles/            # Global CSS and theme tokens
 ├── supabase/
 │   ├── migrations/        # Ordered SQL migrations
