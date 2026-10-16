@@ -247,13 +247,16 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       setDraft(prompt.slice(0, 20000));
       textareaRef.current?.focus();
     };
+    const onFocusComposer = () => requestAnimationFrame(() => textareaRef.current?.focus());
     const syncOnline = () => setOnline(navigator.onLine);
     syncOnline();
     addEventListener("ozlind:prompt", onPrompt);
+    addEventListener("ozlind:focus-composer", onFocusComposer);
     addEventListener("online", syncOnline);
     addEventListener("offline", syncOnline);
     return () => {
       removeEventListener("ozlind:prompt", onPrompt);
+      removeEventListener("ozlind:focus-composer", onFocusComposer);
       removeEventListener("online", syncOnline);
       removeEventListener("offline", syncOnline);
     };
