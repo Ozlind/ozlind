@@ -84,6 +84,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyAttempt, setHistoryAttempt] = useState(0);
   const [conversationTitle, setConversationTitle] = useState("New chat");
+  const [mobileKeyboard, setMobileKeyboard] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [speechPaused, setSpeechPaused] = useState(false);
+  const draftKeyRef = useRef("");
+  const skipNextDraftSave = useRef(false);
   const [online, setOnline] = useState(true);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(() => new Set());
@@ -94,6 +99,46 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setId(initialId), [initialId]);
+
+  useEffect(() => {
+    const key = "ozlind:draft:" + (id ?? "new");
+    draftKeyRef.current = key;
+    let savedDraft = "";
+    try {
+      savedDraft = sessionStorage.getItem(key) ?? "";
+    } catch {
+      // Draft recovery is best-effort when storage is blocked.
+    }
+    skipNextDraftSave.current = true;
+    setDraft(savedDraft);
+  }, [id]);
+
+  useEffect(() => {
+    const key = draftKeyRef.current;
+    if (!key) return;
+    if (skipNextDraftSave.current) {
+      skipNextDraftSave.current = false;
+      return;
+    }
+    try {
+      if (draft) sessionStorage.setItem(key, draft);
+      else sessionStorage.removeItem(key);
+    } catch {
+      // Sending still works if private browsing disables session storage.
+    }
+  }, [draft, id]);
+
+  useEffect(() => {
+    const updateKeyboardMode = () => {
+      setMobileKeyboard(
+        window.matchMedia("(max-width: 768px)").matches ||
+        window.matchMedia("(pointer: coarse)").matches
+      );
+    };
+    updateKeyboardMode();
+    window.addEventListener("resize", updateKeyboardMode);
+    return () => window.removeEventListener("resize", updateKeyboardMode);
+  }, []);
 
   useEffect(() => {
     if (!id) {
@@ -224,6 +269,27 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   }, [messages, streaming, preferences.auto_scroll]);
 
   useEffect(() => {
+    if (historyLoading) return;
+    const element = scrollRef.current;
+    if (!element) return;
+    let savedPosition = "";
+    try {
+      savedPosition = sessionStorage.getItem("ozlind:scroll:" + (id ?? "new")) ?? "";
+    } catch {
+      return;
+    }
+    if (!savedPosition) return;
+
+    const frame = requestAnimationFrame(() => {
+      element.scrollTop = Math.max(0, Math.min(Number(savedPosition) || 0, element.scrollHeight));
+      const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 40;
+      stick.current = atBottom;
+      setShowScrollToBottom(!atBottom);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [id, historyLoading, messages.length]);
+
+  useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
@@ -231,7 +297,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
   }, [draft]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }, []);
 
   async function send(action: "send" | "regenerate" = "send", contentOverride?: string) {
     const content = (contentOverride ?? draft).trim();
@@ -401,7 +470,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   const handleKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Do not submit while an IME (for example, Malayalam input) is composing text.
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && preferences.enter_to_send) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && preferences.enter_to_send && !mobileKeyboard) {
       event.preventDefault();
       void send();
     }
@@ -409,6 +478,45 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content;
   const lastAssistantMessageId = [...messages].reverse().find((message) => message.role === "assistant")?.id;
+
+  function toggleReadAloud(message: Message) {
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      setError("Read aloud is not supported by this browser. You can still select and read the text.");
+      return;
+    }
+
+    if (speakingMessageId === message.id) {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        setSpeechPaused(false);
+      } else {
+        window.speechSynthesis.pause();
+        setSpeechPaused(true);
+      }
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    setSpeechPaused(false);
+    const utterance = new SpeechSynthesisUtterance(message.content);
+    utterance.lang = preferences.language === "ml" ? "ml-IN" : "en-IN";
+    utterance.onend = () => {
+      setSpeakingMessageId(null);
+      setSpeechPaused(false);
+    };
+    utterance.onerror = () => {
+      setSpeakingMessageId(null);
+      setSpeechPaused(false);
+    };
+    setSpeakingMessageId(message.id);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopReadAloud() {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setSpeakingMessageId(null);
+    setSpeechPaused(false);
+  }
 
   async function copyMessage(message: Message) {
     try {
@@ -439,6 +547,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 40;
           stick.current = atBottom;
           setShowScrollToBottom(!atBottom);
+          try {
+            sessionStorage.setItem("ozlind:scroll:" + (id ?? "new"), String(element.scrollTop));
+          } catch {
+            // Scroll restoration is optional when session storage is unavailable.
+          }
         }}
         role="log"
         aria-live="polite"
@@ -562,6 +675,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     >
                       <><OzlindIcon name={copiedMessageId === message.id ? "i-check" : "i-copy"} size={14} />{copiedMessageId === message.id ? "Copied" : "Copy"}</>
                     </button>
+                    <button type="button" className="message-action" onClick={() => toggleReadAloud(message)}>
+                      {speakingMessageId === message.id ? (speechPaused ? "Resume audio" : "Pause audio") : "Read aloud"}
+                    </button>
+                    {speakingMessageId === message.id && (
+                      <button type="button" className="message-action" onClick={stopReadAloud}>Stop audio</button>
+                    )}
                     {message.id === lastAssistantMessageId && message.status !== "interrupted" && lastUserMessage && (
                       <button
                         type="button"
@@ -704,7 +823,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
         <div className="composer-meta">
           <p id="composer-help" className="composer-keyboard-hint">
-            {preferences.enter_to_send ? "Enter to send · Shift + Enter for a new line" : "Shift + Enter for a new line · Tap Send to submit"}
+            {mobileKeyboard ? "Enter for a new line · Tap Send to submit" : preferences.enter_to_send ? "Enter to send · Shift + Enter for a new line" : "Shift + Enter for a new line · Tap Send to submit"}
           </p>
           {draft.length >= 18000 && (
             <p className="composer-counter" aria-live="polite">{draft.length.toLocaleString()} / 20,000</p>
