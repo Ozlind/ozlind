@@ -1369,3 +1369,151 @@ img, video, canvas, svg {
 @media (prefers-color-scheme: dark) {
   /* Explicit user theme preferences remain controlled by AppShell; keep the light reference consistent. */
 }
+
+
+/* Chat UX checklist — visible-viewport layout, reading controls, and touch-safe actions. */
+.app-shell:has(.chat-page) .app-main,
+.app-shell:has(.chat-page) .chat-page {
+  height: var(--chat-viewport-height, 100dvh);
+  min-height: 0;
+}
+.app-shell:has(.chat-page) .chat-page {
+  position: relative;
+  overflow: hidden;
+}
+.message-content {
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
+.message-content-collapsed {
+  position: relative;
+  max-height: 28rem;
+  overflow: hidden;
+}
+.message-content-collapsed::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3rem;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+  pointer-events: none;
+}
+.message-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.message-expand:hover { background: var(--surface); color: var(--text); }
+.scroll-to-bottom {
+  position: absolute;
+  z-index: 15;
+  left: 50%;
+  bottom: calc(152px + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.scroll-to-bottom span { font-size: 18px; line-height: 1; }
+.scroll-to-bottom:hover { border-color: var(--accent); }
+.error-retry {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.home-suggestions {
+  width: min(620px, 100%);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 26px auto 0;
+  text-align: left;
+}
+.home-suggestions button {
+  min-width: 0;
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.home-suggestions button:focus-visible,
+.message-expand:focus-visible,
+.scroll-to-bottom:focus-visible,
+.error-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  -webkit-overflow-scrolling: touch;
+}
+.prose th,
+.prose td { border: 1px solid var(--border); padding: 8px 10px; }
+.prose a { overflow-wrap: anywhere; }
+@media (max-width: 768px) {
+  .app-shell:has(.chat-page) .chat-header {
+    height: calc(60px + env(safe-area-inset-top));
+    flex-basis: calc(60px + env(safe-area-inset-top));
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  .app-shell:has(.chat-page) .mobile-menu {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .home-suggestions { gap: 8px; margin-top: 22px; }
+  .home-suggestions button { min-height: 50px; padding: 10px; }
+  .scroll-to-bottom { bottom: calc(144px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .home-suggestions { grid-template-columns: 1fr 1fr; }
+  .home-suggestions button { font-size: 12px; }
+  .scroll-to-bottom { min-height: 44px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-shell:has(.chat-page) .chat-header {
+    height: 48px;
+    flex-basis: 48px;
+    padding-top: 4px;
+  }
+  .app-shell:has(.chat-page) .message-column { padding-top: 8px; padding-bottom: 110px; }
+  .app-shell:has(.chat-page) .composer-wrap { padding-top: 4px; padding-bottom: max(4px, env(safe-area-inset-bottom)); }
+  .app-shell:has(.chat-page) .composer-note { display: none; }
+  .scroll-to-bottom { bottom: calc(100px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-to-bottom,
+  .message-expand,
+  .home-suggestions button { transition: none !important; }
+}
