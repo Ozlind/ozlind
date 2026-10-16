@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
@@ -494,7 +494,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 ? new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))
                 : "";
               return (
-                <>
+                <Fragment key={message.id}>
                   {showDateSeparator && <div className="message-date-separator">{dayLabel}</div>}
                   <article key={message.id} className={"message " + message.role}>
                 <div className="message-role">{message.role === "user" ? "You" : "Ozlind"}</div>
@@ -575,7 +575,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                   </div>
                 )}
                   </article>
-                </>
+                </Fragment>
               );
             })
           )}
