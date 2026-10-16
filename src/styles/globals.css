@@ -1566,3 +1566,42 @@ img, video, canvas, svg {
 @media (prefers-reduced-motion: reduce) {
   .message-timestamp { transition: none; }
 }
+
+
+/* Conversation navigation — grouped recency, instant-search emphasis, and loading skeletons. */
+.conversation-groups { display: grid; gap: 14px; align-content: start; }
+.conversation-group { display: grid; gap: 3px; min-width: 0; }
+.conversation-group-label {
+  margin: 6px 10px 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.conversation-search-match {
+  border-radius: 3px;
+  padding: 0 1px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+}
+.sidebar-skeletons { display: grid; gap: 8px; padding: 6px 4px; }
+.sidebar-skeleton {
+  display: block;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface-elevated) 45%, var(--surface) 90%);
+  background-size: 220% 100%;
+  animation: sidebar-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.sidebar-skeleton:nth-child(2) { width: 92%; }
+.sidebar-skeleton:nth-child(3) { width: 80%; }
+.sidebar-skeleton:nth-child(4) { width: 87%; }
+@keyframes sidebar-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-skeleton { animation: none; background: var(--surface-elevated); }
+}
