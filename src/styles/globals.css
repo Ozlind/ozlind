@@ -1229,3 +1229,142 @@ img, video, canvas, svg {
 .app-shell:has(.chat-page) .composer-modebar{width:min(600px,100%);gap:5px;margin-bottom:6px}.app-shell:has(.chat-page) .composer-mode,.app-shell:has(.chat-page) .composer-research{min-height:30px;padding:0 9px;border-color:transparent;border-radius:999px;background:transparent;color:var(--text-muted);font-size:11px}.app-shell:has(.chat-page) .composer-mode.active,.app-shell:has(.chat-page) .composer-research.active{border-color:var(--border);background:var(--surface);color:var(--text)}.app-shell:has(.chat-page) .composer-mode-options{background:var(--surface);border-color:var(--border);box-shadow:0 12px 35px rgba(0,0,0,.12)}.app-shell:has(.chat-page) .sidebar{background:var(--bg);border-color:var(--border)}.app-shell:has(.chat-page) .mobile-menu{background:transparent;border:0;color:var(--text)}
 @media(min-width:769px){.app-shell:has(.chat-page) .app-main{height:100dvh}.app-shell:has(.chat-page) .message-column{width:min(600px,calc(100% - 32px));padding-top:8px}.app-shell:has(.chat-page) .composer-wrap{padding-left:12px;padding-right:12px}}
 @media(max-width:768px){.app-shell:has(.chat-page) .chat-header{padding-left:60px;padding-right:14px}.app-shell:has(.chat-page) .message-column{width:calc(100% - 32px);padding-top:8px;padding-bottom:170px}.app-shell:has(.chat-page) .empty-chat{width:100%;padding:24px 0}.app-shell:has(.chat-page) .empty-chat h1{font-size:clamp(25px,7vw,30px)}.app-shell:has(.chat-page) .composer-wrap{padding:8px 12px calc(10px + env(safe-area-inset-bottom))}.app-shell:has(.chat-page) .composer{grid-template-columns:34px minmax(0,1fr) 36px}}
+
+
+/* Shared paper-and-ink language for the authenticated library screens. */
+.app-shell:has(.settings-page),
+.app-shell:has(.workspace-page),
+.app-shell:has(.documents-page) {
+  --bg: #faf9f5;
+  --surface: #fff;
+  --surface-elevated: #fff;
+  --surface-subtle: #f1efe6;
+  --text: #252420;
+  --text-muted: #77756e;
+  --text-subtle: #77756e;
+  --accent: #d97757;
+  --accent-hover: #c76849;
+  --accent-fg: #fff;
+  --border: #e8e5db;
+  --border-strong: #d8d4c8;
+  background: var(--bg);
+  color: var(--text);
+}
+.app-shell:has(.settings-page) .app-main,
+.app-shell:has(.workspace-page) .app-main,
+.app-shell:has(.documents-page) .app-main { background: var(--bg); }
+.app-shell:has(.settings-page) .sidebar,
+.app-shell:has(.workspace-page) .sidebar,
+.app-shell:has(.documents-page) .sidebar { background: #f5f3ec; border-color: var(--border); }
+.app-shell:has(.settings-page) .sidebar a,
+.app-shell:has(.workspace-page) .sidebar a,
+.app-shell:has(.documents-page) .sidebar a { color: #55534d; }
+.app-shell:has(.settings-page) .sidebar a:hover,
+.app-shell:has(.workspace-page) .sidebar a:hover,
+.app-shell:has(.documents-page) .sidebar a:hover,
+.app-shell:has(.settings-page) .sidebar a.active,
+.app-shell:has(.workspace-page) .sidebar a.active,
+.app-shell:has(.documents-page) .sidebar a.active { background: #eae7dc; color: #252420; }
+.app-shell:has(.settings-page) .mobile-menu,
+.app-shell:has(.workspace-page) .mobile-menu,
+.app-shell:has(.documents-page) .mobile-menu { color: var(--text); background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+
+.settings-page,
+.workspace-page,
+.documents-page { color: var(--text); }
+.settings-page .eyebrow,
+.workspace-page .eyebrow,
+.documents-page .eyebrow { color: var(--text-muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.settings-page h1,
+.workspace-page h1,
+.documents-page h1 { color: var(--text); font-family: Georgia, "Times New Roman", serif; font-size: clamp(30px, 4vw, 40px); font-weight: 400; letter-spacing: -.035em; line-height: 1.12; }
+.settings-page .settings-header,
+.workspace-page .workspace-header,
+.documents-page .settings-header { border-color: var(--border); }
+.settings-page .settings-header > div > p:not(.eyebrow),
+.workspace-page .workspace-header > div > p:not(.eyebrow),
+.documents-page .settings-header > div > p:not(.eyebrow) { color: var(--text-muted); line-height: 1.65; }
+.settings-page .settings-section,
+.workspace-page .workspace-form-card,
+.workspace-page .workspace-primary,
+.documents-page .settings-section,
+.documents-page .documents-upload-panel,
+.documents-page .documents-search-section {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(35, 31, 22, .025);
+}
+.settings-page .settings-section { padding: 22px; }
+.settings-page .setting-row,
+.settings-page .setting-row-polished { border-color: var(--border); }
+.settings-page .settings-section h2,
+.settings-page .settings-section h3,
+.workspace-page h2,
+.workspace-page h3,
+.documents-page h2,
+.documents-page h3 { color: var(--text); letter-spacing: -.015em; }
+.settings-page .settings-muted,
+.workspace-page .settings-muted,
+.documents-page .settings-muted,
+.workspace-page .workspace-helper { color: var(--text-muted); }
+.settings-page .ui-input,
+.workspace-page .ui-input,
+.workspace-page .workspace-textarea,
+.documents-page input,
+.documents-page textarea {
+  color: var(--text);
+  background: #fff;
+  border-color: var(--border-strong);
+  border-radius: 11px;
+}
+.settings-page .ui-input:focus,
+.workspace-page .ui-input:focus,
+.workspace-page .workspace-textarea:focus,
+.documents-page input:focus,
+.documents-page textarea:focus {
+  outline: 2px solid rgba(217, 119, 87, .2);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.settings-page .ui-button-primary,
+.workspace-page .ui-button-primary,
+.documents-page .ui-button-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.settings-page .ui-button-primary:hover:not(:disabled),
+.workspace-page .ui-button-primary:hover:not(:disabled),
+.documents-page .ui-button-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.settings-page .ui-button-secondary,
+.workspace-page .ui-button-secondary,
+.documents-page .ui-button-secondary { color: var(--text); background: #fff; border-color: var(--border-strong); }
+.workspace-page .workspace-tabs { border-bottom-color: var(--border); }
+.workspace-page .workspace-tabs button { color: var(--text-muted); }
+.workspace-page .workspace-tabs button[aria-selected="true"],
+.workspace-page .workspace-tabs button.active { color: var(--text); border-color: var(--accent); }
+.workspace-page .workspace-item,
+.documents-page .documents-item { border-color: var(--border); background: var(--surface); border-radius: 14px; }
+.workspace-page .workspace-item:hover,
+.documents-page .documents-item:hover { background: #fbfaf6; border-color: var(--border-strong); }
+.workspace-page .workspace-empty,
+.documents-page .documents-empty,
+.documents-page .documents-state { border-color: var(--border); background: #f7f5ee; border-radius: 16px; }
+.workspace-page .workspace-item-icon,
+.documents-page .documents-upload-icon,
+.documents-page .documents-file-icon { color: var(--accent); background: #f8eee8; border-radius: 12px; }
+.documents-page .documents-count { color: var(--text-muted); }
+.settings-page .settings-feedback,
+.workspace-page .workspace-retry,
+.documents-page .documents-feedback { border-radius: 12px; }
+.settings-page .settings-feedback-error,
+.documents-page .documents-feedback-error { border-color: #e8c7b9; background: #fff7f3; color: #873f2a; }
+@media (max-width: 768px) {
+  .settings-page .settings-section { padding: 16px; }
+  .settings-page .settings-header,
+  .workspace-page .workspace-header,
+  .documents-page .settings-header { gap: 14px; }
+  .workspace-page,
+  .documents-page,
+  .settings-page { padding-top: 24px; }
+}
+@media (prefers-color-scheme: dark) {
+  /* Explicit user theme preferences remain controlled by AppShell; keep the light reference consistent. */
+}
