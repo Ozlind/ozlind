@@ -14,10 +14,25 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   status?: string;
+  created_at?: string;
+  images?: ChatImage[];
 };
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
 type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
+
+function messageDayLabel(timestamp?: string): string {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return "";
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const difference = Math.round((today - day) / 86_400_000);
+  if (difference === 0) return "Today";
+  if (difference === 1) return "Yesterday";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
 
 async function compressImage(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -68,6 +83,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [historyError, setHistoryError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyAttempt, setHistoryAttempt] = useState(0);
+  const [conversationTitle, setConversationTitle] = useState("New chat");
   const [online, setOnline] = useState(true);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(() => new Set());
@@ -78,6 +94,36 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setId(initialId), [initialId]);
+
+  useEffect(() => {
+    if (!id) {
+      setConversationTitle("New chat");
+      return;
+    }
+
+    let live = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data, error: titleError } = await supabase
+          .from("conversations")
+          .select("title")
+          .eq("id", id)
+          .maybeSingle();
+        if (live && !titleError) setConversationTitle(data?.title || "New chat");
+      } catch {
+        // The title is a convenience; keep the chat usable if it cannot be fetched.
+      }
+    })();
+
+    return () => { live = false; };
+  }, [id]);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = conversationTitle === "New chat" ? "New chat | Ozlind" : conversationTitle + " | Ozlind";
+    return () => { document.title = previousTitle; };
+  }, [conversationTitle]);
 
   // Keep the chat inside the visible viewport when a mobile software keyboard opens.
   useEffect(() => {
@@ -146,7 +192,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const supabase = createClient();
         const { data, error: queryError } = await supabase
           .from("messages")
-          .select("id,role,content,status")
+          .select("id,role,content,status,created_at")
           .eq("conversation_id", id)
           .order("created_at", { ascending: true });
 
@@ -202,9 +248,22 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     const assistantId = crypto.randomUUID();
 
     if (action === "send") {
-      setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete" }));
+      setMessages((current) => current.concat({
+        id: key,
+        role: "user",
+        content: outgoingContent,
+        status: "complete",
+        created_at: new Date().toISOString(),
+        images: outgoingImages,
+      }));
     }
-    setMessages((current) => current.concat({ id: assistantId, role: "assistant", content: "", status: "streaming" }));
+    setMessages((current) => current.concat({
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      status: "streaming",
+      created_at: new Date().toISOString(),
+    }));
     setStreaming(true);
 
     const controller = new AbortController();
@@ -368,7 +427,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       <OfflineBanner />
       <header className="chat-header">
         <div>
-          <h2>New chat</h2>
+          <h2>{conversationTitle}</h2>
         </div>
       </header>
 
@@ -427,12 +486,33 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <article key={message.id} className={"message " + message.role}>
+            messages.map((message, index) => {
+              const dayLabel = messageDayLabel(message.created_at);
+              const previousDayLabel = messageDayLabel(messages[index - 1]?.created_at);
+              const showDateSeparator = Boolean(dayLabel && dayLabel !== previousDayLabel);
+              const messageTime = message.created_at && Number.isFinite(Date.parse(message.created_at))
+                ? new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))
+                : "";
+              return (
+                <>
+                  {showDateSeparator && <div className="message-date-separator">{dayLabel}</div>}
+                  <article key={message.id} className={"message " + message.role}>
                 <div className="message-role">{message.role === "user" ? "You" : "Ozlind"}</div>
-                <div className={"message-content" + (message.content.length > 1600 && !expandedMessages.has(message.id) ? " message-content-collapsed" : "")}>
+                <div
+                  dir="auto"
+                  className={"message-content" + (message.content.length > 1600 && !expandedMessages.has(message.id) ? " message-content-collapsed" : "")}
+                >
                   {message.role === "user" ? (
-                    <p>{message.content}</p>
+                    <>
+                      {message.images && message.images.length > 0 && (
+                        <div className="message-inline-attachments" aria-label="Message attachments">
+                          {message.images.map((image, imageIndex) => (
+                            <img key={image.name + imageIndex} src={image.dataUrl} alt={image.name} loading="lazy" />
+                          ))}
+                        </div>
+                      )}
+                      <p dir="auto">{message.content}</p>
+                    </>
                   ) : message.content ? (
                     <MarkdownRenderer content={message.content} />
                   ) : message.status === "streaming" ? (
@@ -444,6 +524,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <MarkdownRenderer content=" " />
                   )}
                 </div>
+                {messageTime && (
+                  <time className="message-timestamp" dateTime={message.created_at} title={message.created_at}>
+                    {messageTime}
+                  </time>
+                )}
                 {message.content.length > 1600 && (
                   <button
                     type="button"
@@ -489,8 +574,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     )}
                   </div>
                 )}
-              </article>
-            ))
+                  </article>
+                </>
+              );
+            })
           )}
         </div>
       </div>
