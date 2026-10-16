@@ -1621,7 +1621,7 @@ img, video, canvas, svg {
   font-weight: 600;
   text-align: center;
   pointer-events: none;
-  backdrop-filter: blur(5px);
+  
 }
 
 
