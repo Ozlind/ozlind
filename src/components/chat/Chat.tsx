@@ -246,7 +246,16 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           setHistoryError("Your conversation history could not be loaded.");
           return;
         }
-        setMessages((data ?? []) as Message[]);
+        setMessages(current => (data ?? []).map((row) => {
+          const message = row as Message;
+          const matchingImageMessage = [...current].reverse().find(existing =>
+            existing.role === "user" &&
+            message.role === "user" &&
+            existing.content === message.content &&
+            Boolean(existing.images?.length)
+          );
+          return matchingImageMessage ? { ...message, images: matchingImageMessage.images } : message;
+        }));
       } catch {
         if (live) setHistoryError("Your conversation history could not be loaded.");
       } finally {
@@ -287,7 +296,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       setShowScrollToBottom(!atBottom);
     });
     return () => cancelAnimationFrame(frame);
-  }, [id, historyLoading, messages.length]);
+  }, [id, historyLoading]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
