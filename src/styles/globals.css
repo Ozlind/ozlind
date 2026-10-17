@@ -1216,3 +1216,139 @@ img, video, canvas, svg {
 @media(max-width:768px){.app-shell:has(.chat-page) .app-main{width:100%;min-width:0;height:100dvh;overflow:hidden}.chat-header{padding-left:60px;padding-right:60px}.message-column{width:calc(100% - 28px);padding-top:20px}.composer-wrap{padding:8px 10px calc(8px + env(safe-area-inset-bottom))}.app-shell:has(.chat-page) .sidebar{width:min(82vw,330px);padding-top:env(safe-area-inset-top)}}
 @media(max-width:360px){.composer{grid-template-columns:30px minmax(0,1fr) 36px;padding:6px;gap:3px}.composer-attach{width:30px}.send-button{width:34px;min-width:34px;height:34px;min-height:34px}}
 @media(prefers-reduced-motion:reduce){.empty-chat-mark{animation:none}}
+
+
+/* UI refresh: translate the supplied chat layout into the existing Next.js app.
+   Keep real chat streaming, Supabase history, auth, attachments and mode handlers intact. */
+.app-shell:has(.chat-page) {
+  --bg: #0d0d0f;
+  --surface: #151518;
+  --surface-elevated: #1c1c20;
+  --surface-subtle: #222227;
+  --text: #f2f2f4;
+  --text-muted: #a0a0a8;
+  --text-subtle: #777780;
+  --accent: #5b6cff;
+  --accent-hover: #7380ff;
+  --accent-fg: #ffffff;
+  --border: #2b2b31;
+  --border-strong: #3a3a43;
+}
+.app-shell:has(.chat-page) .sidebar {
+  background: #111113;
+  border-right-color: #28282e;
+}
+.app-shell:has(.chat-page) .chat-page,
+.app-shell:has(.chat-page) .chat-header,
+.app-shell:has(.chat-page) .message-list {
+  background: var(--bg);
+}
+.app-shell:has(.chat-page) .chat-header {
+  justify-content: flex-start;
+  padding-inline: 24px;
+  border-bottom-color: transparent;
+}
+.app-shell:has(.chat-page) .chat-header > div { text-align: left; }
+.app-shell:has(.chat-page) .chat-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+}
+.app-shell:has(.chat-page) .chat-header h2::after { content: none; }
+.app-shell:has(.chat-page) .empty-chat-mark {
+  background: #1b1b21;
+  color: #e8e8ef;
+  border: 1px solid #303039;
+  box-shadow: none;
+  animation: none;
+}
+.app-shell:has(.chat-page) .empty-chat h1 {
+  color: #f2f2f4;
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 600;
+  letter-spacing: -.045em;
+}
+.app-shell:has(.chat-page) .empty-chat p {
+  max-width: 420px;
+  color: #a0a0a8;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.app-shell:has(.chat-page) .message.user .message-content {
+  background: #242429;
+  color: #f2f2f4;
+  border: 1px solid #303037;
+  border-radius: 18px 18px 5px 18px;
+}
+.app-shell:has(.chat-page) .message.assistant .message-role { color: #c5c5ce; }
+.app-shell:has(.chat-page) .composer-wrap {
+  background: linear-gradient(to top, #0d0d0f 78%, transparent);
+}
+.app-shell:has(.chat-page) .composer {
+  background: #151518;
+  border-color: #303037;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 18%);
+}
+.app-shell:has(.chat-page) .composer:focus-within {
+  border-color: #51515f;
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 3%);
+}
+.app-shell:has(.chat-page) .composer-mode,
+.app-shell:has(.chat-page) .composer-research {
+  border-color: #2d2d34;
+  background: #151518;
+  color: #b6b6bf;
+}
+.app-shell:has(.chat-page) .composer-mode.active,
+.app-shell:has(.chat-page) .composer-research.active {
+  border-color: #3c3c46;
+  background: #1c1c21;
+  color: #f2f2f4;
+}
+.app-shell:has(.chat-page) .composer-mode-options {
+  position: static;
+  flex-basis: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 2px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell:has(.chat-page) .composer-mode-options .composer-mode.active {
+  border-color: #5b6cff;
+  background: rgb(91 108 255 / 12%);
+}
+.app-shell:has(.chat-page) .composer .send-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: #f2f2f4;
+  color: #111113;
+  box-shadow: none;
+}
+.app-shell:has(.chat-page) .composer .send-button:disabled {
+  background: #35353d;
+  color: #777780;
+}
+.app-shell:has(.chat-page) .composer .send-button svg { color: inherit; }
+.app-shell:has(.chat-page) .composer-note { color: #777780; }
+.app-shell:has(.chat-page) .message-action:hover:not(:disabled) {
+  background: #1c1c20;
+  border-color: #303037;
+}
+@media (max-width: 768px) {
+  .app-shell:has(.chat-page) .chat-header {
+    justify-content: center;
+    padding-inline: 60px;
+  }
+  .app-shell:has(.chat-page) .chat-header > div { text-align: center; }
+  .app-shell:has(.chat-page) .composer-wrap {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
