@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { usePreferences } from "@/hooks/usePreferences";
 
 export function AppShell({ user, children }: { user: { id: string; email: string; displayName: string }; children: React.ReactNode }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { preferences } = usePreferences();
@@ -34,6 +36,37 @@ export function AppShell({ user, children }: { user: { id: string; email: string
     media.addEventListener("change", applyTheme);
     return () => media.removeEventListener("change", applyTheme);
   }, [preferences]);
+
+  useEffect(() => {
+    const onShortcut = (event: KeyboardEvent) => {
+      const modifier = event.metaKey || event.ctrlKey;
+      const key = event.key.toLocaleLowerCase();
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const isEditing = Boolean(target?.closest("input, textarea, select, [contenteditable='true']"));
+
+      if (modifier && !event.altKey && key === "k") {
+        event.preventDefault();
+        if (window.matchMedia("(max-width: 768px)").matches) setOpen(true);
+        requestAnimationFrame(() => window.dispatchEvent(new Event("ozlind:focus-chat-search")));
+        return;
+      }
+
+      if (modifier && event.altKey && key === "n") {
+        event.preventDefault();
+        closeNavigation(false);
+        router.push("/app");
+        return;
+      }
+
+      if (!modifier && !event.altKey && !event.shiftKey && key === "/" && !isEditing) {
+        event.preventDefault();
+        window.dispatchEvent(new Event("ozlind:focus-composer"));
+      }
+    };
+
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, [closeNavigation, router]);
 
   useEffect(() => {
     if (!open) return;

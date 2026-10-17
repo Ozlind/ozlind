@@ -6,7 +6,7 @@ import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SidebarProps = {
   user: { id: string; email: string; displayName: string };
@@ -14,11 +14,45 @@ type SidebarProps = {
   onClose: () => void;
 };
 
+function conversationGroup(updatedAt: string | null | undefined): "Today" | "Yesterday" | "Previous 7 days" | "Older" {
+  const timestamp = updatedAt ? new Date(updatedAt) : new Date(0);
+  if (!Number.isFinite(timestamp.getTime())) return "Older";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(timestamp);
+  day.setHours(0, 0, 0, 0);
+  const difference = Math.floor((today.getTime() - day.getTime()) / 86_400_000);
+  if (difference <= 0) return "Today";
+  if (difference === 1) return "Yesterday";
+  if (difference <= 7) return "Previous 7 days";
+  return "Older";
+}
+
+function highlightedTitle(title: string, query: string) {
+  if (!query) return title;
+  const index = title.toLocaleLowerCase().indexOf(query);
+  if (index < 0) return title;
+  return (
+    <>
+      {title.slice(0, index)}
+      <mark className="conversation-search-match">{title.slice(index, index + query.length)}</mark>
+      {title.slice(index + query.length)}
+    </>
+  );
+}
+
 export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const path = usePathname();
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const focusSearch = () => requestAnimationFrame(() => searchInputRef.current?.focus());
+    window.addEventListener("ozlind:focus-chat-search", focusSearch);
+    return () => window.removeEventListener("ozlind:focus-chat-search", focusSearch);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 768px)");
@@ -74,6 +108,12 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       .toLocaleLowerCase()
       .includes(normalizedQuery),
   );
+  const conversationGroups = (["Today", "Yesterday", "Previous 7 days", "Older"] as const)
+    .map(label => ({
+      label,
+      items: filteredConversations.filter(conversation => conversationGroup(conversation.updated_at) === label),
+    }))
+    .filter(group => group.items.length > 0);
 
   return (
     <aside
@@ -99,7 +139,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <Button onClick={() => { router.push("/app"); onClose(); }}>
+        <Button title="New chat · Ctrl/⌘ + Alt + N" onClick={() => { router.push("/app"); onClose(); }}>
           <OzlindIcon name="i-new-conversation" size={18} />
           New chat
         </Button>
@@ -107,11 +147,13 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         <label className="search-box">
           <OzlindIcon name="i-search" size={16} />
           <input
+            ref={searchInputRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search chats…"
-            aria-label="Search your chats"
+            aria-label="Search your chats (Ctrl or Command + K)"
+            title="Search chats · Ctrl/⌘ + K"
           />
           {query && (
             <button
@@ -128,7 +170,10 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
 
       <nav className="conversation-list" aria-label="Conversation history">
         {isLoading ? (
-          <p className="sidebar-state" role="status">Loading conversations…</p>
+          <div className="sidebar-skeletons" role="status" aria-label="Loading conversations">
+            <span className="sidebar-skeleton" /><span className="sidebar-skeleton" />
+            <span className="sidebar-skeleton" /><span className="sidebar-skeleton" />
+          </div>
         ) : isError ? (
           <div className="sidebar-state sidebar-state-error" role="alert">
             <span>Could not load conversations.</span>
@@ -141,18 +186,28 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
             {normalizedQuery ? "No conversations match your search." : "Your conversations will appear here."}
           </p>
         ) : (
-          filteredConversations.map((conversation) => (
-            <Link
-              key={conversation.id}
-              href={"/app/" + conversation.id}
-              onClick={onClose}
-              className={path === "/app/" + conversation.id ? "conversation-link active" : "conversation-link"}
-              aria-current={path === "/app/" + conversation.id ? "page" : undefined}
-              title={conversation.title || "New conversation"}
-            >
-              {conversation.title || "New conversation"}
-            </Link>
-          ))
+          <div className="conversation-groups">
+            {conversationGroups.map(group => (
+              <section key={group.label} className="conversation-group" aria-label={group.label + " conversations"}>
+                <h2 className="conversation-group-label">{group.label}</h2>
+                {group.items.map(conversation => {
+                  const title = conversation.title || "New conversation";
+                  return (
+                    <Link
+                      key={conversation.id}
+                      href={"/app/" + conversation.id}
+                      onClick={onClose}
+                      className={path === "/app/" + conversation.id ? "conversation-link active" : "conversation-link"}
+                      aria-current={path === "/app/" + conversation.id ? "page" : undefined}
+                      title={title}
+                    >
+                      {highlightedTitle(title, normalizedQuery)}
+                    </Link>
+                  );
+                })}
+              </section>
+            ))}
+          </div>
         )}
       </nav>
 
