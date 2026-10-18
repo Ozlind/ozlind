@@ -36,6 +36,33 @@ export function AppShell({ user, children }: { user: { id: string; email: string
   }, [preferences]);
 
   useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const syncKeyboardOffset = () => {
+      const heightDifference = window.innerHeight - viewport.height;
+      const keyboardIsOpen = heightDifference > 120;
+      const offset = keyboardIsOpen
+        ? Math.max(0, heightDifference - viewport.offsetTop)
+        : 0;
+
+      document.documentElement.style.setProperty("--ozlind-keyboard-offset", `${offset}px`);
+    };
+
+    syncKeyboardOffset();
+    viewport.addEventListener("resize", syncKeyboardOffset);
+    viewport.addEventListener("scroll", syncKeyboardOffset);
+    window.addEventListener("resize", syncKeyboardOffset);
+
+    return () => {
+      viewport.removeEventListener("resize", syncKeyboardOffset);
+      viewport.removeEventListener("scroll", syncKeyboardOffset);
+      window.removeEventListener("resize", syncKeyboardOffset);
+      document.documentElement.style.removeProperty("--ozlind-keyboard-offset");
+    };
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
 
     const previousOverflow = document.body.style.overflow;
