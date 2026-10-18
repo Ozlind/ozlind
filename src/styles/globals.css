@@ -1383,3 +1383,101 @@ img, video, canvas, svg {
     touch-action: manipulation;
   }
 }
+
+
+/* Unified Ozlind product identity — shared across chat, workspace, documents, settings and auth. */
+:root {
+  --content-width: 900px;
+  --page-width: 820px;
+  --control-height: 40px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+}
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, textarea, select { letter-spacing: inherit; }
+a { color: inherit; }
+.sidebar { background: var(--surface); border-color: var(--border); }
+.sidebar-brand-link { display: inline-flex; align-items: center; gap: 9px; color: var(--text); text-decoration: none; font-weight: 650; letter-spacing: -0.035em; }
+.sidebar-brand-link:hover { opacity: .88; }
+.chat-header, .settings-header { border-color: var(--border); }
+.chat-header h2, .settings-header h1, .workspace-header h1, .auth-card h1 {
+  letter-spacing: -0.04em;
+}
+.settings-page { width: min(var(--page-width), calc(100% - 48px)); }
+.settings-header h1, .workspace-header h1 { line-height: 1.12; }
+.settings-header > div:first-child > p:last-child,
+.workspace-header > div:first-child > p:last-child {
+  max-width: 58ch;
+  line-height: 1.65;
+}
+.settings-section, .documents-search-section { border-color: var(--border); }
+.settings-grid, .workspace-form-card, .workspace-item, .documents-item,
+.documents-result, .auth-card, .composer, .prompt-grid button {
+  border-radius: var(--radius-card);
+}
+.settings-grid, .workspace-form-card, .workspace-item, .documents-item,
+.documents-result, .auth-card {
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.setting-row, .workspace-form-card, .workspace-item, .documents-item,
+.documents-result, .documents-upload-panel, .workspace-empty, .workspace-empty-mark {
+  background-color: var(--surface);
+}
+.setting-row + .setting-row { border-top: 1px solid var(--border); }
+.ui-button, .ui-input, .setting-row select, .search-box,
+.documents-refresh, .workspace-search, .workspace-tabs, .auth-google,
+.auth-submit, .auth-switch {
+  border-radius: var(--radius-control);
+}
+.ui-button { font-weight: 550; transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) ease; }
+.ui-button:active:not(:disabled) { transform: translateY(1px); }
+.ui-button-secondary, .documents-refresh {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+.ui-button-secondary:hover:not(:disabled), .documents-refresh:hover:not(:disabled) {
+  background: var(--surface-subtle);
+  border-color: var(--border-strong);
+}
+.ui-input, .setting-row select, .search-box, .workspace-search {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.ui-input:focus-visible, .setting-row select:focus-visible, .search-box:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.eyebrow { font-weight: 650; letter-spacing: .09em; }
+.settings-section h2, .documents-section-heading h2, .workspace-form-heading {
+  letter-spacing: -0.02em;
+}
+.auth-shell { background: var(--bg); }
+.auth-card { padding: clamp(24px, 5vw, 36px); gap: 22px; }
+.auth-brand-mark { width: 44px; height: 44px; }
+.auth-copy, .settings-muted, .workspace-helper, .documents-state { line-height: 1.65; }
+.message-column { width: min(var(--content-width), calc(100% - 48px)); }
+.composer { box-shadow: 0 8px 28px rgb(24 24 20 / 7%); }
+.prompt-grid button { transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+.prompt-grid button:hover { border-color: var(--border-strong); background: var(--surface-subtle); }
+.workspace-item:hover, .documents-item:hover, .documents-result:hover {
+  border-color: var(--border-strong);
+}
+@media (max-width: 768px) {
+  .settings-page { width: calc(100% - 32px); }
+  .settings-header h1, .workspace-header h1 { font-size: clamp(26px, 7vw, 32px); }
+  .auth-shell { padding: 16px; }
+  .auth-card { border-radius: var(--radius-card); }
+  .message-column { width: calc(100% - 32px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-button, .prompt-grid button { transition: none; }
+}
