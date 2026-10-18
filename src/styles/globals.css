@@ -1481,3 +1481,23 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .ui-button, .prompt-grid button { transition: none; }
 }
+
+/* Remove legacy chat-only color overrides so Chat follows the same theme tokens as every other route. */
+.app-shell:has(.chat-page) .composer-mode-options .composer-mode.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+.app-shell:has(.chat-page) .composer .send-button {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.app-shell:has(.chat-page) .composer .send-button:disabled {
+  background: var(--surface-subtle);
+  color: var(--text-subtle);
+}
+.app-shell:has(.chat-page) .composer-note { color: var(--text-muted); }
+.app-shell:has(.chat-page) .message-action:hover:not(:disabled) {
+  background: var(--surface-subtle);
+  border-color: var(--border);
+}
