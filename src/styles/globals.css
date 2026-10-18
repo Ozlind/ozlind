@@ -1352,3 +1352,34 @@ img, video, canvas, svg {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 }
+
+
+/* Mobile keyboard and viewport polish: keep the composer above the Android/iOS keyboard. */
+.app-shell:has(.chat-page) .composer-wrap {
+  bottom: var(--ozlind-keyboard-offset, 0px);
+  transition: none;
+}
+.app-shell:has(.chat-page) .chat-page,
+.app-shell:has(.chat-page) .message-list,
+.app-shell:has(.chat-page) .message-column {
+  min-width: 0;
+  max-width: 100%;
+}
+.app-shell:has(.chat-page) .chat-page {
+  overflow-x: clip;
+}
+@media (max-width: 768px) {
+  .app-shell:has(.chat-page) .chat-header {
+    min-height: calc(64px + env(safe-area-inset-top));
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  .app-shell:has(.chat-page) .composer-wrap {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+  .app-shell:has(.chat-page) .composer-mode,
+  .app-shell:has(.chat-page) .composer-research,
+  .app-shell:has(.chat-page) .composer-attach,
+  .app-shell:has(.chat-page) .send-button {
+    touch-action: manipulation;
+  }
+}
