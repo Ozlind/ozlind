@@ -1501,3 +1501,55 @@ a { color: inherit; }
   background: var(--surface-subtle);
   border-color: var(--border);
 }
+
+/* Chat must inherit the same live theme tokens as Workspace, Documents and Settings. */
+:root {
+  --ozlind-global-bg: var(--bg);
+  --ozlind-global-surface: var(--surface);
+  --ozlind-global-surface-elevated: var(--surface-elevated);
+  --ozlind-global-surface-subtle: var(--surface-subtle);
+  --ozlind-global-text: var(--text);
+  --ozlind-global-text-muted: var(--text-muted);
+  --ozlind-global-text-subtle: var(--text-subtle);
+  --ozlind-global-accent: var(--accent);
+  --ozlind-global-accent-hover: var(--accent-hover);
+  --ozlind-global-accent-fg: var(--accent-fg);
+  --ozlind-global-border: var(--border);
+  --ozlind-global-border-strong: var(--border-strong);
+}
+.app-shell:has(.chat-page) {
+  --bg: var(--ozlind-global-bg);
+  --surface: var(--ozlind-global-surface);
+  --surface-elevated: var(--ozlind-global-surface-elevated);
+  --surface-subtle: var(--ozlind-global-surface-subtle);
+  --text: var(--ozlind-global-text);
+  --text-muted: var(--ozlind-global-text-muted);
+  --text-subtle: var(--ozlind-global-text-subtle);
+  --accent: var(--ozlind-global-accent);
+  --accent-hover: var(--ozlind-global-accent-hover);
+  --accent-fg: var(--ozlind-global-accent-fg);
+  --border: var(--ozlind-global-border);
+  --border-strong: var(--ozlind-global-border-strong);
+  background: var(--bg);
+  color: var(--text);
+}
+.app-shell:has(.chat-page) .sidebar {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.app-shell:has(.chat-page) .conversation-link:hover,
+.app-shell:has(.chat-page) .conversation-link.active {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+.app-shell:has(.chat-page) .brand-mark {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+.app-shell:has(.chat-page) .mobile-menu {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.app-shell:has(.chat-page) .message.assistant .message-role { color: var(--text-muted); }
