@@ -26,7 +26,7 @@ for(const file of files){
  if(/NEXT_PUBLIC_[A-Z_]*(SERVICE_ROLE_KEY|SECRET|PRIVATE_KEY|ACCESS_TOKEN|REFRESH_TOKEN)/.test(source))problems.push("Secret-looking NEXT_PUBLIC_ variable in "+path.relative(root,file));
 }
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
-for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","RATE_LIMITED","Retry-After","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed"])if(!chat.includes(token))problems.push("Chat route missing "+token);
+for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed"])if(!chat.includes(token))problems.push("Chat route missing "+token);
 const canonicalSchema=fs.readFileSync(path.join(root,"supabase/schema.sql"),"utf8");
 const rateLimitTables=canonicalSchema.match(/create table if not exists public\.rate_limits/g)||[];
 if(rateLimitTables.length!==1)problems.push("Canonical schema must define rate_limits exactly once");
@@ -41,6 +41,7 @@ if(css.includes("backdrop-filter"))problems.push("Glass/backdrop-filter styling 
 
 const rateLimitSource=fs.readFileSync(path.join(root,"src/lib/rate-limit.ts"),"utf8");
 if(!rateLimitSource.includes("export function rateLimitErrorResponse"))problems.push("Shared rate-limit response helper is missing");
+for(const token of ["RATE_LIMITED","Retry-After","RATE_LIMITER_UNAVAILABLE"])if(!rateLimitSource.includes(token))problems.push("Shared rate limiter missing "+token);
 for(const [route, tokens] of [
  ["src/app/api/chat/route.ts", ["readJsonBody", "PayloadTooLargeError", "rateLimitErrorResponse"]],
  ["src/app/api/research/route.ts", ["readJsonBody", "checkUserRateLimit", "rateLimitErrorResponse"]],
