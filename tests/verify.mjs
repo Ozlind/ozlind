@@ -49,7 +49,7 @@ for(const [route, tokens] of [
  const source=fs.readFileSync(path.join(root,route),"utf8");
  for(const token of tokens)if(!source.includes(token))problems.push(route+" missing security guard "+token);
 }
-const requestSecurity=fs.readFileSync(path.join(root,"src/lib/security/request.js"),"utf8");
+const requestSecurity=fs.readFileSync(path.join(root,"src/lib/security/request.mjs"),"utf8");
 for(const token of ["content-length","getReader()","PayloadTooLargeError","TextDecoder","JSON.parse"])if(!requestSecurity.includes(token))problems.push("Bounded JSON parser missing "+token);
 
 if(problems.length){console.error("OZLIND architecture verification FAILED:\n");for(const p of problems)console.error(" - "+p);process.exit(1)}

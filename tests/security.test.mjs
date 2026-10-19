@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PayloadTooLargeError, readJsonBody } from "../src/lib/security/request.js";
+import { PayloadTooLargeError, readJsonBody } from "../src/lib/security/request.mjs";
 
 function requestFromChunks(chunks, headers = {}) {
   const encoder = new TextEncoder();

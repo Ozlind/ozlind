@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { checkUserRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit";
-import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request";
+import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
