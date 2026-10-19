@@ -19,4 +19,8 @@ The previous 150 ms checkpoint loop awaited a Supabase write inline with token d
 
 - A crash during generation can leave the last checkpoint up to 750 ms behind the last token; the completed response is always written and checked before success is returned.
 - The 32 ms rendering cadence improves perceived responsiveness but does not change provider first-token latency.
-- AI SDK¶»§q«^
+- AI SDK v5 requires an explicit dependency/API migration; conversation storage schema and public chat stream contract remain unchanged.
+
+## Verification
+
+The Stage 02 CI gate runs Node tests for request-size guards and stream flush policy, TypeScript, ESLint, repository architecture checks, production build and a blocking production dependency audit. Authenticated provider streaming still requires an end-to-end live smoke test.
