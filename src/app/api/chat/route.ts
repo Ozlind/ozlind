@@ -4,7 +4,8 @@ import { streamText, type CoreMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { checkUserRateLimit } from "@/lib/rate-limit";
+import { checkUserRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit";
+import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,7 +133,17 @@ export async function POST(request: Request) {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
 
-  const parsed = schema.safeParse(await request.json().catch(() => null));
+  let requestBody: unknown;
+  try {
+    requestBody = await readJsonBody(request, 5 * 1024 * 1024);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return jsonError("PAYLOAD_TOO_LARGE", requestId, 413, "Request body is too large.");
+    }
+    return jsonError("INVALID_INPUT", requestId, 400);
+  }
+
+  const parsed = schema.safeParse(requestBody);
   if (!parsed.success) {
     return jsonError("INVALID_INPUT", requestId, 400);
   }
@@ -167,18 +178,8 @@ export async function POST(request: Request) {
 
   // Apply the shared database-backed limit before any paid provider/search work.
   const rateLimit = await checkUserRateLimit();
-  if (rateLimit.unavailable) {
-    return jsonError("RATE_LIMITER_UNAVAILABLE", requestId, 503, "Request protection is temporarily unavailable.");
-  }
-  if (rateLimit.unauthorized) {
-    return jsonError("AUTH_REQUIRED", requestId, 401);
-  }
-  if (!rateLimit.allowed) {
-    return Response.json(
-      { error: { code: "RATE_LIMITED", requestId, message: "Too many requests. Please try again shortly." } },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds), "Cache-Control": "no-store" } },
-    );
-  }
+  const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
+  if (rateLimitError) return rateLimitError;
 
   let research = { context: "", used: false };
   if (input.research) research = await researchContext(input.content, requestId);

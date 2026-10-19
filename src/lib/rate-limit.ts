@@ -77,3 +77,56 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
     return { allowed: false, remaining: 0, retryAfterSeconds: 5, unavailable: true };
   }
 }
+
+
+/**
+ * Converts a shared rate-limit result into a consistent, non-cacheable API
+ * response. A limiter/database failure is fail-closed: paid work must not run.
+ */
+export function rateLimitErrorResponse(
+  result: RateLimitResult,
+  requestId: string,
+): Response | null {
+  const headers = { "Cache-Control": "no-store" };
+
+  if (result.unavailable) {
+    return Response.json(
+      {
+        error: {
+          code: "RATE_LIMITER_UNAVAILABLE",
+          requestId,
+          message: "Request protection is temporarily unavailable.",
+        },
+      },
+      { status: 503, headers },
+    );
+  }
+
+  if (result.unauthorized) {
+    return Response.json(
+      { error: { code: "AUTH_REQUIRED", requestId } },
+      { status: 401, headers },
+    );
+  }
+
+  if (!result.allowed) {
+    return Response.json(
+      {
+        error: {
+          code: "RATE_LIMITED",
+          requestId,
+          message: "Too many requests. Please try again shortly.",
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          ...headers,
+          "Retry-After": String(Math.max(1, result.retryAfterSeconds)),
+        },
+      },
+    );
+  }
+
+  return null;
+}
