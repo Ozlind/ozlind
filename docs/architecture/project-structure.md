@@ -11,8 +11,11 @@ This document describes the files that currently exist in the repository. Propos
 ozlind/
 ├── .github/workflows/ci.yml
 ├── docs/
-│   ├── adr/0001-stage-1-backend-foundation.md
-│   └── architecture/project-structure.md
+│   ├── adr/                      # Accepted design decisions
+│   ├── architecture/project-structure.md
+│   ├── audits/                   # Dated repository/security reviews
+│   ├── internal/                 # Internal operations/security runbooks
+│   └── legal/                    # Draft policies; not published routes
 ├── public/
 │   ├── ozlind-icons.svg
 │   └── ozlind-mark.svg
@@ -44,15 +47,14 @@ ozlind/
 │   │   └── ui/               # Button, input, Ozlind SVG icon wrapper
 │   ├── hooks/usePreferences.ts
 │   ├── lib/
+│   │   ├── chat/streaming.mjs + streaming.d.mts # Tested stream UI batching policy
 │   │   ├── documents/        # Document ingestion, embeddings, and retrieval
-│   │   │   ├── embeddings.js
-│   │   │   ├── embeddings.d.ts
-│   │   │   ├── rag.js
-│   │   │   └── rag.d.ts
+│   │   │   ├── embeddings.js + embeddings.d.ts
+│   │   │   └── rag.js + rag.d.ts
+│   │   ├── security/request.mjs + request.d.mts # Bounded request JSON parsing
 │   │   ├── supabase/         # Browser, server, and middleware clients
 │   │   ├── i18n.ts
-│   │   ├── rate-limit.ts
-│   │   └── utils.ts
+│   │   └── rate-limit.ts
 │   ├── providers/QueryProvider.tsx
 │   └── styles/
 │       ├── globals.css
@@ -60,7 +62,11 @@ ozlind/
 ├── supabase/
 │   ├── migrations/            # Ordered SQL changes
 │   └── schema.sql             # Reference schema snapshot
-├── tests/verify.mjs
+├── tests/
+│   ├── chat-streaming.test.mjs
+│   ├── security.test.mjs
+│   └── verify.mjs
+├── package-lock.json         # Deterministic npm dependency tree
 ├── types/chat.ts
 ├── middleware.ts
 ├── package.json
@@ -83,7 +89,7 @@ ozlind/
 | `src/hooks/` | Client-side reusable state and behavior | Server-only SDKs and secrets |
 | `src/providers/` | React context/provider setup | Route-specific page layout |
 | `src/lib/supabase/` | Browser/server/middleware Supabase client factories | UI components |
-| `src/lib/` | Rate limiting, i18n, Supabase clients, and current AI/RAG helpers | Unused duplicate utilities or unrelated miscellaneous features |
+| `src/lib/` | Rate limiting, i18n, bounded request parsing, tested stream policy, Supabase clients and RAG helpers | UI components or duplicate helpers |
 | `src/styles/` | Global styling, semantic theme tokens, responsive states | Application data logic |
 | `types/` | Shared TypeScript contracts | Runtime implementations |
 | `supabase/migrations/` | Append-only database changes | Application UI or provider code |
@@ -122,10 +128,11 @@ Use this order for future code organization:
 3. Move one cohesive module at a time, updating every import in the same change.
 4. Preserve public routes, request/response shapes, Supabase Auth, Google OAuth, RLS policies, database schema, and persisted user data.
 5. Run `npm run verify` and review the deployment created from the exact commit.
-6. Remove an old file only after confirming it has no live imports, runtime references, or migration dependency.
+6. Keep executable `.mjs` helpers paired with `.d.mts` declarations when TypeScript imports them; run Node tests and `tsc` after changes.
+7. Remove an old file only after confirming it has no live imports, runtime references, or migration dependency.
 
 ## Verification and known limitations
 
-The repository check is `npm run verify`, which runs TypeScript validation, ESLint, `tests/verify.mjs`, and a production build. The current CI workflow runs that command. The dependency audit uses `continue-on-error: true`, so audit findings do not currently fail CI.
+The repository check is `npm run verify`, which runs request-boundary security tests, chat-streaming policy tests, TypeScript validation, ESLint, architecture checks and a production build. CI installs from the committed lockfile with `npm ci` and blocks on `npm audit --omit=dev --audit-level=high`. The full audit still reports development-toolchain issues in the existing Tailwind CSS 3 / Next.js lint dependency graph; compatible fixes require a coordinated toolchain-major migration and are tracked in the dated security follow-up.
 
 A passing repository build does not prove that production Supabase credentials, Google OAuth redirect configuration, AI provider quotas, runtime logs, or live deployed flows are healthy. Those require separate environment/deployment checks.

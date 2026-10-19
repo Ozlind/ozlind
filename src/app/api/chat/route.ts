@@ -1,6 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
-import { streamText, type CoreMessage, type LanguageModel } from "ai";
+import { streamText, type ModelMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
@@ -150,6 +150,10 @@ export async function POST(request: Request) {
 
   const input = parsed.data;
 
+  if (input.action === "regenerate" && !input.conversationId) {
+    return jsonError("CONVERSATION_REQUIRED", requestId, 400);
+  }
+
   // Resolve idempotent retries before creating a conversation or invoking
   // paid services. Return the original conversation id so the client can load it.
   if (input.action === "send") {
@@ -181,6 +185,23 @@ export async function POST(request: Request) {
   const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
   if (rateLimitError) return rateLimitError;
 
+  // Confirm conversation ownership before any paid research/provider work.
+  let conversationId = input.conversationId ?? null;
+  if (conversationId) {
+    const { data: ownedConversation, error: ownershipError } = await db
+      .from("conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (ownershipError) {
+      console.error(JSON.stringify({ event: "conversation.ownership_check_failed", requestId, error: ownershipError.message }));
+      return jsonError("CONVERSATION_LOOKUP_FAILED", requestId, 500);
+    }
+    if (!ownedConversation) return jsonError("NOT_FOUND", requestId, 404);
+  }
+
   let research = { context: "", used: false };
   if (input.research) research = await researchContext(input.content, requestId);
   const models = configuredModels();
@@ -195,18 +216,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let conversationId = input.conversationId ?? null;
-
-  if (conversationId) {
-    const { data } = await db
-      .from("conversations")
-      .select("id")
-      .eq("id", conversationId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!data) return jsonError("NOT_FOUND", requestId, 404);
-  } else {
+  if (!conversationId) {
     const { data, error } = await db
       .from("conversations")
       .insert({
@@ -250,7 +260,27 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      console.error(JSON.stringify({ event: "message.create_failed", requestId, error }));
+      // Concurrent retries can race the first lookup; recover from the unique index.
+      if (error.code === "23505") {
+        const { data: racedDuplicate, error: retryLookupError } = await db
+          .from("messages")
+          .select("conversation_id")
+          .eq("user_id", user.id)
+          .eq("idempotency_key", input.idempotencyKey)
+          .maybeSingle();
+
+        if (!retryLookupError && racedDuplicate) {
+          return new Response(null, {
+            status: 204,
+            headers: {
+              "X-OZLIND-Conversation-ID": racedDuplicate.conversation_id,
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      }
+
+      console.error(JSON.stringify({ event: "message.create_failed", requestId, error: error.message }));
       return jsonError("MESSAGE_SAVE_FAILED", requestId, 500);
     }
   }
@@ -267,14 +297,14 @@ export async function POST(request: Request) {
 
   const historyRows = history ?? [];
   const lastUserIndex = historyRows.map(message => message.role).lastIndexOf("user");
-  const core: CoreMessage[] = historyRows.map((message, index) => {
+  const core: ModelMessage[] = historyRows.map((message, index) => {
     if (input.images.length && index === lastUserIndex && message.role === "user") {
-      const parts: Array<{ type: "text"; text: string } | { type: "image"; image: Uint8Array; mimeType: string }> = [
+      const parts: Array<{ type: "text"; text: string } | { type: "image"; image: Uint8Array; mediaType: string }> = [
         { type: "text", text: message.content },
         ...input.images.map(image => ({
           type: "image" as const,
           image: Buffer.from(image.dataUrl.slice(image.dataUrl.indexOf(",") + 1), "base64"),
-          mimeType: image.mimeType,
+          mediaType: image.mimeType,
         })),
       ];
       return { role: "user" as const, content: parts };
@@ -320,7 +350,7 @@ export async function POST(request: Request) {
         model,
         system: SYSTEM_PROMPT + research.context,
         messages: core,
-        maxTokens: 4096,
+        maxOutputTokens: 4096,
         abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(50000)]),
       });
       const candidateIterator = candidateResult.textStream[Symbol.asyncIterator]();
@@ -374,7 +404,26 @@ export async function POST(request: Request) {
 
   let buffer = "";
   let lastFlush = Date.now();
+  let checkpointError: Error | null = null;
+  let checkpointQueue: Promise<void> = Promise.resolve();
+  const CHECKPOINT_INTERVAL_MS = 750;
   const encoder = new TextEncoder();
+
+  const scheduleCheckpoint = (snapshot: string) => {
+    checkpointQueue = checkpointQueue.then(async () => {
+      if (checkpointError) return;
+      try {
+        const { error } = await db
+          .from("messages")
+          .update({ content: snapshot })
+          .eq("id", assistant.id)
+          .eq("user_id", user.id);
+        if (error) checkpointError = new Error("Assistant response checkpoint failed.");
+      } catch {
+        checkpointError = new Error("Assistant response checkpoint failed.");
+      }
+    });
+  };
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -390,25 +439,27 @@ export async function POST(request: Request) {
           buffer += delta;
           controller.enqueue(encoder.encode(delta));
 
-          if (Date.now() - lastFlush >= 150) {
-            await db
-              .from("messages")
-              .update({ content: buffer })
-              .eq("id", assistant.id)
-              .eq("user_id", user.id);
+          if (Date.now() - lastFlush >= CHECKPOINT_INTERVAL_MS) {
+            // Queue persistence without pausing token delivery on a database round-trip.
+            scheduleCheckpoint(buffer);
             lastFlush = Date.now();
           }
         }
 
-        await db
+        await checkpointQueue;
+        if (checkpointError) throw checkpointError;
+
+        const { data: persisted, error: persistError } = await db
           .from("messages")
-          .update({
-            content: buffer,
-            status: "complete",
-            model: selectedKey,
-          })
+          .update({ content: buffer, status: "complete", model: selectedKey })
           .eq("id", assistant.id)
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .select("id")
+          .maybeSingle();
+
+        if (persistError || !persisted) {
+          throw persistError ?? new Error("Assistant response was not persisted.");
+        }
 
         controller.close();
       } catch (error) {

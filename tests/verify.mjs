@@ -8,7 +8,7 @@ const required=[
 "src/app/api/chat/route.ts","src/app/api/preferences/route.ts","src/app/api/documents/route.ts",
 "src/app/api/research/route.ts","src/app/api/presets/route.ts","src/app/api/artifacts/route.ts",
 "src/app/api/health/route.ts","src/app/api/ready/route.ts","src/lib/supabase/server.ts",
-"src/lib/supabase/middleware.ts","src/hooks/usePreferences.ts","src/lib/i18n.ts",
+"src/lib/supabase/middleware.ts","src/hooks/usePreferences.ts","src/lib/i18n.ts","src/lib/chat/streaming.mjs","src/lib/chat/streaming.d.mts",
 "supabase/migrations/20261008_stage2_preferences.sql","supabase/migrations/20261008_stage2_workspace.sql",
 "supabase/migrations/20261008_stage2_research_preference.sql",
 "supabase/migrations/20261009_stage3_rate_limit_user_scope.sql",
@@ -52,6 +52,12 @@ for(const [route, tokens] of [
 }
 const requestSecurity=fs.readFileSync(path.join(root,"src/lib/security/request.mjs"),"utf8");
 for(const token of ["content-length","getReader()","PayloadTooLargeError","TextDecoder","JSON.parse"])if(!requestSecurity.includes(token))problems.push("Bounded JSON parser missing "+token);
+
+
+const chatStreaming=fs.readFileSync(path.join(root,"src/lib/chat/streaming.mjs"),"utf8");
+for(const token of ["CHAT_UI_FLUSH_INTERVAL_MS = 32","shouldFlushVisibleText"])if(!chatStreaming.includes(token))problems.push("Chat streaming policy missing "+token);
+const chatUi=fs.readFileSync(path.join(root,"src/components/chat/Chat.tsx"),"utf8");
+if(!chatUi.includes("shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)"))problems.push("Chat UI does not use the tested stream flush policy");
 
 if(problems.length){console.error("OZLIND architecture verification FAILED:\n");for(const p of problems)console.error(" - "+p);process.exit(1)}
 console.log("OZLIND architecture verification passed ("+files.length+" src files checked).");

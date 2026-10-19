@@ -1,5 +1,7 @@
 "use client";
+import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -240,7 +242,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       let pendingText = "";
       let lastUiFlush = 0;
       const flushVisibleText = (force = false) => {
-        if (!pendingText || (!force && Date.now() - lastUiFlush < 48)) return;
+        if (!shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)) return;
         const chunk = pendingText;
         pendingText = "";
         lastUiFlush = Date.now();
@@ -445,7 +447,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           <div className="composer-attachments" aria-label="Attached images">
             {images.map((image, index) => (
               <div className="composer-attachment" key={image.name + index}>
-                <img src={image.dataUrl} alt={image.name} />
+                <Image src={image.dataUrl} alt={image.name} width={34} height={34} unoptimized />
                 <span>{image.name}</span>
                 <button type="button" onClick={() => setImages(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={"Remove " + image.name}><OzlindIcon name="i-clear" size={15} /></button>
               </div>
