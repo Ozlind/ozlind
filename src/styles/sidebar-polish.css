@@ -1,0 +1,46 @@
+/* Mobile sidebar polish: match the chat canvas instead of inheriting legacy orange tokens. */
+.sidebar {
+  color: #ececf5;
+  background: #111116;
+  border-right-color: #292832;
+}
+.sidebar-brand-link,
+.sidebar-brand-link:visited {
+  color: #ececf5;
+}
+.sidebar-brand-link .sidebar-logo-icon {
+  color: #ececf5;
+}
+.sidebar .ui-button-primary {
+  color: #fff;
+  background: #4d6bfe;
+  border-color: #4d6bfe;
+}
+.sidebar .ui-button-primary:hover {
+  background: #657eff;
+  border-color: #657eff;
+}
+.sidebar .search-box {
+  color: #9696b0;
+  background: #161624;
+  border-color: #30303a;
+}
+.sidebar .search-box input {
+  color: #ececf5;
+}
+.sidebar .conversation-link:hover,
+.sidebar .conversation-link.active,
+.sidebar .sidebar-action:hover {
+  background: #1d1d2e;
+  color: #ececf5;
+}
+.sidebar .sidebar-user {
+  border-top-color: #292832;
+}
+@media (max-width: 768px) {
+  .sidebar {
+    width: min(304px, calc(100vw - 44px));
+    flex-basis: min(304px, calc(100vw - 44px));
+    max-width: calc(100vw - 24px);
+  }
+}
