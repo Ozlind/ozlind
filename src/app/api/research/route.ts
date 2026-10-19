@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { checkUserRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit";
+import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,11 +17,26 @@ export async function POST(request: Request) {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) return Response.json({ error: { code: "AUTH_REQUIRED", requestId } }, { status: 401 });
 
-    const parsed = schema.safeParse(await request.json().catch(() => null));
+    let requestBody: unknown;
+    try {
+      requestBody = await readJsonBody(request, 16 * 1024);
+    } catch (bodyError) {
+      if (bodyError instanceof PayloadTooLargeError) {
+        return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", requestId } }, { status: 413 });
+      }
+      return Response.json({ error: { code: "INVALID_INPUT", requestId } }, { status: 400 });
+    }
+
+    const parsed = schema.safeParse(requestBody);
     if (!parsed.success) return Response.json({ error: { code: "INVALID_INPUT", requestId } }, { status: 400 });
 
     const key = process.env.TAVILY_API_KEY;
     if (!key) return Response.json({ error: { code: "RESEARCH_NOT_CONFIGURED", requestId, message: "Web research is not configured." } }, { status: 503 });
+
+    // Share the fail-closed per-user request budget used by the chat route.
+    const rateLimit = await checkUserRateLimit();
+    const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
+    if (rateLimitError) return rateLimitError;
 
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",

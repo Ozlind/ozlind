@@ -38,5 +38,19 @@ for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
 for(const token of ["env(safe-area-inset-bottom)","@media(max-width:768px)"])if(!css.includes(token))problems.push("Responsive CSS missing "+token);
 if(css.includes("backdrop-filter"))problems.push("Glass/backdrop-filter styling detected");
+
+const rateLimitSource=fs.readFileSync(path.join(root,"src/lib/rate-limit.ts"),"utf8");
+if(!rateLimitSource.includes("export function rateLimitErrorResponse"))problems.push("Shared rate-limit response helper is missing");
+for(const [route, tokens] of [
+ ["src/app/api/chat/route.ts", ["readJsonBody", "PayloadTooLargeError", "rateLimitErrorResponse"]],
+ ["src/app/api/research/route.ts", ["readJsonBody", "checkUserRateLimit", "rateLimitErrorResponse"]],
+ ["src/app/api/documents/route.ts", ["readJsonBody", "checkUserRateLimit", "rateLimitErrorResponse"]]
+]) {
+ const source=fs.readFileSync(path.join(root,route),"utf8");
+ for(const token of tokens)if(!source.includes(token))problems.push(route+" missing security guard "+token);
+}
+const requestSecurity=fs.readFileSync(path.join(root,"src/lib/security/request.js"),"utf8");
+for(const token of ["content-length","getReader()","PayloadTooLargeError","TextDecoder","JSON.parse"])if(!requestSecurity.includes(token))problems.push("Bounded JSON parser missing "+token);
+
 if(problems.length){console.error("OZLIND architecture verification FAILED:\n");for(const p of problems)console.error(" - "+p);process.exit(1)}
 console.log("OZLIND architecture verification passed ("+files.length+" src files checked).");
