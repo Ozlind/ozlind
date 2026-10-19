@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "../styles/theme.css";
 import "../styles/globals.css";
+import "../styles/sidebar-polish.css";
 import { QueryProvider } from "@/providers/QueryProvider";
 
 export const metadata: Metadata = {
