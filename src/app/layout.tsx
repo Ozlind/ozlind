@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "../styles/theme.css";
 import "../styles/globals.css";
 import "../styles/sidebar-polish.css";
+import "../styles/unified-design-system.css";
 import { QueryProvider } from "@/providers/QueryProvider";
 
 export const metadata: Metadata = {
@@ -32,7 +33,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light dark",
-  themeColor: "#f7f7f5",
+  themeColor: "#0d0d0f",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
