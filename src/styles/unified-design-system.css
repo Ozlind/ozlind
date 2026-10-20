@@ -4,40 +4,26 @@
  * Settings, and authentication. Keep functional behavior and data untouched.
  */
 :root {
-  --ozlind-canvas: #0d0d0f;
-  --ozlind-surface: #151518;
-  --ozlind-elevated: #1c1c20;
-  --ozlind-subtle: #222228;
-  --ozlind-text: #f2f2f4;
-  --ozlind-muted: #a5a5b0;
-  --ozlind-subtle-text: #777780;
-  --ozlind-accent: #5b6cff;
-  --ozlind-accent-hover: #7180ff;
-  --ozlind-accent-text: #ffffff;
-  --ozlind-border: #303037;
-  --ozlind-border-strong: #44444f;
+  /* Alias the active site theme so saved light/dark and accent preferences still work. */
+  --ozlind-canvas: var(--bg);
+  --ozlind-surface: var(--surface);
+  --ozlind-elevated: var(--surface-elevated);
+  --ozlind-subtle: var(--surface-subtle);
+  --ozlind-text: var(--text);
+  --ozlind-muted: var(--text-muted);
+  --ozlind-subtle-text: var(--text-subtle);
+  --ozlind-accent: var(--accent);
+  --ozlind-accent-hover: color-mix(in srgb, var(--accent) 82%, black);
+  --ozlind-accent-text: var(--accent-fg);
+  --ozlind-border: var(--border);
+  --ozlind-border-strong: var(--border-strong);
   --ozlind-radius-control: 12px;
   --ozlind-radius-card: 16px;
   --ozlind-radius-panel: 20px;
 }
 
-/* All signed-in app routes inherit the same palette, regardless of route. */
+/* All signed-in routes use one layout language and inherit the user's active theme. */
 .app-shell {
-  color-scheme: dark;
-  --bg: var(--ozlind-canvas);
-  --surface: var(--ozlind-surface);
-  --surface-elevated: var(--ozlind-elevated);
-  --surface-subtle: var(--ozlind-subtle);
-  --text: var(--ozlind-text);
-  --text-muted: var(--ozlind-muted);
-  --text-subtle: var(--ozlind-subtle-text);
-  --accent: var(--ozlind-accent);
-  --accent-hover: var(--ozlind-accent-hover);
-  --accent-fg: var(--ozlind-accent-text);
-  --border: var(--ozlind-border);
-  --border-strong: var(--ozlind-border-strong);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 24%);
-  --shadow-md: 0 12px 32px rgb(0 0 0 / 26%);
   min-width: 0;
   background: var(--ozlind-canvas);
   color: var(--ozlind-text);
