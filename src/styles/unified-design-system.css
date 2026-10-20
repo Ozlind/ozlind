@@ -1,0 +1,305 @@
+/*
+ * Ozlind unified design system
+ * Shared visual tokens and component surfaces for Chat, Workspace, Documents,
+ * Settings, and authentication. Keep functional behavior and data untouched.
+ */
+:root {
+  /* Alias the active site theme so saved light/dark and accent preferences still work. */
+  --ozlind-canvas: var(--bg);
+  --ozlind-surface: var(--surface);
+  --ozlind-elevated: var(--surface-elevated);
+  --ozlind-subtle: var(--surface-subtle);
+  --ozlind-text: var(--text);
+  --ozlind-muted: var(--text-muted);
+  --ozlind-subtle-text: var(--text-subtle);
+  --ozlind-accent: var(--accent);
+  --ozlind-accent-hover: color-mix(in srgb, var(--accent) 82%, black);
+  --ozlind-accent-text: var(--accent-fg);
+  --ozlind-border: var(--border);
+  --ozlind-border-strong: var(--border-strong);
+  --ozlind-radius-control: 12px;
+  --ozlind-radius-card: 16px;
+  --ozlind-radius-panel: 20px;
+}
+
+/* All signed-in routes use one layout language and inherit the user's active theme. */
+.app-shell {
+  min-width: 0;
+  background: var(--ozlind-canvas);
+  color: var(--ozlind-text);
+}
+
+.app-shell .sidebar,
+.app-shell .app-main,
+.app-shell .chat-page,
+.app-shell .settings-page {
+  background-color: var(--ozlind-canvas);
+  color: var(--ozlind-text);
+}
+
+.app-shell .sidebar {
+  background: var(--ozlind-surface);
+  border-color: var(--ozlind-border);
+}
+.app-shell .sidebar-brand-link,
+.app-shell .sidebar-brand-link:visited,
+.app-shell .sidebar .icon-button {
+  color: var(--ozlind-text);
+}
+.app-shell .sidebar .brand-mark,
+.app-shell .sidebar .ui-button-primary {
+  color: var(--ozlind-accent-text);
+  background: var(--ozlind-accent);
+  border-color: var(--ozlind-accent);
+}
+.app-shell .sidebar .ui-button-primary:hover {
+  background: var(--ozlind-accent-hover);
+  border-color: var(--ozlind-accent-hover);
+}
+.app-shell .sidebar .search-box,
+.app-shell .sidebar .ui-input {
+  background: var(--ozlind-elevated);
+  color: var(--ozlind-text);
+  border-color: var(--ozlind-border);
+}
+.app-shell .sidebar .search-box input { color: var(--ozlind-text); }
+.app-shell .conversation-link,
+.app-shell .sidebar-action { color: var(--ozlind-muted); }
+.app-shell .conversation-link:hover,
+.app-shell .conversation-link.active,
+.app-shell .sidebar-action:hover,
+.app-shell .sidebar-action[aria-current="page"] {
+  background: var(--ozlind-subtle);
+  color: var(--ozlind-text);
+}
+.app-shell .sidebar-user,
+.app-shell .sidebar-actions { border-color: var(--ozlind-border); }
+.app-shell .user-avatar { background: var(--ozlind-elevated); color: var(--ozlind-text); }
+
+/* Shared page headings, separators, and content widths. */
+.app-shell .settings-page,
+.app-shell .workspace-page,
+.app-shell .documents-page {
+  color: var(--ozlind-text);
+}
+.app-shell .settings-header,
+.app-shell .workspace-header,
+.app-shell .documents-header,
+.app-shell .settings-section,
+.app-shell .documents-search-section,
+.app-shell .documents-section,
+.app-shell .documents-section-heading {
+  border-color: var(--ozlind-border);
+}
+.app-shell .settings-header h1,
+.app-shell .workspace-header h1,
+.app-shell .documents-header h1,
+.app-shell .settings-section h2,
+.app-shell .workspace-form-heading,
+.app-shell .documents-section-heading h2 {
+  color: var(--ozlind-text);
+}
+.app-shell .settings-header p,
+.app-shell .workspace-header p,
+.app-shell .documents-header p,
+.app-shell .settings-muted,
+.app-shell .workspace-helper,
+.app-shell .documents-state,
+.app-shell .documents-meta {
+  color: var(--ozlind-muted);
+}
+
+/* The same card, panel, and input language across Workspace and Documents. */
+.app-shell .settings-grid,
+.app-shell .setting-row,
+.app-shell .workspace-form-card,
+.app-shell .workspace-item,
+.app-shell .workspace-empty,
+.app-shell .workspace-empty-mark,
+.app-shell .documents-item,
+.app-shell .documents-result,
+.app-shell .documents-upload-panel,
+.app-shell .documents-search-section,
+.app-shell .documents-state-card {
+  color: var(--ozlind-text);
+  background: var(--ozlind-surface);
+  border-color: var(--ozlind-border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+}
+.app-shell .setting-row + .setting-row { border-top-color: var(--ozlind-border); }
+.app-shell .setting-row select,
+.app-shell .setting-row input:not([type="checkbox"]):not([type="color"]),
+.app-shell .ui-input,
+.app-shell .workspace-search,
+.app-shell .documents-search,
+.app-shell .documents-search-input,
+.app-shell .search-box {
+  color: var(--ozlind-text);
+  background: var(--ozlind-elevated);
+  border-color: var(--ozlind-border);
+}
+.app-shell input::placeholder,
+.app-shell textarea::placeholder { color: var(--ozlind-subtle-text); opacity: 1; }
+.app-shell .setting-row select option { background: var(--ozlind-surface); color: var(--ozlind-text); }
+.app-shell .setting-row input[type="checkbox"] { accent-color: var(--ozlind-accent); }
+.app-shell .setting-row input[type="color"] {
+  background: var(--ozlind-elevated);
+  border-color: var(--ozlind-border);
+}
+.app-shell .ui-button-primary,
+.app-shell .workspace-form-card .ui-button-primary,
+.app-shell .documents-upload-panel .ui-button-primary {
+  background: var(--ozlind-accent);
+  border-color: var(--ozlind-accent);
+  color: var(--ozlind-accent-text);
+}
+.app-shell .ui-button-primary:hover:not(:disabled) {
+  background: var(--ozlind-accent-hover);
+  border-color: var(--ozlind-accent-hover);
+}
+.app-shell .ui-button-secondary,
+.app-shell .documents-refresh,
+.app-shell .workspace-tabs {
+  background: var(--ozlind-elevated);
+  border-color: var(--ozlind-border);
+  color: var(--ozlind-text);
+}
+.app-shell .ui-button-secondary:hover:not(:disabled),
+.app-shell .documents-refresh:hover:not(:disabled),
+.app-shell .workspace-tabs:hover {
+  background: var(--ozlind-subtle);
+  border-color: var(--ozlind-border-strong);
+}
+.app-shell .workspace-tabs [aria-selected="true"],
+.app-shell .workspace-tabs .active {
+  background: var(--ozlind-subtle);
+  color: var(--ozlind-text);
+  border-color: var(--ozlind-border-strong);
+}
+.app-shell .workspace-item:hover,
+.app-shell .documents-item:hover,
+.app-shell .documents-result:hover {
+  background: var(--ozlind-elevated);
+  border-color: var(--ozlind-border-strong);
+}
+.app-shell .workspace-empty-mark {
+  color: var(--ozlind-muted);
+  border-color: var(--ozlind-border);
+}
+.app-shell .settings-saving {
+  background: var(--ozlind-elevated);
+  color: var(--ozlind-text);
+  border-color: var(--ozlind-border);
+}
+
+/* Chat is part of the same system, not a separate color theme. */
+.app-shell:has(.chat-page) {
+  background: var(--ozlind-canvas);
+  color: var(--ozlind-text);
+}
+.app-shell:has(.chat-page) .chat-header {
+  background: var(--ozlind-canvas);
+  border-color: var(--ozlind-border);
+}
+.app-shell:has(.chat-page) .chat-header h2,
+.app-shell:has(.chat-page) .message-content,
+.app-shell:has(.chat-page) .empty-chat h1 {
+  color: var(--ozlind-text);
+}
+.app-shell:has(.chat-page) .composer-wrap {
+  background: linear-gradient(to top, var(--ozlind-canvas) 78%, transparent);
+}
+.app-shell:has(.chat-page) .composer {
+  background: var(--ozlind-surface);
+  border-color: var(--ozlind-border);
+}
+.app-shell:has(.chat-page) .composer-mode,
+.app-shell:has(.chat-page) .composer-research {
+  background: var(--ozlind-surface);
+  border-color: var(--ozlind-border);
+  color: var(--ozlind-muted);
+}
+.app-shell:has(.chat-page) .composer-mode.active,
+.app-shell:has(.chat-page) .composer-research.active {
+  background: var(--ozlind-elevated);
+  border-color: var(--ozlind-border-strong);
+  color: var(--ozlind-text);
+}
+.app-shell:has(.chat-page) .composer textarea,
+.app-shell:has(.chat-page) .composer select { color: var(--ozlind-text); }
+.app-shell:has(.chat-page) .composer .send-button {
+  background: var(--ozlind-accent);
+  color: var(--ozlind-accent-text);
+}
+.app-shell:has(.chat-page) .composer-note { color: var(--ozlind-subtle-text); }
+.app-shell:has(.chat-page) .empty-chat p { color: var(--ozlind-muted); }
+.app-shell:has(.chat-page) .prompt-grid button {
+  color: var(--ozlind-text);
+  background: var(--ozlind-surface);
+  border-color: var(--ozlind-border);
+}
+.app-shell:has(.chat-page) .prompt-grid button:hover {
+  background: var(--ozlind-elevated);
+  border-color: var(--ozlind-border-strong);
+}
+
+/* Login and auth states share the same surfaces, controls, and brand accent. */
+.auth-shell {
+  color-scheme: dark;
+  --bg: var(--ozlind-canvas);
+  --surface: var(--ozlind-surface);
+  --surface-elevated: var(--ozlind-elevated);
+  --surface-subtle: var(--ozlind-subtle);
+  --text: var(--ozlind-text);
+  --text-muted: var(--ozlind-muted);
+  --text-subtle: var(--ozlind-subtle-text);
+  --accent: var(--ozlind-accent);
+  --accent-hover: var(--ozlind-accent-hover);
+  --accent-fg: var(--ozlind-accent-text);
+  --border: var(--ozlind-border);
+  --border-strong: var(--ozlind-border-strong);
+  background: var(--ozlind-canvas);
+  color: var(--ozlind-text);
+}
+.auth-shell .auth-card {
+  background: var(--ozlind-surface);
+  color: var(--ozlind-text);
+  border-color: var(--ozlind-border);
+}
+.auth-shell .auth-copy,
+.auth-shell .auth-divider { color: var(--ozlind-muted); }
+.auth-shell .auth-google,
+.auth-shell .auth-switch {
+  background: var(--ozlind-elevated);
+  color: var(--ozlind-text);
+  border-color: var(--ozlind-border);
+}
+.auth-shell .auth-submit {
+  background: var(--ozlind-accent);
+  color: var(--ozlind-accent-text);
+  border-color: var(--ozlind-accent);
+}
+.auth-shell .auth-submit:hover:not(:disabled) { background: var(--ozlind-accent-hover); }
+.auth-shell a { color: var(--ozlind-text); }
+
+@media (max-width: 768px) {
+  .app-shell .settings-page,
+  .app-shell .workspace-page,
+  .app-shell .documents-page {
+    width: calc(100% - 32px);
+    max-width: 100%;
+    padding-top: 76px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .app-shell .settings-header,
+  .app-shell .workspace-header,
+  .app-shell .documents-header {
+    gap: 12px;
+  }
+  .app-shell .setting-row { gap: 12px; }
+  .app-shell .setting-row > span:first-child { flex: 1 1 160px; }
+  .app-shell .setting-row > select { min-width: 0; max-width: 48%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *, .auth-shell * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+}
