@@ -40,20 +40,21 @@
 .dark {
   color-scheme: dark;
 
-  --bg: #171715;
-  --surface: #1f1f1c;
-  --surface-elevated: #272723;
-  --surface-subtle: #30302b;
+  /* Product-wide charcoal surfaces shared by Chat, Workspace, Documents and Settings. */
+  --bg: #0d0d0f;
+  --surface: #151518;
+  --surface-elevated: #1c1c20;
+  --surface-subtle: #222228;
 
-  --text: #f2f1ec;
-  --text-muted: #b0b0a7;
-  --text-subtle: #929289;
+  --text: #f2f2f4;
+  --text-muted: #a5a5b0;
+  --text-subtle: #777780;
 
-  --accent: #ee987b;
-  --accent-hover: #f3ad95;
-  --accent-fg: #24140f;
-  --border: #393933;
-  --border-strong: #505048;
+  --accent: #5b6cff;
+  --accent-hover: #7180ff;
+  --accent-fg: #ffffff;
+  --border: #303037;
+  --border-strong: #44444f;
   --danger: #ff938a;
   --success: #8bd4a0;
   --warning: #edc477;
@@ -61,5 +62,5 @@
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 24%);
   --shadow-md: 0 12px 30px rgb(0 0 0 / 26%);
-  --focus-ring: 0 0 0 3px rgb(238 152 123 / 22%);
+  --focus-ring: 0 0 0 3px rgb(91 108 255 / 22%);
 }
