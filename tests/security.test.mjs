@@ -98,7 +98,7 @@ test("admin RPC hardening migration moves the helper and dependent policies toge
   assert.doesNotMatch(triggerFunction, /public\.is_admin\(\)/i);
   assert.match(
     source,
-    /revoke truncate, references, trigger, maintain\\s+on all tables in schema public/i,
+    /revoke truncate, references, trigger, maintain\s+on all tables in schema public/i,
   );
   assert.match(source, /drop function if exists public\.is_admin\(\)/i);
   assert.equal((source.match(/private\.is_admin\(\)/g) || []).length >= 10, true);
