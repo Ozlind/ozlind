@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { CHAT_UI_FLUSH_INTERVAL_MS, shouldFlushVisibleText } from "../src/lib/chat/streaming.mjs";
 
 test("keeps the chat stream UI flush window at 32ms", () => {
@@ -17,4 +18,20 @@ test("forces the final buffered text to flush even before the interval", () => {
 
 test("never emits a state update for an empty buffer", () => {
   assert.equal(shouldFlushVisibleText("", 2000, 0, true), false);
+});
+
+
+test("persists canceled chat streams and aborts provider generation", async () => {
+  const route = await readFile(
+    new URL("../src/app/api/chat/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(route, /const streamAbortController = new AbortController\(\)/);
+  assert.match(
+    route,
+    /AbortSignal\.any\(\[request\.signal, streamAbortController\.signal, AbortSignal\.timeout\(50000\)\]\)/,
+  );
+  assert.match(route, /async cancel\(\)[\s\S]*?streamAbortController\.abort/);
+  assert.match(route, /status: buffer \? "interrupted" : "failed"/);
 });
