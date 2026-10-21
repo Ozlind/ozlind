@@ -569,7 +569,8 @@ export async function POST(request: Request) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
+      "Cache-Control": "no-store, no-cache, no-transform",
+      "X-Content-Type-Options": "nosniff",
       "X-OZLIND-Request-ID": requestId,
       "X-OZLIND-Conversation-ID": conversationId ?? "",
       "X-OZLIND-Model": selectedKey,
