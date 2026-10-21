@@ -103,7 +103,7 @@ test("admin RPC hardening migration moves the helper and dependent policies toge
   assert.match(source, /migration ledger/i);
 });
 
-test("legacy tables revoke client privileges independently of RLS policies", async () => {
+test("all public tables revoke non-row-level client privileges and future app tables inherit the hardening", async () => {
   const { readFile } = await import("node:fs/promises");
   const migration = await readFile(
     new URL("../supabase/migrations/20261021_unexpose_is_admin_rpc.sql", import.meta.url),
@@ -114,18 +114,14 @@ test("legacy tables revoke client privileges independently of RLS policies", asy
     "utf8",
   );
 
-  assert.match(migration, /revoke all privileges on table/i);
-  for (const table of [
-    "ozlind_users",
-    "ozlind_conversations",
-    "ozlind_messages",
-    "ozlind_usage",
-    "ozlind_api_events",
-    "ozlind_research_usage",
-    "rate_limits",
-  ]) {
-    assert.match(migration, new RegExp(`public\\.${table}`));
-  }
+  assert.match(
+    migration,
+    /revoke truncate, references, trigger, maintain\s+on all tables in schema public\s+from public, anon, authenticated/i,
+  );
+  assert.match(
+    migration,
+    /alter default privileges for role postgres in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
+  );
   assert.match(schema, /grant execute on function public\.check_rate_limit\(uuid, integer, integer\) to service_role/i);
 });
 
