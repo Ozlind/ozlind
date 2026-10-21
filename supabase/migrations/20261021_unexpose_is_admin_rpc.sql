@@ -1,6 +1,8 @@
 -- Remove the SECURITY DEFINER admin helper from the exposed public API schema.
--- Apply only after reconciling this migration with the production migration ledger.
--- Keep policy semantics unchanged while moving the helper to a non-exposed schema.
+-- The historical production migration ledger does not map one-to-one to repository filenames;
+-- preserve the live ledger and apply this as a new additive migration.
+-- Policy behavior stays equivalent, and trigger callers are updated before the old
+-- function is dropped so profile writes remain safe.
 
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
@@ -25,8 +27,43 @@ $function$;
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
 
--- Remove every currently recorded policy that calls the exposed helper, including
--- legacy policy names that may remain after a partial historical migration.
+-- This trigger's PL/pgSQL body is not recorded as a pg_depend reference, so it
+-- must explicitly switch to the private helper before public.is_admin is removed.
+create or replace function public.protect_profile_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if auth.uid() is not null and not private.is_admin() then
+    new.role := old.role;
+    new.banned := old.banned;
+    new.daily_limit := old.daily_limit;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$function$;
+
+-- Table ACLs are independent of RLS. TRUNCATE, TRIGGER, REFERENCES and
+-- MAINTAIN are not part of the row-level CRUD contract required by the client.
+-- Remove them from every existing table in the exposed public schema while
+-- preserving SELECT/INSERT/UPDATE/DELETE and service_role's server-side access.
+revoke truncate, references, trigger, maintain
+on all tables in schema public
+from public, anon, authenticated;
+
+-- Prevent these privileges from silently returning on future app tables created
+-- by the repository's migration owner. Existing Supabase-managed role defaults
+-- are left untouched.
+alter default privileges for role postgres in schema public
+revoke truncate, references, trigger, maintain on tables
+from public, anon, authenticated;
+
+-- Remove every recorded policy that calls the exposed helper, including legacy
+-- policy names that may remain after partial historical migrations.
 do $migration$
 declare
   policy_row record;
@@ -52,11 +89,6 @@ end
 $migration$;
 
 -- Recreate the observed policy set using the private helper.
-drop policy if exists announcements_admin_delete on public.announcements;
-drop policy if exists announcements_admin_insert on public.announcements;
-drop policy if exists announcements_admin_update on public.announcements;
-drop policy if exists announcements_read_active on public.announcements;
-
 create policy announcements_read_active
 on public.announcements for select to authenticated
 using (active = true or (select private.is_admin()));
@@ -71,14 +103,10 @@ create policy announcements_admin_delete
 on public.announcements for delete to authenticated
 using ((select private.is_admin()));
 
-drop policy if exists own_or_admin_select_audit_logs on public.audit_logs;
 create policy own_or_admin_select_audit_logs
 on public.audit_logs for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));
 
-drop policy if exists flags_admin_delete on public.feature_flags;
-drop policy if exists flags_admin_insert on public.feature_flags;
-drop policy if exists flags_admin_update on public.feature_flags;
 create policy flags_admin_insert
 on public.feature_flags for insert to authenticated
 with check ((select private.is_admin()));
@@ -90,23 +118,18 @@ create policy flags_admin_delete
 on public.feature_flags for delete to authenticated
 using ((select private.is_admin()));
 
-drop policy if exists own_or_admin_select_feedback on public.feedback;
 create policy own_or_admin_select_feedback
 on public.feedback for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));
 
-drop policy if exists ozlind_profiles_select_own on public.profiles;
 create policy ozlind_profiles_select_own
 on public.profiles for select to authenticated
 using (((select auth.uid()) = id) or (select private.is_admin()));
-
-drop policy if exists ozlind_profiles_update_own on public.profiles;
 create policy ozlind_profiles_update_own
 on public.profiles for update to authenticated
 using (((select auth.uid()) = id) or (select private.is_admin()))
 with check (((select auth.uid()) = id) or (select private.is_admin()));
 
-drop policy if exists ozlind_usage_logs_select on public.usage_logs;
 create policy ozlind_usage_logs_select
 on public.usage_logs for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));

@@ -92,9 +92,39 @@ test("admin RPC hardening migration moves the helper and dependent policies toge
   assert.match(source, /create schema if not exists private/i);
   assert.match(source, /create or replace function private\.is_admin\(\)/i);
   assert.match(source, /grant execute on function private\.is_admin\(\) to authenticated/i);
+  const triggerFunction = source.match(/create or replace function public\.protect_profile_columns\(\)[\s\S]*?\$function\$;/i)?.[0];
+  assert.ok(triggerFunction, "profile trigger function must be redefined before removing the old helper");
+  assert.match(triggerFunction, /not private\.is_admin\(\)/i);
+  assert.doesNotMatch(triggerFunction, /public\.is_admin\(\)/i);
+  assert.match(
+    source,
+    /revoke truncate, references, trigger, maintain\s+on all tables in schema public/i,
+  );
   assert.match(source, /drop function if exists public\.is_admin\(\)/i);
   assert.equal((source.match(/private\.is_admin\(\)/g) || []).length >= 10, true);
   assert.match(source, /migration ledger/i);
+});
+
+test("all public tables revoke non-row-level client privileges and future app tables inherit the hardening", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const migration = await readFile(
+    new URL("../supabase/migrations/20261021_unexpose_is_admin_rpc.sql", import.meta.url),
+    "utf8",
+  );
+  const schema = await readFile(
+    new URL("../supabase/schema.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    migration,
+    /revoke truncate, references, trigger, maintain\s+on all tables in schema public\s+from public, anon, authenticated/i,
+  );
+  assert.match(
+    migration,
+    /alter default privileges for role postgres in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
+  );
+  assert.match(schema, /grant execute on function public\.check_rate_limit\(uuid, integer, integer\) to service_role/i);
 });
 
 test("stateful workspace mutations use the shared fail-closed rate limiter", async () => {
