@@ -1,0 +1,20 @@
+/*
+ * Keep authentication surfaces on the same active theme as the rest of the app.
+ * The unified stylesheet previously redefined tokens in terms of aliases that
+ * themselves depended on those tokens, creating a custom-property cycle.
+ */
+.auth-shell {
+  color-scheme: inherit;
+  --bg: inherit;
+  --surface: inherit;
+  --surface-elevated: inherit;
+  --surface-subtle: inherit;
+  --text: inherit;
+  --text-muted: inherit;
+  --text-subtle: inherit;
+  --accent: inherit;
+  --accent-hover: inherit;
+  --accent-fg: inherit;
+  --border: inherit;
+  --border-strong: inherit;
+}
