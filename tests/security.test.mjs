@@ -183,3 +183,25 @@ test("chat context loads the latest messages in chronological order within a cha
   assert.match(historyQuery, /chronologicalHistory\.slice\(firstIncluded\)/);
   assert.doesNotMatch(historyQuery, /ascending: true/);
 });
+
+
+test("chat and research reuse the already verified user identity for rate limiting", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const limiter = await readFile(
+    new URL("../src/lib/rate-limit.ts", import.meta.url),
+    "utf8",
+  );
+  const chat = await readFile(
+    new URL("../src/app/api/chat/route.ts", import.meta.url),
+    "utf8",
+  );
+  const research = await readFile(
+    new URL("../src/app/api/research/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(limiter, /checkUserRateLimit\(verifiedUserId\?: string\)/);
+  assert.match(limiter, /if \(!userId\) \{[\s\S]*?supabase\.auth\.getUser\(\)/);
+  assert.match(chat, /checkUserRateLimit\(user\.id\)/);
+  assert.match(research, /checkUserRateLimit\(user\.id\)/);
+});
