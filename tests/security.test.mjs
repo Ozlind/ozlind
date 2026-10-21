@@ -165,7 +165,8 @@ test("bootstrap schema keeps production index and non-row-level privilege harden
   assert.match(
     schema,
     /alter default privileges for role supabase_admin in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
-  );});
+  );
+});
 
 
 test("chat context loads the latest messages in chronological order within a character budget", async () => {
@@ -197,7 +198,7 @@ test("migration hardens future tables created by the Supabase-managed role", asy
 
   assert.match(
     migration,
-    /alter default privileges for role supabase_admin in schema public\\s+revoke truncate, references, trigger, maintain on tables\\s+from public, anon, authenticated/i,
+    /alter default privileges for role supabase_admin in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
   );
   assert.doesNotMatch(migration, /drop table|truncate table|delete from/i);
 });
