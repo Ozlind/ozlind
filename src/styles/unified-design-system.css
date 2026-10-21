@@ -243,21 +243,9 @@
   border-color: var(--ozlind-border-strong);
 }
 
-/* Login and auth states share the same surfaces, controls, and brand accent. */
+/* Auth uses the same canonical theme without shadowing or redefining tokens. */
 .auth-shell {
-  color-scheme: dark;
-  --bg: var(--ozlind-canvas);
-  --surface: var(--ozlind-surface);
-  --surface-elevated: var(--ozlind-elevated);
-  --surface-subtle: var(--ozlind-subtle);
-  --text: var(--ozlind-text);
-  --text-muted: var(--ozlind-muted);
-  --text-subtle: var(--ozlind-subtle-text);
-  --accent: var(--ozlind-accent);
-  --accent-hover: var(--ozlind-accent-hover);
-  --accent-fg: var(--ozlind-accent-text);
-  --border: var(--ozlind-border);
-  --border-strong: var(--ozlind-border-strong);
+  color-scheme: inherit;
   background: var(--ozlind-canvas);
   color: var(--ozlind-text);
 }
