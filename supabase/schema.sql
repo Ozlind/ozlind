@@ -5,6 +5,17 @@ create extension if not exists "pgcrypto";
 create schema if not exists extensions;
 create extension if not exists "vector" with schema extensions;
 
+-- Table ACLs are independent of RLS. Strip non-row-level client privileges from
+-- existing objects and prevent these privileges on future app tables created
+-- by the repository's migration owner.
+revoke truncate, references, trigger, maintain
+on all tables in schema public
+from public, anon, authenticated;
+
+alter default privileges for role postgres in schema public
+revoke truncate, references, trigger, maintain on tables
+from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Conversations and messages
 -- ---------------------------------------------------------------------------
@@ -414,6 +425,7 @@ create policy artifacts_update_own on public.artifacts for update to authenticat
   with check ((select auth.uid()) = user_id and (conversation_id is null or exists (select 1 from public.conversations c where c.id = conversation_id and c.user_id = (select auth.uid()))));
 create policy artifacts_delete_own on public.artifacts for delete to authenticated using ((select auth.uid()) = user_id);
 create index if not exists artifacts_user_updated_idx on public.artifacts(user_id, updated_at desc);
+create index if not exists artifacts_conversation_id_idx on public.artifacts(conversation_id);
 
 -- ---------------------------------------------------------------------------
 -- Database-backed per-user rate limiting
