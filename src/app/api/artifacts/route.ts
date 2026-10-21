@@ -88,6 +88,11 @@ export async function DELETE(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
 
+    const requestId = crypto.randomUUID();
+    const rateLimit = await checkUserRateLimit();
+    const rateLimitResponse = rateLimitErrorResponse(rateLimit, requestId);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const id = z.string().uuid().safeParse(new URL(request.url).searchParams.get("id"));
     if (!id.success) return Response.json({ error: { code: "INVALID_ID" } }, { status: 400 });
 
