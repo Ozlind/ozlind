@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     if (!key) return Response.json({ error: { code: "RESEARCH_NOT_CONFIGURED", requestId, message: "Web research is not configured." } }, { status: 503 });
 
     // Share the fail-closed per-user request budget used by the chat route.
-    const rateLimit = await checkUserRateLimit();
+    const rateLimit = await checkUserRateLimit(user.id);
     const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
     if (rateLimitError) return rateLimitError;
 
