@@ -108,3 +108,8 @@ test("reloaded history preserves optimistic user message identity via idempotenc
   assert.match(chatComponent, /id,role,content,status,idempotency_key/);
   assert.match(chatComponent, /message\.idempotency_key/);
 });
+
+
+test("chat API error responses are explicitly non-cacheable", () => {
+  assert.match(route, /status, headers: \{ "Cache-Control": "no-store" \}/);
+});
