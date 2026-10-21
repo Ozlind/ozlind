@@ -162,3 +162,24 @@ test("bootstrap schema keeps production index and non-row-level privilege harden
     /alter default privileges for role postgres in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
   );
 });
+
+
+test("chat context loads the latest messages in chronological order within a character budget", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(
+    new URL("../src/app/api/chat/route.ts", import.meta.url),
+    "utf8",
+  );
+  const historyQuery = source.slice(
+    source.indexOf('const { data: history, error: historyError }'),
+    source.indexOf('const lastUserIndex = historyRows'),
+  );
+
+  assert.match(historyQuery, /\.order\("created_at", \{ ascending: false \}\)/);
+  assert.match(historyQuery, /\.limit\(100\)/);
+  assert.match(historyQuery, /const chronologicalHistory = \(history \?\? \[\]\)\.reverse\(\)/);
+  assert.match(historyQuery, /const MAX_HISTORY_CHARS = 60_000/);
+  assert.match(historyQuery, /historyChars \+ nextLength > MAX_HISTORY_CHARS/);
+  assert.match(historyQuery, /chronologicalHistory\.slice\(firstIncluded\)/);
+  assert.doesNotMatch(historyQuery, /ascending: true/);
+});
