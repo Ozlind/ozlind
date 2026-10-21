@@ -308,19 +308,19 @@ export async function POST(request: Request) {
 
   if (historyError) return jsonError("HISTORY_LOAD_FAILED", requestId, 500);
 
-  const newestFirstHistory = (history ?? []).reverse();
+  const chronologicalHistory = (history ?? []).reverse();
   // Keep recent turns without sending unbounded history to model providers.
   // 60k characters leaves room for the system prompt, research context, and output.
   const MAX_HISTORY_CHARS = 60_000;
   let historyChars = 0;
-  let firstIncluded = newestFirstHistory.length;
-  for (let index = newestFirstHistory.length - 1; index >= 0; index -= 1) {
-    const nextLength = newestFirstHistory[index].content.length;
+  let firstIncluded = chronologicalHistory.length;
+  for (let index = chronologicalHistory.length - 1; index >= 0; index -= 1) {
+    const nextLength = chronologicalHistory[index].content.length;
     if (historyChars + nextLength > MAX_HISTORY_CHARS) break;
     historyChars += nextLength;
     firstIncluded = index;
   }
-  const historyRows = newestFirstHistory.slice(firstIncluded);
+  const historyRows = chronologicalHistory.slice(firstIncluded);
   const lastUserIndex = historyRows.map(message => message.role).lastIndexOf("user");
   const core: ModelMessage[] = historyRows.map((message, index) => {
     if (input.images.length && index === lastUserIndex && message.role === "user") {
