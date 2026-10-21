@@ -50,3 +50,20 @@ test("rejects invalid UTF-8", async () => {
   const request = requestFromChunks([new Uint8Array([0xff, 0xfe])]);
   await assert.rejects(readJsonBody(request, 64), TypeError);
 });
+
+
+test("stateful API routes enforce byte caps before parsing JSON", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const routes = [
+    ["../src/app/api/artifacts/route.ts", /readJsonBody\(request, MAX_BODY_BYTES\)/, /const MAX_BODY_BYTES = 512 \* 1024/],
+    ["../src/app/api/presets/route.ts", /readJsonBody\(request, MAX_BODY_BYTES\)/, /const MAX_BODY_BYTES = 64 \* 1024/],
+    ["../src/app/api/preferences/route.ts", /readJsonBody\(request, MAX_BODY_BYTES\)/, /const MAX_BODY_BYTES = 8 \* 1024/],
+  ];
+
+  for (const [path, readerPattern, limitPattern] of routes) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, readerPattern, path);
+    assert.match(source, limitPattern, path);
+    assert.match(source, /PayloadTooLargeError/, path);
+  }
+});

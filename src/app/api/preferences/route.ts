@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_BODY_BYTES = 8 * 1024;
 
 const defaults = {
   theme: "system",
@@ -69,7 +72,15 @@ export async function PATCH(request: Request) {
     const { supabase, user } = await getUser();
     if (!user) return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
 
-    const parsed = schema.safeParse(await request.json().catch(() => null));
+    let body: unknown;
+    try {
+      body = await readJsonBody(request, MAX_BODY_BYTES);
+    } catch (error) {
+      const oversized = error instanceof PayloadTooLargeError;
+      return Response.json({ error: { code: oversized ? "PAYLOAD_TOO_LARGE" : "INVALID_INPUT" } }, { status: oversized ? 413 : 400 });
+    }
+
+    const parsed = schema.safeParse(body);
     if (!parsed.success) return Response.json({ error: { code: "INVALID_INPUT" } }, { status: 400 });
 
     const { data, error } = await supabase
