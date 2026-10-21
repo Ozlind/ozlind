@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { checkUserRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request.mjs";
+import { normalizeTavilyResponse } from "@/lib/research/tavily.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,13 +59,24 @@ export async function POST(request: Request) {
       return Response.json({ error: { code: "RESEARCH_PROVIDER_ERROR", requestId } }, { status: 502 });
     }
 
-    const body = await response.json();
+    const normalized = normalizeTavilyResponse(await response.json());
+    if (!normalized.results.length) {
+      console.warn(JSON.stringify({ event: "research.no_usable_sources", requestId }));
+      return Response.json({
+        error: {
+          code: "RESEARCH_NO_USABLE_SOURCES",
+          requestId,
+          message: "The search provider returned no usable sources. Try another query shortly.",
+        },
+      }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    }
+
     return Response.json({
-      answer: body.answer ?? null,
-      results: (body.results ?? []).map((item: { title?: string; url?: string; content?: string }) => ({
-        title: item.title ?? "Untitled",
-        url: item.url ?? "",
-        snippet: item.content ?? "",
+      answer: normalized.answer,
+      results: normalized.results.map(({ title, url, content }) => ({
+        title,
+        url,
+        snippet: content,
       })),
       requestId,
     }, { headers: { "Cache-Control": "private, no-store" } });
