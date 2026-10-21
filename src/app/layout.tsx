@@ -3,7 +3,6 @@ import "../styles/theme.css";
 import "../styles/globals.css";
 import "../styles/sidebar-polish.css";
 import "../styles/unified-design-system.css";
-import "../styles/auth-theme-inheritance.css";
 import { QueryProvider } from "@/providers/QueryProvider";
 
 export const metadata: Metadata = {
