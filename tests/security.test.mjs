@@ -92,9 +92,40 @@ test("admin RPC hardening migration moves the helper and dependent policies toge
   assert.match(source, /create schema if not exists private/i);
   assert.match(source, /create or replace function private\.is_admin\(\)/i);
   assert.match(source, /grant execute on function private\.is_admin\(\) to authenticated/i);
+  assert.match(source, /create or replace function public\.protect_profile_columns\(\)/i);
+  assert.match(source, /not private\.is_admin\(\)/i);
+  assert.doesNotMatch(source, /protect_profile_columns[\s\S]*?public\.is_admin\(\)/i);
+  assert.match(source, /revoke all privileges on table[\s\S]*?from public, anon, authenticated/i);
+  assert.match(source, /public\.rate_limits/i);
   assert.match(source, /drop function if exists public\.is_admin\(\)/i);
   assert.equal((source.match(/private\.is_admin\(\)/g) || []).length >= 10, true);
   assert.match(source, /migration ledger/i);
+});
+
+test("legacy tables revoke client privileges independently of RLS policies", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const migration = await readFile(
+    new URL("../supabase/migrations/20261021_unexpose_is_admin_rpc.sql", import.meta.url),
+    "utf8",
+  );
+  const schema = await readFile(
+    new URL("../supabase/schema.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(migration, /revoke all privileges on table/i);
+  for (const table of [
+    "ozlind_users",
+    "ozlind_conversations",
+    "ozlind_messages",
+    "ozlind_usage",
+    "ozlind_api_events",
+    "ozlind_research_usage",
+    "rate_limits",
+  ]) {
+    assert.match(migration, new RegExp(`public\\.${table}`));
+  }
+  assert.match(schema, /grant execute on function public\.check_rate_limit\(uuid, integer, integer\) to service_role/i);
 });
 
 test("stateful workspace mutations use the shared fail-closed rate limiter", async () => {
