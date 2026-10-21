@@ -19,17 +19,23 @@ const DATABASE_TIMEOUT_MS = 2_500;
  * server-only privileged client to call the narrowly granted RPC. Fail closed
  * if configuration or the shared database limiter is unavailable.
  */
-export async function checkUserRateLimit(): Promise<RateLimitResult> {
-  let user;
+export async function checkUserRateLimit(verifiedUserId?: string): Promise<RateLimitResult> {
+  let userId: string | null = verifiedUserId ?? null;
   let admin;
 
   try {
-    const supabase = await createClient();
-    const auth = await supabase.auth.getUser();
-    user = auth.data.user;
+    // Routes that have already verified the session can pass its trusted user ID
+    // and avoid a second Supabase Auth network round-trip. Other callers retain
+    // the self-authenticating default behavior.
+    if (!userId) {
+      const supabase = await createClient();
+      const auth = await supabase.auth.getUser();
 
-    if (auth.error) {
-      return { allowed: false, remaining: 0, retryAfterSeconds: 0, unauthorized: true };
+      if (auth.error) {
+        return { allowed: false, remaining: 0, retryAfterSeconds: 0, unauthorized: true };
+      }
+
+      userId = auth.data.user?.id ?? null;
     }
 
     const url = process.env.SUPABASE_URL;
@@ -43,7 +49,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
     return { allowed: false, remaining: 0, retryAfterSeconds: 5, unavailable: true };
   }
 
-  if (!user) {
+  if (!userId) {
     return { allowed: false, remaining: 0, retryAfterSeconds: 0, unauthorized: true };
   }
 
@@ -51,7 +57,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race([
       admin.rpc("check_rate_limit", {
-        p_user_id: user.id,
+        p_user_id: userId,
         p_limit: MAX_REQUESTS,
         p_window_seconds: WINDOW_SECONDS,
       }),
@@ -68,7 +74,7 @@ export async function checkUserRateLimit(): Promise<RateLimitResult> {
 
     const row = result.data[0];
     return {
-      userId: user.id,
+      userId,
       allowed: Boolean(row.allowed),
       remaining: Math.max(0, Number(row.remaining) || 0),
       retryAfterSeconds: Math.max(0, Number(row.retry_after) || 0),
