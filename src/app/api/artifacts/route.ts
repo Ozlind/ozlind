@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (!user) return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
 
     const requestId = crypto.randomUUID();
-    const rateLimit = await checkUserRateLimit();
+    const rateLimit = await checkUserRateLimit(user.id);
     const rateLimitResponse = rateLimitErrorResponse(rateLimit, requestId);
     if (rateLimitResponse) return rateLimitResponse;
 
@@ -89,7 +89,7 @@ export async function DELETE(request: Request) {
     if (!user) return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
 
     const requestId = crypto.randomUUID();
-    const rateLimit = await checkUserRateLimit();
+    const rateLimit = await checkUserRateLimit(user.id);
     const rateLimitResponse = rateLimitErrorResponse(rateLimit, requestId);
     if (rateLimitResponse) return rateLimitResponse;
 
