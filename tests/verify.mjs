@@ -37,6 +37,8 @@ const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8"
 for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
 for(const token of ["env(safe-area-inset-bottom)","@media(max-width:768px)"])if(!css.includes(token))problems.push("Responsive CSS missing "+token);
+if(/\.app-shell:has\(\.chat-page\)\s*\{[^}]*--(?:bg|surface|accent|text|border)\s*:/s.test(css))problems.push("Chat must inherit canonical root theme tokens, not define a local palette");
+for(const token of ["background: var(--surface);","border-color: var(--accent);","color: var(--text-muted);"])if(!css.includes(token))problems.push("Shared Chat theme token rule missing "+token);
 if(css.includes("backdrop-filter"))problems.push("Glass/backdrop-filter styling detected");
 
 const rateLimitSource=fs.readFileSync(path.join(root,"src/lib/rate-limit.ts"),"utf8");

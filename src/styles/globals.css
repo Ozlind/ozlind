@@ -1189,7 +1189,7 @@ img, video, canvas, svg {
 
 
 /* Ozlind dark chat workspace */
-.app-shell:has(.chat-page){--bg:#0b0b14;--surface:#161624;--surface-elevated:#1d1d2e;--surface-subtle:#202033;--text:#ececf5;--text-muted:#9696b0;--text-subtle:#777792;--accent:#4d6bfe;--accent-hover:#657eff;--accent-fg:#fff;--border:#26263a;--border-strong:#383851;background:var(--bg);color:var(--text)}
+.app-shell:has(.chat-page){background:var(--bg);color:var(--text)}
 .chat-page{height:100dvh;min-height:0;overflow:hidden;background:#0b0b14;color:#ececf5;display:flex;flex-direction:column}
 .chat-header{height:62px;min-height:62px;flex:0 0 auto;justify-content:center;padding:10px 16px;background:#0b0b14;border-color:#26263a}
 .chat-header>div{text-align:center}.chat-header .eyebrow{display:none}.chat-header h2{margin:0;color:#ececf5;font-size:15px;font-weight:600}.chat-header h2:after{content:" · AI";font-size:11px;color:#9daaff}
@@ -1220,20 +1220,7 @@ img, video, canvas, svg {
 
 /* UI refresh: translate the supplied chat layout into the existing Next.js app.
    Keep real chat streaming, Supabase history, auth, attachments and mode handlers intact. */
-.app-shell:has(.chat-page) {
-  --bg: #0d0d0f;
-  --surface: #151518;
-  --surface-elevated: #1c1c20;
-  --surface-subtle: #222227;
-  --text: #f2f2f4;
-  --text-muted: #a0a0a8;
-  --text-subtle: #777780;
-  --accent: #5b6cff;
-  --accent-hover: #7380ff;
-  --accent-fg: #ffffff;
-  --border: #2b2b31;
-  --border-strong: #3a3a43;
-}
+/* Chat inherits the canonical root theme tokens; do not define a separate palette. */
 .app-shell:has(.chat-page) .sidebar {
   background: #111113;
   border-right-color: #28282e;
@@ -1502,34 +1489,8 @@ a { color: inherit; }
   border-color: var(--border);
 }
 
-/* Chat must inherit the same live theme tokens as Workspace, Documents and Settings. */
-:root {
-  --ozlind-global-bg: var(--bg);
-  --ozlind-global-surface: var(--surface);
-  --ozlind-global-surface-elevated: var(--surface-elevated);
-  --ozlind-global-surface-subtle: var(--surface-subtle);
-  --ozlind-global-text: var(--text);
-  --ozlind-global-text-muted: var(--text-muted);
-  --ozlind-global-text-subtle: var(--text-subtle);
-  --ozlind-global-accent: var(--accent);
-  --ozlind-global-accent-hover: var(--accent-hover);
-  --ozlind-global-accent-fg: var(--accent-fg);
-  --ozlind-global-border: var(--border);
-  --ozlind-global-border-strong: var(--border-strong);
-}
+/* Chat reads the same canonical theme values as Workspace, Documents and Settings. */
 .app-shell:has(.chat-page) {
-  --bg: var(--ozlind-global-bg);
-  --surface: var(--ozlind-global-surface);
-  --surface-elevated: var(--ozlind-global-surface-elevated);
-  --surface-subtle: var(--ozlind-global-surface-subtle);
-  --text: var(--ozlind-global-text);
-  --text-muted: var(--ozlind-global-text-muted);
-  --text-subtle: var(--ozlind-global-text-subtle);
-  --accent: var(--ozlind-global-accent);
-  --accent-hover: var(--ozlind-global-accent-hover);
-  --accent-fg: var(--ozlind-global-accent-fg);
-  --border: var(--ozlind-global-border);
-  --border-strong: var(--ozlind-global-border-strong);
   background: var(--bg);
   color: var(--text);
 }
@@ -1553,3 +1514,74 @@ a { color: inherit; }
   color: var(--text-muted);
 }
 .app-shell:has(.chat-page) .message.assistant .message-role { color: var(--text-muted); }
+
+
+/* Canonical theme overrides for Chat: preserve layout polish without a hard-coded palette. */
+.app-shell:has(.chat-page) .chat-page,
+.app-shell:has(.chat-page) .chat-header,
+.app-shell:has(.chat-page) .message-list {
+  background: var(--bg);
+  color: var(--text);
+}
+.app-shell:has(.chat-page) .chat-header { border-color: var(--border); }
+.app-shell:has(.chat-page) .chat-header h2,
+.app-shell:has(.chat-page) .empty-chat h1 { color: var(--text); }
+.app-shell:has(.chat-page) .empty-chat-mark {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.app-shell:has(.chat-page) .empty-chat p,
+.app-shell:has(.chat-page) .message-role,
+.app-shell:has(.chat-page) .composer-attach { color: var(--text-muted); }
+.app-shell:has(.chat-page) .message.assistant .message-content { color: var(--text); }
+.app-shell:has(.chat-page) .message.user .message-content {
+  background: var(--surface-subtle);
+  color: var(--text);
+  border-color: var(--border);
+}
+.app-shell:has(.chat-page) .message-content pre {
+  background: var(--surface-elevated);
+  color: var(--text);
+  border-color: var(--border);
+}
+.app-shell:has(.chat-page) .composer-wrap {
+  background: linear-gradient(to top, var(--bg) 78%, transparent);
+}
+.app-shell:has(.chat-page) .composer {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.app-shell:has(.chat-page) .composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.app-shell:has(.chat-page) .composer textarea { color: var(--text); }
+.app-shell:has(.chat-page) .composer textarea::placeholder { color: var(--text-subtle); }
+.app-shell:has(.chat-page) .composer-mode,
+.app-shell:has(.chat-page) .composer-research {
+  background: var(--surface);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.app-shell:has(.chat-page) .composer-mode.active,
+.app-shell:has(.chat-page) .composer-research.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+}
+.app-shell:has(.chat-page) .composer-mode-options .composer-mode.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  border-color: var(--accent);
+}
+.app-shell:has(.chat-page) .composer-note,
+.app-shell:has(.chat-page) .composer-keyboard-hint,
+.app-shell:has(.chat-page) .composer-counter { color: var(--text-subtle); }
+.app-shell:has(.chat-page) .mobile-menu {
+  background: var(--surface);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
