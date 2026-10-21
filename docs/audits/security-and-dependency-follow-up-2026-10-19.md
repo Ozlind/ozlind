@@ -17,3 +17,12 @@
 ## Release classification
 
 This is a repository-side remediation and audit record, not a complete penetration test. A passing build and deployment do not replace authenticated OAuth/chat/document/workspace smoke tests or the pending Supabase Dashboard/migration-ledger actions.
+
+## Production verification update — 2026-10-21
+
+- The live migration ledger now includes `ozlind_backend_admin_rpc_and_acl_hardening`. Read-only SQL confirms the helper is in `private.is_admin()`, the relevant RLS policies call the private helper, and `public.is_admin()` no longer exists.
+- Read-only ACL checks confirm no `TRUNCATE`, `TRIGGER`, `REFERENCES`, or `MAINTAIN` grants remain for `PUBLIC`, `anon`, or `authenticated` on existing public tables. Default privileges for objects created as `postgres` were also hardened.
+- A follow-up attempt to harden default privileges for `supabase_admin` was rejected by PostgreSQL: the connected `postgres` role is not a member of `supabase_admin`. The migration was **not applied** and was removed from the automatic migration set to avoid a predictable deployment failure. This remaining owner-level default ACL requires an authorized `supabase_admin` session or a supported privileged Supabase administration path; do not claim it is fixed until verified in `pg_default_acl`.
+- Supabase's security advisor still reports leaked-password protection disabled. This requires enabling the Auth password-security setting in the Supabase Dashboard; it has not been changed through the available connector.
+- The current chat API now loads the latest 100 messages, restores chronological order, and limits prompt history to 60,000 characters. This change is covered by a regression test and CI.
+- Vercel runtime-error query returned no errors for the selected previous 24-hour window. This is not a substitute for authenticated end-to-end smoke tests or load testing.
