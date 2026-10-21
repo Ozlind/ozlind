@@ -81,3 +81,18 @@ test("readiness checks actual Supabase Auth reachability with a bounded timeout"
   assert.match(source, /supabaseReachable/);
   assert.match(source, /Cache-Control/);
 });
+
+test("admin RPC hardening migration moves the helper and dependent policies together", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(
+    new URL("../supabase/migrations/20261021_unexpose_is_admin_rpc.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /create schema if not exists private/i);
+  assert.match(source, /create or replace function private\.is_admin\(\)/i);
+  assert.match(source, /grant execute on function private\.is_admin\(\) to authenticated/i);
+  assert.match(source, /drop function if exists public\.is_admin\(\)/i);
+  assert.equal((source.match(/private\.is_admin\(\)/g) || []).length >= 10, true);
+  assert.match(source, /migration ledger/i);
+});
