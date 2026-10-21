@@ -48,7 +48,7 @@ import {
 } from "lucide-react";
 
 export type OzlindIconName =
-  | "ozl-mark" | "ozl-node" | "sym-insight" | "sym-research" | "sym-discovery" | "sym-creation"
+  | "ozl-app-icon" | "ozl-mark" | "ozl-node" | "sym-insight" | "sym-research" | "sym-discovery" | "sym-creation"
   | "sym-conversation" | "sym-sources" | "sym-active" | "sym-thinking" | "sym-processing"
   | "sym-success" | "sym-warning" | "i-ai-chat" | "i-home" | "i-new-conversation"
   | "i-search" | "i-menu" | "i-settings" | "i-profile" | "i-history" | "i-back"
@@ -142,7 +142,7 @@ export function OzlindIcon({ name, size = 18, title, className, ...props }: Prop
     <svg
       width={size}
       height={size}
-      viewBox={name === "ozl-mark" ? "0 0 96 96" : name === "ozl-node" ? "0 0 10 10" : "0 0 24 24"}
+      viewBox={name === "ozl-app-icon" || name === "ozl-mark" ? "0 0 96 96" : name === "ozl-node" ? "0 0 10 10" : "0 0 24 24"}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.7"
