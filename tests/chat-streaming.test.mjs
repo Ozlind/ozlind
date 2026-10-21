@@ -68,3 +68,14 @@ test("frontend model selection stays aligned with the backend API allowlist", as
     assert.ok(route.includes(modelId), `Backend does not allow frontend model: ${modelId}`);
   }
 });
+
+
+test("streamed assistant responses are explicitly non-cacheable", async () => {
+  const route = await readFile(
+    new URL("../src/app/api/chat/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(route, /"Cache-Control": "no-store, no-cache, no-transform"/);
+  assert.match(route, /"X-Content-Type-Options": "nosniff"/);
+});
