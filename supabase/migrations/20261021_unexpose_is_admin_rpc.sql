@@ -1,5 +1,5 @@
 -- Remove the SECURITY DEFINER admin helper from the exposed public API schema.
--- Historical production migration names do not map one-to-one to repository filenames;
+-- The historical production migration ledger does not map one-to-one to repository filenames;
 -- preserve the live ledger and apply this as a new additive migration.
 -- Policy behavior stays equivalent, and trigger callers are updated before the old
 -- function is dropped so profile writes remain safe.
