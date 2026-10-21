@@ -196,6 +196,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     let requestErrorCode: string | null = null;
     let requestAccepted = false;
     let receivedAssistantText = false;
+    // Keep buffered bytes outside the try block so a stream failure cannot
+    // discard text that has not reached React state yet.
+    let pendingText = "";
 
     try {
       const fastModel = "groq:llama-3.3-70b-versatile";
@@ -254,7 +257,6 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!reader) throw new Error("Streaming response unavailable.");
 
       const decoder = new TextDecoder();
-      let pendingText = "";
       let lastUiFlush = 0;
       const flushVisibleText = (force = false) => {
         if (!shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)) return;
@@ -284,15 +286,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
     } catch (caught) {
-      if (controller.signal.aborted) {
-        setMessages((current) =>
-          current.map((message) => (message.id === assistantId ? { ...message, status: "interrupted" } : message)),
-        );
-      } else {
+      const trailingText = pendingText;
+      pendingText = "";
+      if (!controller.signal.aborted) {
         setError(caught instanceof Error ? caught.message : "Generation failed.");
         // Restore the prompt only when the API did not persist it. Otherwise,
-        // the prompt remains in this conversation and the failed assistant row
-        // provides an inline retry action.
+        // keep the assistant row visible with a retryable terminal status.
         const promptWasPersisted =
           requestAccepted ||
           receivedAssistantText ||
@@ -303,10 +302,18 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         if (outgoingImages.length) {
           setImages((current) => current.length ? current : outgoingImages);
         }
-        setMessages((current) =>
-          current.filter((message) => message.id !== assistantId || Boolean(message.content)),
-        );
       }
+      setMessages((current) =>
+        current.map((message) => {
+          if (message.id !== assistantId) return message;
+          const content = message.content + trailingText;
+          return {
+            ...message,
+            content,
+            status: controller.signal.aborted || content ? "interrupted" : "failed",
+          };
+        }),
+      );
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setStreaming(false);
