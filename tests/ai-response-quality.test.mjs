@@ -113,3 +113,13 @@ test("reloaded history preserves optimistic user message identity via idempotenc
 test("chat API error responses are explicitly non-cacheable", () => {
   assert.match(route, /status, headers: \{ "Cache-Control": "no-store" \}/);
 });
+
+test("chat history excludes failed and interrupted assistant generations", () => {
+  const historyQuery = route.slice(
+    route.indexOf('const { data: history, error: historyError }'),
+    route.indexOf('const lastUserIndex = historyRows'),
+  );
+
+  assert.match(historyQuery, /\\.eq\\("status", "complete"\\)/);
+  assert.match(historyQuery, /Failed\\/interrupted assistant generations are not reliable conversational context/);
+});
