@@ -96,3 +96,17 @@ test("admin RPC hardening migration moves the helper and dependent policies toge
   assert.equal((source.match(/private\.is_admin\(\)/g) || []).length >= 10, true);
   assert.match(source, /migration ledger/i);
 });
+
+test("stateful workspace mutations use the shared fail-closed rate limiter", async () => {
+  const { readFile } = await import("node:fs/promises");
+  for (const path of [
+    "../src/app/api/artifacts/route.ts",
+    "../src/app/api/presets/route.ts",
+    "../src/app/api/preferences/route.ts",
+  ]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /checkUserRateLimit/);
+    assert.match(source, /rateLimitErrorResponse/);
+    assert.match(source, /rateLimitResponse\) return rateLimitResponse/);
+  }
+});
