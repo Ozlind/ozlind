@@ -47,17 +47,19 @@ begin
 end;
 $function$;
 
--- These legacy runtime tables are not used by the current application routes.
--- Keep service_role access but remove unnecessary non-DML privileges from clients.
--- TRUNCATE is not governed by RLS, so policies alone are insufficient here.
-revoke all privileges on table
-  public.ozlind_users,
-  public.ozlind_conversations,
-  public.ozlind_messages,
-  public.ozlind_usage,
-  public.ozlind_api_events,
-  public.ozlind_research_usage,
-  public.rate_limits
+-- Table ACLs are independent of RLS. TRUNCATE, TRIGGER, REFERENCES and
+-- MAINTAIN are not part of the row-level CRUD contract required by the client.
+-- Remove them from every existing table in the exposed public schema while
+-- preserving SELECT/INSERT/UPDATE/DELETE and service_role's server-side access.
+revoke truncate, references, trigger, maintain
+on all tables in schema public
+from public, anon, authenticated;
+
+-- Prevent these privileges from silently returning on future app tables created
+-- by the repository's migration owner. Existing Supabase-managed role defaults
+-- are left untouched.
+alter default privileges for role postgres in schema public
+revoke truncate, references, trigger, maintain on tables
 from public, anon, authenticated;
 
 -- Remove every recorded policy that calls the exposed helper, including legacy
