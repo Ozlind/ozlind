@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { normalizeTavilyResponse } from "../src/lib/research/tavily.mjs";
+
+const researchRoute = await readFile(
+  new URL("../src/app/api/research/route.ts", import.meta.url),
+  "utf8",
+);
+const chatComponent = await readFile(
+  new URL("../src/components/chat/Chat.tsx", import.meta.url),
+  "utf8",
+);
 
 const route = await readFile(
   new URL("../src/app/api/chat/route.ts", import.meta.url),
@@ -28,4 +38,52 @@ test("requested web research fails explicitly instead of silently answering with
   assert.match(route, /if \(research\.failed \|\| !research\.used\)/);
   assert.match(route, /RESEARCH_UNAVAILABLE/);
   assert.match(route, /could not return usable sources/);
+});
+
+
+test("Tavily normalization rejects missing, invalid, and empty sources", () => {
+  assert.deepEqual(normalizeTavilyResponse({ answer: "summary only", results: [] }), {
+    answer: "summary only",
+    results: [],
+  });
+  assert.deepEqual(normalizeTavilyResponse({ results: [{ title: "bad", url: "javascript:alert(1)", content: "text" }] }), {
+    answer: null,
+    results: [],
+  });
+  assert.deepEqual(normalizeTavilyResponse({ results: [{ title: "empty", url: "https://example.com", content: "  " }] }), {
+    answer: null,
+    results: [],
+  });
+});
+
+test("Tavily normalization keeps only deduplicated HTTP(S) source evidence", () => {
+  const normalized = normalizeTavilyResponse({
+    answer: "  Summary  ",
+    results: [
+      { title: "One", url: "https://example.com/a", content: " First source " },
+      { title: "Duplicate", url: "https://example.com/a", content: "Duplicate source" },
+      { title: "No content", url: "https://example.com/b", content: "" },
+      { title: "Two", url: "https://example.org", content: "Second source" },
+    ],
+  });
+  assert.equal(normalized.answer, "Summary");
+  assert.deepEqual(normalized.results, [
+    { title: "One", url: "https://example.com/a", content: "First source" },
+    { title: "Two", url: "https://example.org/", content: "Second source" },
+  ]);
+});
+
+test("standalone web research does not return success with empty source data", () => {
+  assert.match(researchRoute, /RESEARCH_NO_USABLE_SOURCES/);
+  assert.match(researchRoute, /!normalized\.results\.length/);
+});
+
+test("failed assistant rows are visible and retryable instead of rendering a blank bubble", () => {
+  assert.match(chatComponent, /message\.status === "failed"/);
+  assert.match(chatComponent, /Retry response/);
+});
+
+test("reloaded history preserves optimistic user message identity via idempotency keys", () => {
+  assert.match(chatComponent, /id,role,content,status,idempotency_key/);
+  assert.match(chatComponent, /message\.idempotency_key/);
 });
