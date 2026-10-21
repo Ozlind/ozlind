@@ -140,3 +140,25 @@ test("stateful workspace mutations use the shared fail-closed rate limiter", asy
     assert.match(source, /rateLimitResponse\) return rateLimitResponse/);
   }
 });
+
+
+test("bootstrap schema keeps production index and non-row-level privilege hardening", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const schema = await readFile(
+    new URL("../supabase/schema.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    schema,
+    /create index if not exists artifacts_conversation_id_idx\s+on public\.artifacts\s*\(conversation_id\)/i,
+  );
+  assert.match(
+    schema,
+    /revoke truncate, references, trigger, maintain\s+on all tables in schema public\s+from public, anon, authenticated/i,
+  );
+  assert.match(
+    schema,
+    /alter default privileges for role postgres in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
+  );
+});
