@@ -92,9 +92,10 @@ test("admin RPC hardening migration moves the helper and dependent policies toge
   assert.match(source, /create schema if not exists private/i);
   assert.match(source, /create or replace function private\.is_admin\(\)/i);
   assert.match(source, /grant execute on function private\.is_admin\(\) to authenticated/i);
-  assert.match(source, /create or replace function public\.protect_profile_columns\(\)/i);
-  assert.match(source, /not private\.is_admin\(\)/i);
-  assert.doesNotMatch(source, /protect_profile_columns[\s\S]*?public\.is_admin\(\)/i);
+  const triggerFunction = source.match(/create or replace function public\.protect_profile_columns\(\)[\s\S]*?\$function\$;/i)?.[0];
+  assert.ok(triggerFunction, "profile trigger function must be redefined before removing the old helper");
+  assert.match(triggerFunction, /not private\.is_admin\(\)/i);
+  assert.doesNotMatch(triggerFunction, /public\.is_admin\(\)/i);
   assert.match(source, /revoke all privileges on table[\s\S]*?from public, anon, authenticated/i);
   assert.match(source, /public\.rate_limits/i);
   assert.match(source, /drop function if exists public\.is_admin\(\)/i);
