@@ -187,3 +187,17 @@ test("chat context loads the latest messages in chronological order within a cha
   assert.match(historyQuery, /chronologicalHistory\.slice\(firstIncluded\)/);
   assert.doesNotMatch(historyQuery, /ascending: true/);
 });
+
+test("migration hardens future tables created by the Supabase-managed role", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const migration = await readFile(
+    new URL("../supabase/migrations/20261021_harden_supabase_admin_default_privileges.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    migration,
+    /alter default privileges for role supabase_admin in schema public\\s+revoke truncate, references, trigger, maintain on tables\\s+from public, anon, authenticated/i,
+  );
+  assert.doesNotMatch(migration, /drop table|truncate table|delete from/i);
+});
