@@ -25,7 +25,33 @@ $function$;
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
 
--- Replace all dependent policies before dropping the public RPC.
+-- Remove every currently recorded policy that calls the exposed helper, including
+-- legacy policy names that may remain after a partial historical migration.
+do $migration$
+declare
+  policy_row record;
+begin
+  for policy_row in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('announcements', 'audit_logs', 'feature_flags', 'feedback', 'profiles', 'usage_logs')
+      and (
+        coalesce(qual, '') ilike '%is_admin%'
+        or coalesce(with_check, '') ilike '%is_admin%'
+      )
+  loop
+    execute format(
+      'drop policy %I on %I.%I',
+      policy_row.policyname,
+      policy_row.schemaname,
+      policy_row.tablename
+    );
+  end loop;
+end
+$migration$;
+
+-- Recreate the observed policy set using the private helper.
 drop policy if exists announcements_admin_delete on public.announcements;
 drop policy if exists announcements_admin_insert on public.announcements;
 drop policy if exists announcements_admin_update on public.announcements;
