@@ -330,7 +330,9 @@ export async function POST(request: Request) {
     .select("role,content")
     .eq("conversation_id", conversationId)
     .eq("user_id", user.id)
-    // Fetch the newest context window; reverse below before passing it to the model.
+    .eq("status", "complete")
+    // Failed/interrupted assistant generations are not reliable conversational context.
+    // Fetch the newest completed context window; reverse below before passing it to the model.
     .order("created_at", { ascending: false })
     .limit(100);
 
