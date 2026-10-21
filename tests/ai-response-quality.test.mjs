@@ -120,6 +120,6 @@ test("chat history excludes failed and interrupted assistant generations", () =>
     route.indexOf('const lastUserIndex = historyRows'),
   );
 
-  assert.match(historyQuery, /\\.eq\\("status", "complete"\\)/);
-  assert.match(historyQuery, /Failed\\/interrupted assistant generations are not reliable conversational context/);
+  assert.ok(historyQuery.includes('.eq("status", "complete")'));
+  assert.ok(historyQuery.includes("Failed/interrupted assistant generations are not reliable conversational context"));
 });
