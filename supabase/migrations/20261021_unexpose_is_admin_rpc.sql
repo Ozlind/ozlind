@@ -1,6 +1,8 @@
 -- Remove the SECURITY DEFINER admin helper from the exposed public API schema.
--- Apply only after reconciling this migration with the production migration ledger.
--- Keep policy semantics unchanged while moving the helper to a non-exposed schema.
+-- Historical production migration names do not map one-to-one to repository filenames;
+-- preserve the live ledger and apply this as a new additive migration.
+-- Policy behavior stays equivalent, and trigger callers are updated before the old
+-- function is dropped so profile writes remain safe.
 
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
@@ -25,8 +27,41 @@ $function$;
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
 
--- Remove every currently recorded policy that calls the exposed helper, including
--- legacy policy names that may remain after a partial historical migration.
+-- This trigger's PL/pgSQL body is not recorded as a pg_depend reference, so it
+-- must explicitly switch to the private helper before public.is_admin is removed.
+create or replace function public.protect_profile_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if auth.uid() is not null and not private.is_admin() then
+    new.role := old.role;
+    new.banned := old.banned;
+    new.daily_limit := old.daily_limit;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$function$;
+
+-- These legacy runtime tables are not used by the current application routes.
+-- Keep service_role access but remove unnecessary non-DML privileges from clients.
+-- TRUNCATE is not governed by RLS, so policies alone are insufficient here.
+revoke all privileges on table
+  public.ozlind_users,
+  public.ozlind_conversations,
+  public.ozlind_messages,
+  public.ozlind_usage,
+  public.ozlind_api_events,
+  public.ozlind_research_usage,
+  public.rate_limits
+from public, anon, authenticated;
+
+-- Remove every recorded policy that calls the exposed helper, including legacy
+-- policy names that may remain after partial historical migrations.
 do $migration$
 declare
   policy_row record;
@@ -52,11 +87,6 @@ end
 $migration$;
 
 -- Recreate the observed policy set using the private helper.
-drop policy if exists announcements_admin_delete on public.announcements;
-drop policy if exists announcements_admin_insert on public.announcements;
-drop policy if exists announcements_admin_update on public.announcements;
-drop policy if exists announcements_read_active on public.announcements;
-
 create policy announcements_read_active
 on public.announcements for select to authenticated
 using (active = true or (select private.is_admin()));
@@ -71,14 +101,10 @@ create policy announcements_admin_delete
 on public.announcements for delete to authenticated
 using ((select private.is_admin()));
 
-drop policy if exists own_or_admin_select_audit_logs on public.audit_logs;
 create policy own_or_admin_select_audit_logs
 on public.audit_logs for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));
 
-drop policy if exists flags_admin_delete on public.feature_flags;
-drop policy if exists flags_admin_insert on public.feature_flags;
-drop policy if exists flags_admin_update on public.feature_flags;
 create policy flags_admin_insert
 on public.feature_flags for insert to authenticated
 with check ((select private.is_admin()));
@@ -90,23 +116,18 @@ create policy flags_admin_delete
 on public.feature_flags for delete to authenticated
 using ((select private.is_admin()));
 
-drop policy if exists own_or_admin_select_feedback on public.feedback;
 create policy own_or_admin_select_feedback
 on public.feedback for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));
 
-drop policy if exists ozlind_profiles_select_own on public.profiles;
 create policy ozlind_profiles_select_own
 on public.profiles for select to authenticated
 using (((select auth.uid()) = id) or (select private.is_admin()));
-
-drop policy if exists ozlind_profiles_update_own on public.profiles;
 create policy ozlind_profiles_update_own
 on public.profiles for update to authenticated
 using (((select auth.uid()) = id) or (select private.is_admin()))
 with check (((select auth.uid()) = id) or (select private.is_admin()));
 
-drop policy if exists ozlind_usage_logs_select on public.usage_logs;
 create policy ozlind_usage_logs_select
 on public.usage_logs for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));
