@@ -51,7 +51,6 @@ test("rejects invalid UTF-8", async () => {
   await assert.rejects(readJsonBody(request, 64), TypeError);
 });
 
-
 test("stateful API routes enforce byte caps before parsing JSON", async () => {
   const { readFile } = await import("node:fs/promises");
   const routes = [
@@ -65,5 +64,49 @@ test("stateful API routes enforce byte caps before parsing JSON", async () => {
     assert.match(source, readerPattern, path);
     assert.match(source, limitPattern, path);
     assert.match(source, /PayloadTooLargeError/, path);
+  }
+});
+
+test("readiness checks actual Supabase Auth reachability with a bounded timeout", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(
+    new URL("../src/app/api/ready/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /checkSupabaseReachability/);
+  assert.match(source, /\/auth\/v1\/health/);
+  assert.match(source, /AbortSignal\.timeout\(SUPABASE_HEALTH_TIMEOUT_MS\)/);
+  assert.match(source, /supabaseConfigured/);
+  assert.match(source, /supabaseReachable/);
+  assert.match(source, /Cache-Control/);
+});
+
+test("admin RPC hardening migration moves the helper and dependent policies together", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(
+    new URL("../supabase/migrations/20261021_unexpose_is_admin_rpc.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /create schema if not exists private/i);
+  assert.match(source, /create or replace function private\.is_admin\(\)/i);
+  assert.match(source, /grant execute on function private\.is_admin\(\) to authenticated/i);
+  assert.match(source, /drop function if exists public\.is_admin\(\)/i);
+  assert.equal((source.match(/private\.is_admin\(\)/g) || []).length >= 10, true);
+  assert.match(source, /migration ledger/i);
+});
+
+test("stateful workspace mutations use the shared fail-closed rate limiter", async () => {
+  const { readFile } = await import("node:fs/promises");
+  for (const path of [
+    "../src/app/api/artifacts/route.ts",
+    "../src/app/api/presets/route.ts",
+    "../src/app/api/preferences/route.ts",
+  ]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /checkUserRateLimit/);
+    assert.match(source, /rateLimitErrorResponse/);
+    assert.match(source, /rateLimitResponse\) return rateLimitResponse/);
   }
 });

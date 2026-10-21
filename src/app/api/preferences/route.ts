@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request.mjs";
+import { checkUserRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,11 @@ export async function PATCH(request: Request) {
   try {
     const { supabase, user } = await getUser();
     if (!user) return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
+
+    const requestId = crypto.randomUUID();
+    const rateLimit = await checkUserRateLimit();
+    const rateLimitResponse = rateLimitErrorResponse(rateLimit, requestId);
+    if (rateLimitResponse) return rateLimitResponse;
 
     let body: unknown;
     try {
