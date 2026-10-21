@@ -1,4 +1,47 @@
 import type { SVGProps } from "react";
+import {
+  Activity,
+  ArrowDownToLine,
+  ArrowLeft,
+  ArrowRight,
+  AudioLines,
+  Bookmark,
+  Check,
+  CircleAlert,
+  CircleHelp,
+  Copy,
+  ExternalLink,
+  FileText,
+  FlaskConical,
+  Globe,
+  House,
+  Image,
+  Info,
+  LibraryBig,
+  LogOut,
+  Maximize2,
+  Menu,
+  MessageSquare,
+  Mic,
+  Minimize2,
+  MoreHorizontal,
+  Paperclip,
+  Pencil,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Send,
+  Settings,
+  Share2,
+  Square,
+  SquarePen,
+  Trash2,
+  Upload,
+  UserRound,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 export type OzlindIconName =
   | "ozl-mark" | "ozl-node" | "sym-insight" | "sym-research" | "sym-discovery" | "sym-creation"
@@ -19,8 +62,78 @@ type Props = Omit<SVGProps<SVGSVGElement>, "name"> & {
   title?: string;
 };
 
-/** Renders Ozlind's own icon sprite so product icons stay visually consistent. */
+/**
+ * Uses Lucide's consistent, optically balanced outline icons for interface actions.
+ * Ozlind's own sprite remains the source for the brand mark and product-specific symbols.
+ */
+const interfaceIcons: Partial<Record<OzlindIconName, LucideIcon>> = {
+  "i-ai-chat": MessageSquare,
+  "i-home": House,
+  "i-new-conversation": SquarePen,
+  "i-search": Search,
+  "i-menu": Menu,
+  "i-settings": Settings,
+  "i-profile": UserRound,
+  "i-history": Activity,
+  "i-back": ArrowLeft,
+  "i-forward": ArrowRight,
+  "i-close": X,
+  "i-logout": LogOut,
+  "i-research": FlaskConical,
+  "i-web-research": Globe,
+  "i-sources": LibraryBig,
+  "i-image-generator": Image,
+  "i-photo-editor": Image,
+  "i-code-assistant": SquarePen,
+  "i-documents": FileText,
+  "i-voice-ai": AudioLines,
+  "i-send": Send,
+  "i-attach": Paperclip,
+  "i-microphone": Mic,
+  "i-stop": Square,
+  "i-error": CircleAlert,
+  "i-information": Info,
+  "i-copy": Copy,
+  "i-edit": Pencil,
+  "i-regenerate": RotateCcw,
+  "i-delete": Trash2,
+  "i-more": MoreHorizontal,
+  "i-expand": Maximize2,
+  "i-collapse": Minimize2,
+  "i-open-external": ExternalLink,
+  "i-download": ArrowDownToLine,
+  "i-upload": Upload,
+  "i-clear": X,
+  "i-refresh": RefreshCw,
+  "i-bookmark": Bookmark,
+  "i-share": Share2,
+  "i-plus": Plus,
+  "i-check": Check,
+  "i-arrow-up": ArrowLeft,
+  "i-arrow-right": ArrowRight,
+  "src-fallback": CircleHelp,
+};
+
 export function OzlindIcon({ name, size = 18, title, className, ...props }: Props) {
+  const InterfaceIcon = interfaceIcons[name];
+
+  if (InterfaceIcon) {
+    return (
+      <InterfaceIcon
+        width={size}
+        height={size}
+        strokeWidth={1.8}
+        aria-hidden={title ? undefined : true}
+        role={title ? "img" : undefined}
+        className={className}
+        focusable="false"
+        {...props}
+      >
+        {title ? <title>{title}</title> : null}
+      </InterfaceIcon>
+    );
+  }
+
   return (
     <svg
       width={size}
