@@ -16,6 +16,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   status?: string;
+  idempotency_key?: string | null;
 };
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
@@ -122,7 +123,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const supabase = createClient();
         const { data, error: queryError } = await supabase
           .from("messages")
-          .select("id,role,content,status")
+          .select("id,role,content,status,idempotency_key")
           .eq("conversation_id", id)
           .order("created_at", { ascending: true });
 
@@ -131,7 +132,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           setHistoryError("Your conversation history could not be loaded.");
           return;
         }
-        setMessages((data ?? []) as Message[]);
+        const loadedMessages = (data ?? []) as Message[];
+        setMessages(loadedMessages.map((message) => ({
+          ...message,
+          // Keep an optimistic user bubble's identity stable after the DB reload.
+          id: message.role === "user" && message.idempotency_key
+            ? message.idempotency_key
+            : message.id,
+        })));
       } catch {
         if (live) setHistoryError("Your conversation history could not be loaded.");
       } finally {
@@ -163,9 +171,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  async function send(action: "send" | "regenerate" = "send", contentOverride?: string) {
+  async function send(action: "send" | "regenerate" = "send", contentOverride?: string, imagesOverride?: ChatImage[]) {
     const content = (contentOverride ?? draft).trim();
-    const outgoingImages = action === "send" ? images : [];
+    const outgoingImages = action === "send" ? images : (imagesOverride ?? []);
     const outgoingContent = content || (outgoingImages.length ? "Please analyze the attached image." : "");
     if ((action === "send" && !outgoingContent) || streaming || !online) return;
 
@@ -178,13 +186,16 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     const assistantId = crypto.randomUUID();
 
     if (action === "send") {
-      setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete" }));
+      setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete", idempotency_key: key }));
     }
     setMessages((current) => current.concat({ id: assistantId, role: "assistant", content: "", status: "streaming" }));
     setStreaming(true);
 
     const controller = new AbortController();
     abortRef.current = controller;
+    let requestErrorCode: string | null = null;
+    let requestAccepted = false;
+    let receivedAssistantText = false;
 
     try {
       const fastModel = "groq:llama-3.3-70b-versatile";
@@ -225,10 +236,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
+        requestErrorCode = typeof body?.error?.code === "string" ? body.error.code : null;
         if (body?.error?.code === "AUTH_REQUIRED") router.replace("/login");
         throw new Error(body?.error?.message || "Ozlind could not generate a response.");
       }
 
+      // A successful streaming response means the server has accepted and
+      // persisted the user's prompt; do not duplicate it in the composer.
+      requestAccepted = true;
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
       if (!id && nextId) {
         setId(nextId);
@@ -259,6 +274,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const part = await reader.read();
         if (part.done) break;
         pendingText += decoder.decode(part.value, { stream: true });
+        if (part.value.byteLength > 0) receivedAssistantText = true;
         flushVisibleText();
       }
 
@@ -274,9 +290,17 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         );
       } else {
         setError(caught instanceof Error ? caught.message : "Generation failed.");
-        // Keep a failed prompt recoverable without overwriting text the user typed meanwhile.
-        if (action === "send") {
+        // Restore the prompt only when the API did not persist it. Otherwise,
+        // the prompt remains in this conversation and the failed assistant row
+        // provides an inline retry action.
+        const promptWasPersisted =
+          requestAccepted ||
+          receivedAssistantText ||
+          ["HISTORY_LOAD_FAILED", "ASSISTANT_CREATE_FAILED", "AI_PROVIDER_UNAVAILABLE"].includes(requestErrorCode ?? "");
+        if (action === "send" && !promptWasPersisted) {
           setDraft((current) => (current.trim() ? current : outgoingContent));
+        }
+        if (outgoingImages.length) {
           setImages((current) => current.length ? current : outgoingImages);
         }
         setMessages((current) =>
@@ -394,6 +418,23 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <div className="thinking-state" role="status">
                       <span className="thinking-indicator" aria-hidden="true" />
                       {researchEnabled ? "Searching the web…" : "Preparing a response…"}
+                    </div>
+                  ) : message.status === "failed" ? (
+                    <div className="interrupted" role="status">
+                      No response was generated.
+                      {lastUserMessage && (
+                        <button
+                          type="button"
+                          onClick={() => void send("regenerate", lastUserMessage, images)}
+                          disabled={streaming || !online}
+                        >
+                          Retry response
+                        </button>
+                      )}
+                    </div>
+                  ) : message.status === "interrupted" ? (
+                    <div className="thinking-state" role="status">
+                      The response stopped before any text was received.
                     </div>
                   ) : (
                     <MarkdownRenderer content=" " />
