@@ -4,6 +4,7 @@ import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   AudioLines,
   Bookmark,
   Check,
@@ -109,7 +110,7 @@ const interfaceIcons: Partial<Record<OzlindIconName, LucideIcon>> = {
   "i-share": Share2,
   "i-plus": Plus,
   "i-check": Check,
-  "i-arrow-up": ArrowLeft,
+  "i-arrow-up": ArrowUp,
   "i-arrow-right": ArrowRight,
   "src-fallback": CircleHelp,
 };
