@@ -302,12 +302,25 @@ export async function POST(request: Request) {
     .select("role,content")
     .eq("conversation_id", conversationId)
     .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
+    // Fetch the newest context window; reverse below before passing it to the model.
+    .order("created_at", { ascending: false })
     .limit(100);
 
   if (historyError) return jsonError("HISTORY_LOAD_FAILED", requestId, 500);
 
-  const historyRows = history ?? [];
+  const chronologicalHistory = (history ?? []).reverse();
+  // Keep recent turns without sending unbounded history to model providers.
+  // 60k characters leaves room for the system prompt, research context, and output.
+  const MAX_HISTORY_CHARS = 60_000;
+  let historyChars = 0;
+  let firstIncluded = chronologicalHistory.length;
+  for (let index = chronologicalHistory.length - 1; index >= 0; index -= 1) {
+    const nextLength = chronologicalHistory[index].content.length;
+    if (historyChars + nextLength > MAX_HISTORY_CHARS) break;
+    historyChars += nextLength;
+    firstIncluded = index;
+  }
+  const historyRows = chronologicalHistory.slice(firstIncluded);
   const lastUserIndex = historyRows.map(message => message.role).lastIndexOf("user");
   const core: ModelMessage[] = historyRows.map((message, index) => {
     if (input.images.length && index === lastUserIndex && message.role === "user") {
