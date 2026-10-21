@@ -86,3 +86,7 @@ on public.usage_logs for select to authenticated
 using (((select auth.uid()) = user_id) or (select private.is_admin()));
 
 drop function if exists public.is_admin();
+
+-- Cover the artifacts -> conversations foreign key for deletes/joins.
+create index if not exists artifacts_conversation_id_idx
+on public.artifacts (conversation_id);
