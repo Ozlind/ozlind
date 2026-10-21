@@ -49,3 +49,22 @@ test("frontend preserves buffered text and terminates assistant state when a str
   assert.match(chat, /status: controller\.signal\.aborted \|\| content \? "interrupted" : "failed"/);
   assert.doesNotMatch(chat, /current\.filter\(\(message\) => message\.id !== assistantId \|\| Boolean\(message\.content\)\)/);
 });
+
+
+test("frontend model selection stays aligned with the backend API allowlist", async () => {
+  const [chat, route] = await Promise.all([
+    readFile(new URL("../src/components/chat/Chat.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  const modelIds = [
+    "groq:llama-3.3-70b-versatile",
+    "groq:deepseek-r1-distill-llama-70b",
+    "google:gemini-2.0-flash",
+  ];
+
+  for (const modelId of modelIds) {
+    assert.ok(chat.includes(modelId), `Frontend does not select supported model: ${modelId}`);
+    assert.ok(route.includes(modelId), `Backend does not allow frontend model: ${modelId}`);
+  }
+});
