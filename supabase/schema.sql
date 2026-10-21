@@ -16,11 +16,6 @@ alter default privileges for role postgres in schema public
 revoke truncate, references, trigger, maintain on tables
 from public, anon, authenticated;
 
--- Supabase-managed SQL/migration operations can create objects as supabase_admin.
--- Harden that owner too, or its default ACL could reintroduce these privileges.
-alter default privileges for role supabase_admin in schema public
-revoke truncate, references, trigger, maintain on tables
-from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Conversations and messages
