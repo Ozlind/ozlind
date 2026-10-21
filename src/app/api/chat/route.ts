@@ -117,7 +117,7 @@ async function researchContext(query: string, requestId: string) {
 function jsonError(code: string, requestId: string, status: number, message?: string) {
   return Response.json(
     { error: { code, requestId, ...(message ? { message } : {}) } },
-    { status },
+    { status, headers: { "Cache-Control": "no-store" } },
   );
 }
 
