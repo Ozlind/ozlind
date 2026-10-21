@@ -185,23 +185,27 @@ test("chat context loads the latest messages in chronological order within a cha
 });
 
 
-test("chat and research reuse the already verified user identity for rate limiting", async () => {
+test("authenticated API routes reuse the verified user identity for rate limiting", async () => {
   const { readFile } = await import("node:fs/promises");
   const limiter = await readFile(
     new URL("../src/lib/rate-limit.ts", import.meta.url),
     "utf8",
   );
-  const chat = await readFile(
-    new URL("../src/app/api/chat/route.ts", import.meta.url),
-    "utf8",
-  );
-  const research = await readFile(
-    new URL("../src/app/api/research/route.ts", import.meta.url),
-    "utf8",
-  );
+  const routes = [
+    "../src/app/api/chat/route.ts",
+    "../src/app/api/research/route.ts",
+    "../src/app/api/artifacts/route.ts",
+    "../src/app/api/documents/route.ts",
+    "../src/app/api/preferences/route.ts",
+    "../src/app/api/presets/route.ts",
+  ];
 
   assert.match(limiter, /checkUserRateLimit\(verifiedUserId\?: string\)/);
   assert.match(limiter, /if \(!userId\) \{[\s\S]*?supabase\.auth\.getUser\(\)/);
-  assert.match(chat, /checkUserRateLimit\(user\.id\)/);
-  assert.match(research, /checkUserRateLimit\(user\.id\)/);
+
+  for (const path of routes) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /checkUserRateLimit\(user\.id\)/, path);
+    assert.doesNotMatch(source, /checkUserRateLimit\(\)/, path);
+  }
 });
