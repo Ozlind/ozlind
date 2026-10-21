@@ -349,6 +349,7 @@ export async function POST(request: Request) {
   let iterator: AsyncIterator<string> | null = null;
   let firstDelta = "";
   let lastProviderError: unknown = null;
+  const streamAbortController = new AbortController();
 
   // streamText() is lazy: provider/network errors can happen only when the
   // stream is consumed. Pull the first chunk before committing to a provider,
@@ -363,7 +364,7 @@ export async function POST(request: Request) {
         system: SYSTEM_PROMPT + research.context,
         messages: core,
         maxOutputTokens: 4096,
-        abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(50000)]),
+        abortSignal: AbortSignal.any([request.signal, streamAbortController.signal, AbortSignal.timeout(50000)]),
       });
       const candidateIterator = candidateResult.textStream[Symbol.asyncIterator]();
       const first = await candidateIterator.next();
@@ -497,8 +498,28 @@ export async function POST(request: Request) {
         controller.error(error);
       }
     },
-    cancel() {
-      result?.consumeStream();
+    async cancel() {
+      // A disconnected client must not leave a streaming row indefinitely or
+      // allow the provider to continue generating an unwanted response.
+      streamAbortController.abort(new Error("Client disconnected."));
+      const { error } = await db
+        .from("messages")
+        .update({
+          content: buffer,
+          status: buffer ? "interrupted" : "failed",
+          model: selectedKey,
+        })
+        .eq("id", assistant.id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error(JSON.stringify({
+          event: "chat.stream_cancel_persist_failed",
+          requestId,
+          conversationId,
+          error: error.message,
+        }));
+      }
     },
   });
 
