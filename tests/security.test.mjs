@@ -161,7 +161,11 @@ test("bootstrap schema keeps production index and non-row-level privilege harden
     schema,
     /alter default privileges for role postgres in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
   );
-});
+
+  assert.match(
+    schema,
+    /alter default privileges for role supabase_admin in schema public\s+revoke truncate, references, trigger, maintain on tables\s+from public, anon, authenticated/i,
+  );});
 
 
 test("chat context loads the latest messages in chronological order within a character budget", async () => {
