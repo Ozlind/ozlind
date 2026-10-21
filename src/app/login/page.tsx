@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { OzlindIcon } from "@/components/ui/OzlindIcon";
 
 type AuthMode = "login" | "signup";
 
@@ -147,13 +147,10 @@ export default function LoginPage() {
     <main className="auth-shell">
       <section className="auth-card" aria-labelledby="auth-title">
         <div className="auth-heading">
-          <Image
-            src="/ozlind-mark.svg"
-            alt=""
+          <OzlindIcon
+            name="ozl-app-icon"
+            size={52}
             aria-hidden="true"
-            width={52}
-            height={52}
-            priority
             className="brand-mark auth-brand-mark"
           />
           <p className="eyebrow">Ozlind</p>
