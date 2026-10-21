@@ -35,3 +35,17 @@ test("persists canceled chat streams and aborts provider generation", async () =
   assert.match(route, /async cancel\(\)[\s\S]*?streamAbortController\.abort/);
   assert.match(route, /status: buffer \? "interrupted" : "failed"/);
 });
+
+
+test("frontend preserves buffered text and terminates assistant state when a stream fails", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(chat, /let pendingText = "";[\s\S]*?try \{/);
+  assert.match(chat, /const trailingText = pendingText;[\s\S]*?pendingText = "";/);
+  assert.match(chat, /const content = message\.content \+ trailingText;/);
+  assert.match(chat, /status: controller\.signal\.aborted \|\| content \? "interrupted" : "failed"/);
+  assert.doesNotMatch(chat, /current\.filter\(\(message\) => message\.id !== assistantId \|\| Boolean\(message\.content\)\)/);
+});
