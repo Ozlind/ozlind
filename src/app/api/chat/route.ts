@@ -60,7 +60,7 @@ function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel
   // Gemini 3.6 Flash is a current multimodal fallback for temporary 3.8
   // capacity errors. Additional approved fallbacks can be configured without
   // code changes; model IDs are deduplicated and the primary stays first.
-  const fallbackModels = (process.env.GEMINI_VISION_FALLBACK_MODELS ?? "gemini-3.6-flash")
+  const fallbackModels = (process.env.GEMINI_VISION_FALLBACK_MODELS ?? "gemini-3.6-flash,gemini-3.5-flash-lite")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
