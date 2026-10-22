@@ -35,7 +35,7 @@ jobs:
           log_file="$(mktemp)"
           for attempt in 1 2 3; do
             set +e
-            npm audit --omit=dev --audit-level=high --fetch-retries=0 --fetch-timeout=30000 >"$log_file" 2>&1
+            timeout --signal=TERM --kill-after=5s 25s npm audit --omit=dev --audit-level=high --fetch-retries=0 --fetch-timeout=20000 >"$log_file" 2>&1
             audit_status=$?
             set -e
             cat "$log_file"
@@ -43,7 +43,7 @@ jobs:
               rm -f "$log_file"
               exit 0
             fi
-            if grep -Eqi 'audit endpoint returned an error|network timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ENETUNREACH' "$log_file"; then
+            if [ "$audit_status" -eq 124 ] || [ "$audit_status" -eq 137 ] || grep -Eqi 'audit endpoint returned an error|network timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ENETUNREACH' "$log_file"; then
               if [ "$attempt" -lt 3 ]; then
                 echo "::warning::npm registry audit unavailable (attempt $attempt/3); retrying."
                 sleep 4
