@@ -35,13 +35,14 @@ test("AI response policy treats user and research content as untrusted", () => {
 });
 
 test("image requests use only configured multimodal models and fail clearly when none are available", () => {
-  assert.match(route, /const visionModel: ModelKey = "google:gemini-2\\.0-flash"/);
-  assert.match(route, /function configuredVisionModels\\(/);
-  assert.match(route, /if \\(input\\.images\\.length && !visionModels\\.length\\)/);
-  assert.match(route, /"VISION_UNAVAILABLE"/);
-  assert.match(route, /visionModels\\.map\\(\\(\\{ modelId, model \\}\\) => \\(/);
-  assert.match(route, /fallbackOrder\\(input\\.model\\)\\.flatMap/);
+  assert.ok(route.includes('const visionModel: ModelKey = "google:gemini-2.0-flash"'));
+  assert.ok(route.includes("function configuredVisionModels("));
+  assert.ok(route.includes("input.images.length && !visionModels.length"));
+  assert.ok(route.includes('"VISION_UNAVAILABLE"'));
+  assert.ok(route.includes("visionModels.map(({ modelId, model }) => ({ key: visionModel, model, modelId }))"));
+  assert.ok(route.includes("fallbackOrder(input.model).flatMap"));
 });
+
 test("requested web research fails explicitly instead of silently answering without sources", () => {
   assert.match(route, /if \(research\.failed \|\| !research\.used\)/);
   assert.match(route, /RESEARCH_UNAVAILABLE/);
@@ -135,12 +136,9 @@ test("web research returns validated source links as part of the persisted answe
   assert.ok(route.includes("buffer += footer"));
 });
 
-
 test("image requests retry a configured multimodal fallback after temporary Gemini capacity failures", () => {
-  assert.match(route, /function configuredVisionModels\(\): Array<\{ modelId: string; model: LanguageModel \}>/);
-  assert.match(route, /GEMINI_VISION_FALLBACK_MODELS/);
-  assert.match(route, /"gemini-3\.6-flash,gemini-3\.5-flash-lite"/);
-  assert.match(route, /\? visionModels\.map\(\(\{ modelId, model \}\) => \(\{ key: visionModel, model, modelId \}\)\)/);
-  assert.match(route, /providerModel: candidate\.modelId/);
-  assert.match(route, /selectedProviderModel = candidate\.modelId/);
+  assert.ok(route.includes("GEMINI_VISION_FALLBACK_MODELS"));
+  assert.ok(route.includes('"gemini-3.6-flash,gemini-3.5-flash-lite"'));
+  assert.ok(route.includes("providerModel: candidate.modelId"));
+  assert.ok(route.includes("selectedProviderModel = candidate.modelId"));
 });
