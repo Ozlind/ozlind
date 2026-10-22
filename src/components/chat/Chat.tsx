@@ -327,7 +327,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       }
 
       pendingText += decoder.decode();
-      flushVisibleText(true);
+      flushVisibleText();
       setMessages((current) =>
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
