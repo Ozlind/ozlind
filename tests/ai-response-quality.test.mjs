@@ -176,3 +176,25 @@ test("image requests retry a configured multimodal fallback after temporary Gemi
   assert.ok(route.includes("selectedProviderModel = candidate.modelId"));
   assert.ok(route.includes("maxRetries: input.images.length ? 0 : 2"));
 });
+
+
+test("thinking cursor does not render beside the dots before the first token", () => {
+  assert.match(chatComponent, /message\.status === "streaming" && message\.content &&/);
+});
+
+test("streamed response chunks are committed as they arrive instead of waiting for a UI timer", () => {
+  assert.match(chatComponent, /Commit every arriving network chunk/);
+  assert.doesNotMatch(chatComponent, /shouldFlushVisibleText/);
+});
+
+test("sent image previews enlarge in a lightbox and persist locally across refreshes", () => {
+  assert.match(chatComponent, /setPreviewImage\(image\)/);
+  assert.match(chatComponent, /className="image-lightbox"/);
+  assert.match(chatComponent, /loadMessageImages\(id, messageKey\)/);
+  assert.match(chatComponent, /saveMessageImages\(id, key, outgoingImages\)/);
+});
+
+test("vision requests use a bounded recent context to reduce multimodal latency", () => {
+  assert.match(route, /const recent = chronologicalHistory\.slice\(-8\)/);
+  assert.match(route, /18_000/);
+});
