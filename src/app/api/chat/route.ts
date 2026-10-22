@@ -450,6 +450,9 @@ export async function POST(request: Request) {
     try {
       const candidateResult = streamText({
         model: candidate.model,
+        // Image requests should switch to the next vision model promptly
+        // instead of spending the default retry budget on an overloaded model.
+        maxRetries: input.images.length ? 0 : 2,
         system: SYSTEM_PROMPT + research.context,
         messages: core,
         maxOutputTokens: 4096,
