@@ -213,14 +213,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     if (action === "send") {
       setDraft("");
       setImages([]);
-      // For existing conversations, persist locally before the network request.
-      if (id && outgoingImages.length) {
-        await saveMessageImages(id, key, outgoingImages).catch(() => undefined);
-      }
     }
     setError("");
     const key = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
+    // For existing conversations, persist locally before the network request.
+    if (action === "send" && id && outgoingImages.length) {
+      await saveMessageImages(id, key, outgoingImages).catch(() => undefined);
+    }
 
     if (action === "send") {
       setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete", idempotency_key: key, images: outgoingImages }));
