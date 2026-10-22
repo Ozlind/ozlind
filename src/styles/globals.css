@@ -1590,3 +1590,97 @@ a { color: inherit; }
 /* Factual runtime metadata below completed assistant responses. */
 .message-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px;color:var(--text-muted);font-size:11px;line-height:1.45}
 .message-meta span{display:inline-flex;align-items:center;min-height:18px}
+
+
+/* Chat polish: clear thinking feedback, visible image attachments and source pills. */
+.thinking-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+}
+.thinking-dots i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .35;
+  animation: ozlind-thinking-dot 1.05s ease-in-out infinite;
+}
+.thinking-dots i:nth-child(2) { animation-delay: .14s; }
+.thinking-dots i:nth-child(3) { animation-delay: .28s; }
+@keyframes ozlind-thinking-dot {
+  0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.message-attachment-preview {
+  display: block;
+  width: min(280px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  line-height: 0;
+  transition: border-color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.message-attachment-preview:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.message-attachment-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+  object-fit: contain;
+  background: var(--surface-subtle);
+}
+.prose a.source-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  margin: 3px 3px 3px 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: .88em;
+  line-height: 1.45;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
+}
+.prose a.source-link-pill::after {
+  content: "↗";
+  color: var(--text-muted);
+  font-size: .9em;
+}
+.prose a.source-link-pill:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+@media (max-width: 768px) {
+  .message-attachment-preview { width: min(240px, 100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .thinking-dots i { animation: none; opacity: .65; }
+  .message-attachment-preview, .prose a.source-link-pill { transition: none; }
+}
