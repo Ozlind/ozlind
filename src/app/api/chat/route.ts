@@ -205,7 +205,7 @@ export async function POST(request: Request) {
   }
 
   // Apply the shared database-backed limit before any paid provider/search work.
-  const rateLimit = await checkUserRateLimit();
+  const rateLimit = await checkUserRateLimit(user.id);
   const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
   if (rateLimitError) return rateLimitError;
 
@@ -324,6 +324,7 @@ export async function POST(request: Request) {
     .select("role,content")
     .eq("conversation_id", conversationId)
     .eq("user_id", user.id)
+    .eq("status", "complete")
     // Fetch the newest context window; reverse below before passing it to the model.
     .order("created_at", { ascending: false })
     .limit(100);
