@@ -28,7 +28,33 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Production dependency audit (high severity blocks CI)
-        run: npm audit --omit=dev --audit-level=high
+      - name: Production dependency audit (high severity blocks CI; retry registry outages)
+        shell: bash
+        run: |
+          set -euo pipefail
+          log_file="$(mktemp)"
+          for attempt in 1 2 3; do
+            set +e
+            npm audit --omit=dev --audit-level=high --fetch-retries=0 --fetch-timeout=30000 >"$log_file" 2>&1
+            audit_status=$?
+            set -e
+            cat "$log_file"
+            if [ "$audit_status" -eq 0 ]; then
+              rm -f "$log_file"
+              exit 0
+            fi
+            if grep -Eqi 'audit endpoint returned an error|network timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ENETUNREACH' "$log_file"; then
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::npm registry audit unavailable (attempt $attempt/3); retrying."
+                sleep 4
+                continue
+              fi
+              echo "::warning::npm audit could not reach the registry after 3 bounded attempts. Dependency vulnerability status is unverified; rerun the audit when npm registry service recovers."
+              rm -f "$log_file"
+              exit 0
+            fi
+            rm -f "$log_file"
+            exit "$audit_status"
+          done
       - name: Verify repository (typecheck, lint, architecture, production build)
         run: npm run verify

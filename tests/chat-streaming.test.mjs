@@ -35,3 +35,19 @@ test("persists canceled chat streams and aborts provider generation", async () =
   assert.match(route, /async cancel\(\)[\s\S]*?streamAbortController\.abort/);
   assert.match(route, /status: buffer \? "interrupted" : "failed"/);
 });
+
+
+test("frontend preserves buffered text when a stream fails or is stopped", async () => {
+  const chat = await readFile(new URL("../src/components/chat/Chat.tsx", import.meta.url), "utf8");
+  assert.ok(chat.includes('let pendingText = "";'));
+  assert.ok(chat.includes("const trailingText = pendingText;"));
+  assert.ok(chat.includes("const content = message.content + trailingText;"));
+  assert.ok(chat.includes('status: controller.signal.aborted || content ? "interrupted" : "failed"'));
+  assert.ok(!chat.includes("current.filter((message) => message.id !== assistantId || Boolean(message.content))"));
+});
+
+test("stream response headers disable intermediary caching", async () => {
+  const route = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
+  assert.ok(route.includes('"Cache-Control": "no-store, no-cache, no-transform"'));
+  assert.ok(route.includes('"X-Content-Type-Options": "nosniff"'));
+});

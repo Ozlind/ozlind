@@ -183,3 +183,27 @@ test("chat context loads the latest messages in chronological order within a cha
   assert.match(historyQuery, /chronologicalHistory\.slice\(firstIncluded\)/);
   assert.doesNotMatch(historyQuery, /ascending: true/);
 });
+
+
+test("authenticated API routes reuse verified identity for rate limiting", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const limiter = await readFile(new URL("../src/lib/rate-limit.ts", import.meta.url), "utf8");
+  assert.ok(limiter.includes("checkUserRateLimit(verifiedUserId?: string)"));
+  assert.ok(limiter.includes("supabase.auth.getUser()"));
+  for (const path of [
+    "../src/app/api/chat/route.ts", "../src/app/api/research/route.ts",
+    "../src/app/api/artifacts/route.ts", "../src/app/api/documents/route.ts",
+    "../src/app/api/preferences/route.ts", "../src/app/api/presets/route.ts",
+  ]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.ok(source.includes("checkUserRateLimit(user.id)"), path);
+    assert.ok(!source.includes("checkUserRateLimit()"), path);
+  }
+});
+
+test("chat context excludes incomplete assistant responses", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
+  const historyQuery = source.slice(source.indexOf('const { data: history, error: historyError }'), source.indexOf("const lastUserIndex = historyRows"));
+  assert.ok(historyQuery.includes('.eq("status", "complete")'));
+});
