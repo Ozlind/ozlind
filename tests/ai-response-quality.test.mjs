@@ -141,4 +141,5 @@ test("image requests retry a configured multimodal fallback after temporary Gemi
   assert.ok(route.includes('"gemini-3.6-flash,gemini-3.5-flash-lite"'));
   assert.ok(route.includes("providerModel: candidate.modelId"));
   assert.ok(route.includes("selectedProviderModel = candidate.modelId"));
+  assert.ok(route.includes("maxRetries: input.images.length ? 0 : 2"));
 });
