@@ -51,3 +51,11 @@ test("stream response headers disable intermediary caching", async () => {
   assert.ok(route.includes('"Cache-Control": "no-store, no-cache, no-transform"'));
   assert.ok(route.includes('"X-Content-Type-Options": "nosniff"'));
 });
+
+
+test("successful web-researched answers append real checked URLs, not generated source claims", async () => {
+  const route = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
+  assert.ok(route.includes("normalized.results.map(({ title, url }) => ({ title, url }))"));
+  assert.ok(route.includes("Sources consulted"));
+  assert.ok(route.includes("controller.enqueue(encoder.encode(footer))"));
+});

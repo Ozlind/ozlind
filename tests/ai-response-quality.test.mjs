@@ -118,3 +118,11 @@ test("UI exposes the model and research count returned by the backend", () => {
   assert.ok(chatComponent.includes("X-OZLIND-Research-Sources"));
   assert.ok(chatComponent.includes("message.researchSources"));
 });
+
+test("web research returns validated source links as part of the persisted answer", () => {
+  assert.ok(route.includes("Sources consulted"));
+  assert.ok(route.includes("research.sources.map"));
+  assert.ok(route.includes("safeMarkdownLabel(title)"));
+  assert.ok(route.includes("controller.enqueue(encoder.encode(footer))"));
+  assert.ok(route.includes("buffer += footer"));
+});
