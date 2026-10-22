@@ -135,3 +135,13 @@ test("web research returns validated source links as part of the persisted answe
   assert.ok(route.includes("controller.enqueue(encoder.encode(footer))"));
   assert.ok(route.includes("buffer += footer"));
 });
+
+
+test("image requests retry a configured multimodal fallback after temporary Gemini capacity failures", () => {
+  assert.match(route, /function configuredVisionModels\(\): Array<\{ modelId: string; model: LanguageModel \}>/);
+  assert.match(route, /GEMINI_VISION_FALLBACK_MODELS/);
+  assert.match(route, /"gemini-3\.6-flash"/);
+  assert.match(route, /\? visionModels\.map\(\(\{ modelId, model \}\) => \(\{ key: visionModel, model, modelId \}\)\)/);
+  assert.match(route, /providerModel: candidate\.modelId/);
+  assert.match(route, /selectedProviderModel = candidate\.modelId/);
+});
