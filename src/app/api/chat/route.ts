@@ -258,7 +258,22 @@ export async function POST(request: Request) {
     }
   }
   const models = configuredModels();
-  const candidates = fallbackOrder(input.model).filter((key) => models[key]);
+  const visionModel: ModelKey = "google:gemini-2.0-flash";
+
+  // Images require a multimodal model. Never silently fall back to a
+  // text-only provider and pretend that image understanding was performed.
+  if (input.images.length && !models[visionModel]) {
+    return jsonError(
+      "VISION_UNAVAILABLE",
+      requestId,
+      503,
+      "Image understanding is not configured on this deployment. Try again later or send a text-only message.",
+    );
+  }
+
+  const candidates: ModelKey[] = input.images.length
+    ? [visionModel]
+    : fallbackOrder(input.model).filter((key) => models[key]);
 
   if (!candidates.length) {
     return jsonError(
