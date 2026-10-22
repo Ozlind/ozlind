@@ -52,6 +52,23 @@ CORE BEHAVIOUR
 
 type ModelKey = z.infer<typeof schema>["model"];
 
+function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const primaryModel = process.env.GEMINI_MODEL?.trim();
+  if (!apiKey || !primaryModel) return [];
+
+  // Gemini 3.6 Flash is a current multimodal fallback for temporary 3.8
+  // capacity errors. Additional approved fallbacks can be configured without
+  // code changes; model IDs are deduplicated and the primary stays first.
+  const fallbackModels = (process.env.GEMINI_VISION_FALLBACK_MODELS ?? "gemini-3.6-flash")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const modelIds = [...new Set([primaryModel, ...fallbackModels])];
+  const provider = createGoogleGenerativeAI({ apiKey });
+  return modelIds.map((modelId) => ({ modelId, model: provider(modelId) }));
+}
+
 function configuredModels(): Record<ModelKey, LanguageModel | null> {
   const groqReady = Boolean(process.env.GROQ_API_KEY);
   const fastModel = process.env.GROQ_FAST_MODEL?.trim();
@@ -259,10 +276,11 @@ export async function POST(request: Request) {
   }
   const models = configuredModels();
   const visionModel: ModelKey = "google:gemini-2.0-flash";
+  const visionModels = configuredVisionModels();
 
   // Images require a multimodal model. Never silently fall back to a
   // text-only provider and pretend that image understanding was performed.
-  if (input.images.length && !models[visionModel]) {
+  if (input.images.length && !visionModels.length) {
     return jsonError(
       "VISION_UNAVAILABLE",
       requestId,
@@ -271,9 +289,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const candidates: ModelKey[] = input.images.length
-    ? [visionModel]
-    : fallbackOrder(input.model).filter((key) => models[key]);
+  const candidates: Array<{ key: ModelKey; model: LanguageModel; modelId: string }> = input.images.length
+    ? visionModels.map(({ modelId, model }) => ({ key: visionModel, model, modelId }))
+    : fallbackOrder(input.model).flatMap((key) => {
+        const model = models[key];
+        return model ? [{ key, model, modelId: key }] : [];
+      });
 
   if (!candidates.length) {
     return jsonError(
@@ -415,6 +436,7 @@ export async function POST(request: Request) {
   }
 
   let selectedKey: ModelKey | null = null;
+  let selectedProviderModel: string | null = null;
   let result: ReturnType<typeof streamText> | null = null;
   let iterator: AsyncIterator<string> | null = null;
   let firstDelta = "";
@@ -426,11 +448,8 @@ export async function POST(request: Request) {
   // so failures before any user-visible output can safely fall back.
   for (const candidate of candidates) {
     try {
-      const model = models[candidate];
-      if (!model) continue;
-
       const candidateResult = streamText({
-        model,
+        model: candidate.model,
         system: SYSTEM_PROMPT + research.context,
         messages: core,
         maxOutputTokens: 4096,
@@ -445,7 +464,8 @@ export async function POST(request: Request) {
         continue;
       }
 
-      selectedKey = candidate;
+      selectedKey = candidate.key;
+      selectedProviderModel = candidate.modelId;
       result = candidateResult;
       iterator = candidateIterator;
       firstDelta = first.value;
@@ -455,7 +475,8 @@ export async function POST(request: Request) {
       console.warn(JSON.stringify({
         event: "ai.provider_failed",
         requestId,
-        provider: candidate,
+        provider: candidate.key,
+        providerModel: candidate.modelId,
         error: error instanceof Error ? error.message : String(error),
       }));
     }
@@ -471,6 +492,7 @@ export async function POST(request: Request) {
     console.error(JSON.stringify({
       event: "ai.unavailable",
       requestId,
+      providerModel: selectedProviderModel,
       error: lastProviderError instanceof Error ? lastProviderError.message : String(lastProviderError),
     }));
 
