@@ -408,7 +408,11 @@ export async function POST(request: Request) {
     let start = recent.length;
     for (let index = recent.length - 1; index >= 0; index -= 1) {
       const nextLength = recent[index].content.length;
-      if (chars + nextLength > 18_000) break;
+      if (chars + nextLength > 18_000) {
+        // Always retain the newest user turn, even if its prompt alone exceeds the context budget.
+        if (start === recent.length) start = index;
+        break;
+      }
       chars += nextLength;
       start = index;
     }
