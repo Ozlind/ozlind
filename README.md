@@ -41,7 +41,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run build` | Production Next.js build |
 | `npm run verify` | Runs typecheck, lint, architecture checks, and production build |
 
-GitHub Actions runs `npm run verify` for pushes to `main` and pull requests targeting `main`. The dependency audit is currently configured as informational (`continue-on-error`); it is not a release-blocking security gate.
+GitHub Actions runs `npm run verify` for pushes to `main` and pull requests targeting `main`. Production dependency audit findings at high severity block CI. The audit retries transient registry failures with bounded timeouts; if the registry is unreachable after three attempts, CI records a warning and continues code verification while explicitly marking dependency status as unverified. Re-run `npm audit --omit=dev --audit-level=high` when registry service recovers.
 
 ## Repository map
 

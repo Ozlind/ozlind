@@ -87,3 +87,42 @@ test("reloaded history preserves optimistic user message identity via idempotenc
   assert.match(chatComponent, /id,role,content,status,idempotency_key/);
   assert.match(chatComponent, /message\.idempotency_key/);
 });
+
+
+test("response length avoids padding and fabricated specifics", () => {
+  assert.ok(route.includes("Keep replies proportional to the request"));
+  assert.ok(route.includes("Avoid repetition, padding, invented statistics"));
+  assert.ok(route.includes("tables only for structured comparisons"));
+});
+
+test("Ozlind identity stays distinct from the configured model provider", () => {
+  assert.ok(route.includes("Identify yourself as Ozlind, the assistant inside the Ozlind product"));
+  assert.ok(route.includes("Keep the product's creator/owner distinct from the provider"));
+  assert.ok(route.includes("do not invent a founder"));
+});
+
+test("cultural and historical answers must not invent unsupported details", () => {
+  assert.ok(route.includes("verify the specific place, dates, and traditions"));
+  assert.ok(route.includes("Do not invent crowd counts, UNESCO status, distances, or schedules"));
+});
+
+test("chat API errors and streamed responses are explicitly non-cacheable", () => {
+  assert.ok(route.includes('status, headers: { "Cache-Control": "no-store" }'));
+  assert.ok(route.includes('"Cache-Control": "no-store, no-cache, no-transform"'));
+  assert.ok(route.includes('"X-Content-Type-Options": "nosniff"'));
+  assert.ok(route.includes('"X-OZLIND-Research-Sources": String(research.sources.length)'));
+});
+
+test("UI exposes the model and research count returned by the backend", () => {
+  assert.ok(chatComponent.includes("X-OZLIND-Model"));
+  assert.ok(chatComponent.includes("X-OZLIND-Research-Sources"));
+  assert.ok(chatComponent.includes("message.researchSources"));
+});
+
+test("web research returns validated source links as part of the persisted answer", () => {
+  assert.ok(route.includes("Sources consulted"));
+  assert.ok(route.includes("normalized.results.map(({ title, url }) => ({ title, url }))"));
+  assert.ok(route.includes("safeMarkdownLabel(title)"));
+  assert.ok(route.includes("controller.enqueue(encoder.encode(footer))"));
+  assert.ok(route.includes("buffer += footer"));
+});

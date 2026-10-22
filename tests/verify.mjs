@@ -26,7 +26,7 @@ for(const file of files){
  if(/NEXT_PUBLIC_[A-Z_]*(SERVICE_ROLE_KEY|SECRET|PRIVATE_KEY|ACCESS_TOKEN|REFRESH_TOKEN)/.test(source))problems.push("Secret-looking NEXT_PUBLIC_ variable in "+path.relative(root,file));
 }
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
-for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed"])if(!chat.includes(token))problems.push("Chat route missing "+token);
+for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed",'.eq("status", "complete")'])if(!chat.includes(token))problems.push("Chat route missing "+token);
 const canonicalSchema=fs.readFileSync(path.join(root,"supabase/schema.sql"),"utf8");
 const rateLimitTables=canonicalSchema.match(/create table if not exists public\.rate_limits/g)||[];
 if(rateLimitTables.length!==1)problems.push("Canonical schema must define rate_limits exactly once");
@@ -40,6 +40,21 @@ for(const token of ["env(safe-area-inset-bottom)","@media(max-width:768px)"])if(
 if(/\.app-shell:has\(\.chat-page\)\s*\{[^}]*--(?:bg|surface|accent|text|border)\s*:/s.test(css))problems.push("Chat must inherit canonical root theme tokens, not define a local palette");
 for(const token of ["background: var(--surface);","border-color: var(--accent);","color: var(--text-muted);"])if(!css.includes(token))problems.push("Shared Chat theme token rule missing "+token);
 if(css.includes("backdrop-filter"))problems.push("Glass/backdrop-filter styling detected");
+
+
+for (const route of [
+  "src/app/api/chat/route.ts",
+  "src/app/api/research/route.ts",
+  "src/app/api/documents/route.ts",
+  "src/app/api/preferences/route.ts",
+  "src/app/api/presets/route.ts",
+  "src/app/api/artifacts/route.ts"
+]) {
+  const source = fs.readFileSync(path.join(root, route), "utf8");
+  if (!source.includes("checkUserRateLimit(user.id)")) {
+    problems.push(route + " must reuse the already-verified user ID for rate limiting");
+  }
+}
 
 const rateLimitSource=fs.readFileSync(path.join(root,"src/lib/rate-limit.ts"),"utf8");
 if(!rateLimitSource.includes("export function rateLimitErrorResponse"))problems.push("Shared rate-limit response helper is missing");

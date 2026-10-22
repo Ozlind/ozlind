@@ -17,10 +17,22 @@ type Message = {
   content: string;
   status?: string;
   idempotency_key?: string | null;
+  model?: string | null;
+  research?: boolean;
+  researchSources?: number;
 };
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
 type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
+
+function modelLabel(model?: string | null): string {
+  switch (model) {
+    case "groq:llama-3.3-70b-versatile": return "Fast model";
+    case "groq:deepseek-r1-distill-llama-70b": return "Pro model";
+    case "google:gemini-2.0-flash": return "Vision model";
+    default: return "Ozlind model";
+  }
+}
 
 async function compressImage(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -123,7 +135,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const supabase = createClient();
         const { data, error: queryError } = await supabase
           .from("messages")
-          .select("id,role,content,status,idempotency_key")
+          .select("id,role,content,status,idempotency_key,model")
           .eq("conversation_id", id)
           .order("created_at", { ascending: true });
 
@@ -196,6 +208,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     let requestErrorCode: string | null = null;
     let requestAccepted = false;
     let receivedAssistantText = false;
+    // Keep buffered text outside try so a stream failure cannot discard it.
+    let pendingText = "";
 
     try {
       const fastModel = "groq:llama-3.3-70b-versatile";
@@ -244,6 +258,13 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       // A successful streaming response means the server has accepted and
       // persisted the user's prompt; do not duplicate it in the composer.
       requestAccepted = true;
+      const responseModel = response.headers.get("X-OZLIND-Model") || requestedModel;
+      const researchUsed = response.headers.get("X-OZLIND-Research") === "1";
+      const parsedSourceCount = Number(response.headers.get("X-OZLIND-Research-Sources"));
+      const researchSources = Number.isFinite(parsedSourceCount) ? Math.max(0, parsedSourceCount) : 0;
+      setMessages((current) => current.map((message) => message.id === assistantId
+        ? { ...message, model: responseModel, research: researchUsed, researchSources }
+        : message));
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
       if (!id && nextId) {
         setId(nextId);
@@ -254,7 +275,6 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!reader) throw new Error("Streaming response unavailable.");
 
       const decoder = new TextDecoder();
-      let pendingText = "";
       let lastUiFlush = 0;
       const flushVisibleText = (force = false) => {
         if (!shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)) return;
@@ -284,15 +304,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
     } catch (caught) {
-      if (controller.signal.aborted) {
-        setMessages((current) =>
-          current.map((message) => (message.id === assistantId ? { ...message, status: "interrupted" } : message)),
-        );
-      } else {
+      const trailingText = pendingText;
+      pendingText = "";
+      if (!controller.signal.aborted) {
         setError(caught instanceof Error ? caught.message : "Generation failed.");
-        // Restore the prompt only when the API did not persist it. Otherwise,
-        // the prompt remains in this conversation and the failed assistant row
-        // provides an inline retry action.
         const promptWasPersisted =
           requestAccepted ||
           receivedAssistantText ||
@@ -303,10 +318,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         if (outgoingImages.length) {
           setImages((current) => current.length ? current : outgoingImages);
         }
-        setMessages((current) =>
-          current.filter((message) => message.id !== assistantId || Boolean(message.content)),
-        );
       }
+      setMessages((current) => current.map((message) => {
+        if (message.id !== assistantId) return message;
+        const content = message.content + trailingText;
+        return { ...message, content, status: controller.signal.aborted || content ? "interrupted" : "failed" };
+      }));
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setStreaming(false);
@@ -440,6 +457,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <MarkdownRenderer content=" " />
                   )}
                 </div>
+                {message.role === "assistant" && message.content && message.status !== "streaming" && (
+                  <div className="message-meta" aria-label="Response details">
+                    {message.model && <span>{modelLabel(message.model)}</span>}
+                    {message.research && (
+                      <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
+                    )}
+                  </div>
+                )}
                 {message.status === "interrupted" && (
                   <div className="interrupted">
                     Generation stopped.{" "}

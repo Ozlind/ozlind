@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
     if (query) {
       // Embedding/search incurs provider cost; it shares the per-user budget.
-      const rateLimit = await checkUserRateLimit();
+      const rateLimit = await checkUserRateLimit(user.id);
       const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
       if (rateLimitError) return rateLimitError;
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const parsed = uploadSchema.safeParse(requestBody);
     if (!parsed.success) return errorResponse("INVALID_DOCUMENT", requestId, 400);
 
-    const rateLimit = await checkUserRateLimit();
+    const rateLimit = await checkUserRateLimit(user.id);
     const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
     if (rateLimitError) return rateLimitError;
 
@@ -136,7 +136,7 @@ export async function DELETE(request: Request) {
     const id = z.string().uuid().safeParse(new URL(request.url).searchParams.get("id"));
     if (!id.success) return errorResponse("INVALID_DOCUMENT_ID", requestId, 400);
 
-    const rateLimit = await checkUserRateLimit();
+    const rateLimit = await checkUserRateLimit(user.id);
     const rateLimitError = rateLimitErrorResponse(rateLimit, requestId);
     if (rateLimitError) return rateLimitError;
 

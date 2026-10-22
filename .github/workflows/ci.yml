@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   verify:
+    name: Verify application
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -22,13 +23,68 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Production dependency audit (high severity blocks CI)
-        run: npm audit --omit=dev --audit-level=high
-      - name: Verify repository (typecheck, lint, architecture, production build)
+
+      - name: Verify repository (security, streaming, response quality, typecheck, lint, architecture, production build)
         run: npm run verify
+
+  dependency-audit:
+    name: Audit production dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Production dependency audit (high severity blocks CI; bounded registry retries)
+        shell: bash
+        run: |
+          set -euo pipefail
+          log_file="$(mktemp)"
+          trap 'rm -f "$log_file"' EXIT
+
+          for attempt in 1 2 3; do
+            set +e
+            timeout --signal=TERM --kill-after=3s 25s npm audit --omit=dev --audit-level=high --fetch-retries=0 --fetch-timeout=20000 >"$log_file" 2>&1
+            audit_status=$?
+            set -e
+            cat "$log_file"
+
+            if [ "$audit_status" -eq 0 ]; then
+              exit 0
+            fi
+
+            if [ "$audit_status" -eq 124 ] || [ "$audit_status" -eq 137 ] || grep -Eqi 'audit endpoint returned an error|network timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ENETUNREACH' "$log_file"; then
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::npm registry audit unavailable (attempt $attempt/3); retrying."
+                sleep 3
+                continue
+              fi
+              echo "::warning::npm audit could not reach the registry after 3 bounded attempts. Dependency vulnerability status is unverified; rerun the audit when npm registry service recovers."
+              exit 0
+            fi
+
+            # Non-network audit errors (including high-severity findings) block the check.
+            exit "$audit_status"
+          done

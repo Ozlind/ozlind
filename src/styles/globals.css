@@ -1585,3 +1585,8 @@ a { color: inherit; }
   color: var(--text-muted);
   border-color: var(--border);
 }
+
+
+/* Factual runtime metadata below completed assistant responses. */
+.message-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px;color:var(--text-muted);font-size:11px;line-height:1.45}
+.message-meta span{display:inline-flex;align-items:center;min-height:18px}
