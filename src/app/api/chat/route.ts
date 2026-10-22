@@ -87,8 +87,10 @@ type ResearchSource = { title: string; url: string };
 
 function safeMarkdownLabel(value: string): string {
   return value
-    .replace(/[\r\n]+/g, " ")
-    .replace(/[\[\]\\]/g, "\\async function researchContext(query: string, requestId: string) {")
+    .replaceAll("\r", " ")
+    .replaceAll("\n", " ")
+    .replaceAll("[", "(")
+    .replaceAll("]", ")")
     .trim()
     .slice(0, 160) || "Source";
 }
@@ -520,9 +522,9 @@ export async function POST(request: Request) {
         // with the answer instead of leaving it only in transient response headers.
         if (research.used && research.sources.length) {
           const sourceList = research.sources
-            .map(({ title, url }) => `- [${safeMarkdownLabel(title)}](<${url}>)`)
-            .join("\\n");
-          const footer = `\\n\\n---\\n\\n**Sources consulted**\\n\\n${sourceList}`;
+            .map(({ title, url }) => "- [" + safeMarkdownLabel(title) + "](<" + url + ">)")
+            .join("\n");
+          const footer = "\n\n---\n\n**Sources consulted**\n\n" + sourceList;
           buffer += footer;
           controller.enqueue(encoder.encode(footer));
         }
