@@ -20,6 +20,7 @@ type Message = {
   model?: string | null;
   research?: boolean;
   researchSources?: number;
+  images?: ChatImage[];
 };
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
@@ -198,7 +199,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     const assistantId = crypto.randomUUID();
 
     if (action === "send") {
-      setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete", idempotency_key: key }));
+      setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete", idempotency_key: key, images: outgoingImages }));
     }
     setMessages((current) => current.concat({ id: assistantId, role: "assistant", content: "", status: "streaming" }));
     setStreaming(true);
@@ -365,7 +366,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
   };
 
-  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content;
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
   const lastAssistantMessageId = [...messages].reverse().find((message) => message.role === "assistant")?.id;
 
   async function copyMessage(message: Message) {
@@ -428,13 +429,24 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 <div className="message-role">{message.role === "user" ? "You" : "Ozlind"}</div>
                 <div className="message-content">
                   {message.role === "user" ? (
-                    <p>{message.content}</p>
+                    <>
+                      {message.images && message.images.length > 0 && (
+                        <div className="message-attachments" aria-label="Attached images">
+                          {message.images.map((image, index) => (
+                            <a className="message-attachment-preview" href={image.dataUrl} target="_blank" rel="noreferrer" key={image.name + index} aria-label={"Open attached image: " + image.name}>
+                              <Image src={image.dataUrl} alt={image.name || "Attached image"} width={360} height={260} unoptimized />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {message.content && <p>{message.content}</p>}
+                    </>
                   ) : message.content ? (
                     <MarkdownRenderer content={message.content} />
                   ) : message.status === "streaming" ? (
                     <div className="thinking-state" role="status">
-                      <span className="thinking-indicator" aria-hidden="true" />
-                      {researchEnabled ? "Searching the web…" : "Preparing a response…"}
+                      <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
+                      {message.research ? "Searching the web…" : researchEnabled ? "Searching the web…" : "Thinking…"}
                     </div>
                   ) : message.status === "failed" ? (
                     <div className="interrupted" role="status">
@@ -442,7 +454,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                       {lastUserMessage && (
                         <button
                           type="button"
-                          onClick={() => void send("regenerate", lastUserMessage, images)}
+                          onClick={() => void send("regenerate", lastUserMessage.content, lastUserMessage.images ?? [])}
                           disabled={streaming || !online}
                         >
                           Retry response
@@ -468,7 +480,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 {message.status === "interrupted" && (
                   <div className="interrupted">
                     Generation stopped.{" "}
-                    <button onClick={() => void send("regenerate", lastUserMessage)}>Continue</button>
+                    <button onClick={() => lastUserMessage && void send("regenerate", lastUserMessage.content, lastUserMessage.images ?? [])}>Continue</button>
                   </div>
                 )}
                 {message.role === "assistant" && message.status === "streaming" && (
@@ -487,7 +499,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                       <button
                         type="button"
                         className="message-action"
-                        onClick={() => void send("regenerate", lastUserMessage)}
+                        onClick={() => lastUserMessage && void send("regenerate", lastUserMessage.content, lastUserMessage.images ?? [])}
                         disabled={streaming || !online}
                       >
                         <OzlindIcon name="i-regenerate" size={14} /> Regenerate

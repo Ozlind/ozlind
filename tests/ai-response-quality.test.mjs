@@ -11,6 +11,14 @@ const chatComponent = await readFile(
   new URL("../src/components/chat/Chat.tsx", import.meta.url),
   "utf8",
 );
+const markdownRenderer = await readFile(
+  new URL("../src/components/chat/MarkdownRenderer.tsx", import.meta.url),
+  "utf8",
+);
+const chatStyles = await readFile(
+  new URL("../src/styles/globals.css", import.meta.url),
+  "utf8",
+);
 
 const route = await readFile(
   new URL("../src/app/api/chat/route.ts", import.meta.url),
@@ -95,6 +103,31 @@ test("failed assistant rows are visible and retryable instead of rendering a bla
 test("reloaded history preserves optimistic user message identity via idempotency keys", () => {
   assert.match(chatComponent, /id,role,content,status,idempotency_key/);
   assert.match(chatComponent, /message\.idempotency_key/);
+});
+
+test("sent images remain visible in the current chat and retry with their original payload", () => {
+  assert.match(chatComponent, /images: outgoingImages/);
+  assert.match(chatComponent, /className="message-attachments"/);
+  assert.match(chatComponent, /message\.images\.map/);
+  assert.match(chatComponent, /lastUserMessage\.images \?\? \[\]/);
+});
+
+test("assistant shows animated thinking dots while waiting for the first token", () => {
+  assert.match(chatComponent, /className="thinking-dots"/);
+  assert.match(chatStyles, /@keyframes ozlind-thinking-dot/);
+  assert.match(chatStyles, /prefers-reduced-motion: reduce/);
+});
+
+test("external research links are rendered as safe, user-friendly source pills", () => {
+  assert.match(markdownRenderer, /className=\{external \? "source-link-pill" : undefined\}/);
+  assert.match(markdownRenderer, /rel: "noopener noreferrer"/);
+  assert.match(chatStyles, /\.prose a\.source-link-pill/);
+});
+
+test("web research instructs the model to avoid unsupported latest-news claims", () => {
+  assert.match(route, /Use only the retrieved source passages below as evidence/);
+  assert.match(route, /do not describe its item as the latest or as happening today/);
+  assert.match(route, /include_answer: false/);
 });
 
 

@@ -48,7 +48,8 @@ const components: Components = {
       <a
         href={href}
         {...props}
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className={external ? "source-link-pill" : undefined}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer", title: "Open source in a new tab" } : {})}
       >
         {children}
       </a>
