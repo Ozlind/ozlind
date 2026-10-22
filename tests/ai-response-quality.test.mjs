@@ -110,7 +110,7 @@ test("chat API errors and streamed responses are explicitly non-cacheable", () =
   assert.ok(route.includes('status, headers: { "Cache-Control": "no-store" }'));
   assert.ok(route.includes('"Cache-Control": "no-store, no-cache, no-transform"'));
   assert.ok(route.includes('"X-Content-Type-Options": "nosniff"'));
-  assert.ok(route.includes('"X-OZLIND-Research-Sources": String(research.sources)'));
+  assert.ok(route.includes('"X-OZLIND-Research-Sources": String(research.sources.length)'));
 });
 
 test("UI exposes the model and research count returned by the backend", () => {
@@ -121,7 +121,7 @@ test("UI exposes the model and research count returned by the backend", () => {
 
 test("web research returns validated source links as part of the persisted answer", () => {
   assert.ok(route.includes("Sources consulted"));
-  assert.ok(route.includes("research.sources.map"));
+  assert.ok(route.includes("normalized.results.map(({ title, url }) => ({ title, url }))"));
   assert.ok(route.includes("safeMarkdownLabel(title)"));
   assert.ok(route.includes("controller.enqueue(encoder.encode(footer))"));
   assert.ok(route.includes("buffer += footer"));
