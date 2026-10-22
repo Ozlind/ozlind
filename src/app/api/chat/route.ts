@@ -399,7 +399,21 @@ export async function POST(request: Request) {
     historyChars += nextLength;
     firstIncluded = index;
   }
-  const historyRows = chronologicalHistory.slice(firstIncluded);
+  // Vision calls need the current image and only a compact recent context window;
+  // sending a long transcript adds latency without improving image recognition.
+  let historyRows = chronologicalHistory.slice(firstIncluded);
+  if (input.images.length) {
+    const recent = chronologicalHistory.slice(-8);
+    let chars = 0;
+    let start = recent.length;
+    for (let index = recent.length - 1; index >= 0; index -= 1) {
+      const nextLength = recent[index].content.length;
+      if (chars + nextLength > 18_000) break;
+      chars += nextLength;
+      start = index;
+    }
+    historyRows = recent.slice(start);
+  }
   const lastUserIndex = historyRows.map(message => message.role).lastIndexOf("user");
   const core: ModelMessage[] = historyRows.map((message, index) => {
     if (input.images.length && index === lastUserIndex && message.role === "user") {
