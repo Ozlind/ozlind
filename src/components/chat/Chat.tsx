@@ -1,5 +1,4 @@
 "use client";
-import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +9,7 @@ import { OfflineBanner } from "@/components/chat/OfflineBanner";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { usePreferences } from "@/hooks/usePreferences";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
+import { loadMessageImages, saveMessageImages } from "@/lib/chat/image-persistence";
 
 type Message = {
   id: string;
@@ -78,6 +78,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [researchEnabled, setResearchEnabled] = useState(preferences.research_enabled);
   const [showModeOptions, setShowModeOptions] = useState(false);
   const [images, setImages] = useState<ChatImage[]>([]);
+  const [previewImage, setPreviewImage] = useState<ChatImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +93,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setId(initialId), [initialId]);
+
+  useEffect(() => {
+    if (!previewImage) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewImage(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewImage]);
   useEffect(() => {
     setModel(preferences.default_model);
     setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
@@ -146,13 +156,23 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           return;
         }
         const loadedMessages = (data ?? []) as Message[];
-        setMessages(loadedMessages.map((message) => ({
-          ...message,
-          // Keep an optimistic user bubble's identity stable after the DB reload.
-          id: message.role === "user" && message.idempotency_key
+        const hydratedMessages = await Promise.all(loadedMessages.map(async (message) => {
+          const messageKey = message.role === "user" && message.idempotency_key
             ? message.idempotency_key
-            : message.id,
-        })));
+            : message.id;
+          const storedImages = message.role === "user"
+            ? await loadMessageImages(id, messageKey).catch(() => [])
+            : [];
+          return {
+            ...message,
+            // Image bytes stay in this browser's IndexedDB; the message text and
+            // conversation history remain in Supabase as before.
+            ...(storedImages.length ? { images: storedImages } : {}),
+            // Keep an optimistic user bubble's identity stable after the DB reload.
+            id: messageKey,
+          };
+        }));
+        if (live) setMessages(hydratedMessages);
       } catch {
         if (live) setHistoryError("Your conversation history could not be loaded.");
       } finally {
@@ -197,6 +217,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     setError("");
     const key = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
+    // For existing conversations, persist locally before the network request.
+    if (action === "send" && id && outgoingImages.length) {
+      await saveMessageImages(id, key, outgoingImages).catch(() => undefined);
+    }
 
     if (action === "send") {
       setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete", idempotency_key: key, images: outgoingImages }));
@@ -268,6 +292,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         : message));
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
       if (!id && nextId) {
+        // A brand-new conversation receives its ID only after the API accepts it.
+        if (outgoingImages.length) {
+          await saveMessageImages(nextId, key, outgoingImages).catch(() => undefined);
+        }
         setId(nextId);
         router.replace("/app/" + nextId);
       }
@@ -276,12 +304,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!reader) throw new Error("Streaming response unavailable.");
 
       const decoder = new TextDecoder();
-      let lastUiFlush = 0;
-      const flushVisibleText = (force = false) => {
-        if (!shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)) return;
+      const flushVisibleText = () => {
+        if (!pendingText) return;
         const chunk = pendingText;
         pendingText = "";
-        lastUiFlush = Date.now();
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
@@ -296,11 +322,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         if (part.done) break;
         pendingText += decoder.decode(part.value, { stream: true });
         if (part.value.byteLength > 0) receivedAssistantText = true;
+        // Commit every arriving network chunk so the answer is revealed progressively.
         flushVisibleText();
       }
 
       pendingText += decoder.decode();
-      flushVisibleText(true);
+      flushVisibleText();
       setMessages((current) =>
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
@@ -433,9 +460,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                       {message.images && message.images.length > 0 && (
                         <div className="message-attachments" aria-label="Attached images">
                           {message.images.map((image, index) => (
-                            <a className="message-attachment-preview" href={image.dataUrl} target="_blank" rel="noreferrer" key={image.name + index} aria-label={"Open attached image: " + image.name}>
+                            <button type="button" className="message-attachment-preview" onClick={() => setPreviewImage(image)} key={image.name + index} aria-label={"Enlarge attached image: " + image.name}>
                               <Image src={image.dataUrl} alt={image.name || "Attached image"} width={360} height={260} unoptimized />
-                            </a>
+                              <span className="image-preview-hint">Tap to enlarge</span>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -483,7 +511,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <button onClick={() => lastUserMessage && void send("regenerate", lastUserMessage.content, lastUserMessage.images ?? [])}>Continue</button>
                   </div>
                 )}
-                {message.role === "assistant" && message.status === "streaming" && (
+                {message.role === "assistant" && message.status === "streaming" && message.content && (
                   <span className="stream-cursor" aria-label="Ozlind is responding" />
                 )}
                 {message.role === "assistant" && message.content && message.status !== "streaming" && (
@@ -625,6 +653,18 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             "Ozlind can make mistakes. Check important details."}
         </p>
       </div>
+
+      {previewImage && (
+        <div className="image-lightbox" role="presentation" onClick={() => setPreviewImage(null)}>
+          <div className="image-lightbox-panel" role="dialog" aria-modal="true" aria-label={"Image preview: " + previewImage.name} onClick={(event) => event.stopPropagation()}>
+            <div className="image-lightbox-toolbar">
+              <span>{previewImage.name || "Attached image"}</span>
+              <button type="button" onClick={() => setPreviewImage(null)} aria-label="Close image preview"><OzlindIcon name="i-close" size={18} /></button>
+            </div>
+            <Image className="image-lightbox-image" src={previewImage.dataUrl} alt={previewImage.name || "Enlarged attached image"} width={1600} height={1200} unoptimized />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
