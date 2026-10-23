@@ -657,6 +657,9 @@ export async function POST(request: Request) {
       "X-OZLIND-Request-ID": requestId,
       "X-OZLIND-Conversation-ID": conversationId ?? "",
       "X-OZLIND-Model": selectedKey,
+      // The UI-facing model key can differ from the actual configured provider model,
+      // especially when a Gemini fallback handled an image request.
+      "X-OZLIND-Provider-Model": selectedProviderModel ?? selectedKey,
       "X-OZLIND-Research": research.used ? "1" : "0",
       "X-OZLIND-Research-Sources": String(research.sources.length),
       "X-OZLIND-RateLimit-Remaining": String(rateLimit.remaining),

@@ -1717,7 +1717,6 @@ a { color: inherit; }
   place-items: center;
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   background: rgb(0 0 0 / .78);
-  backdrop-filter: blur(8px);
 }
 .image-lightbox-panel {
   width: min(1100px, 100%);

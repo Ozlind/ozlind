@@ -59,3 +59,10 @@ test("successful web-researched answers append real checked URLs, not generated 
   assert.ok(route.includes("Sources consulted"));
   assert.ok(route.includes("controller.enqueue(encoder.encode(footer))"));
 });
+
+test("stream response reports the actual provider model separately from the UI model key", async () => {
+  const route = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
+  assert.match(route, /"X-OZLIND-Model": selectedKey/);
+  assert.match(route, /"X-OZLIND-Provider-Model": selectedProviderModel \?\? selectedKey/);
+  assert.match(route, /selectedProviderModel = candidate\.modelId/);
+});

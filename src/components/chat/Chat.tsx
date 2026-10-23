@@ -10,6 +10,7 @@ import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { usePreferences } from "@/hooks/usePreferences";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { loadMessageImages, saveMessageImages } from "@/lib/chat/image-persistence";
+import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 
 type Message = {
   id: string;
@@ -235,6 +236,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     let receivedAssistantText = false;
     // Keep buffered text outside try so a stream failure cannot discard it.
     let pendingText = "";
+    let lastUiFlush = 0;
 
     try {
       const fastModel = "groq:llama-3.3-70b-versatile";
@@ -304,10 +306,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!reader) throw new Error("Streaming response unavailable.");
 
       const decoder = new TextDecoder();
-      const flushVisibleText = () => {
-        if (!pendingText) return;
+      const flushVisibleText = (force = false) => {
+        if (!shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)) return;
         const chunk = pendingText;
         pendingText = "";
+        lastUiFlush = Date.now();
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
@@ -322,12 +325,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         if (part.done) break;
         pendingText += decoder.decode(part.value, { stream: true });
         if (part.value.byteLength > 0) receivedAssistantText = true;
-        // Commit every arriving network chunk so the answer is revealed progressively.
+        // Batch tiny deltas to avoid rendering every token while keeping streaming responsive.
         flushVisibleText();
       }
 
       pendingText += decoder.decode();
-      flushVisibleText();
+      flushVisibleText(true);
       setMessages((current) =>
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
