@@ -80,7 +80,7 @@ function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel
   const candidates = googleCandidates.length ? [googleCandidates[0]] : [];
   if (process.env.GROQ_API_KEY) {
     const groqVisionModel =
-      process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.6-27b";
+      process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b";
     candidates.push({
       modelId: groqVisionModel,
       model: groq(groqVisionModel),
