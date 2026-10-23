@@ -69,7 +69,9 @@ function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel
   return modelIds.map((modelId) => ({ modelId, model: provider(modelId) }));
 }
 
-function configuredModels(): Record<ModelKey, LanguageModel | null> {
+type ConfiguredModel = { model: LanguageModel; modelId: string };
+
+function configuredModels(): Record<ModelKey, ConfiguredModel | null> {
   const groqReady = Boolean(process.env.GROQ_API_KEY);
   const fastModel = process.env.GROQ_FAST_MODEL?.trim();
   const proModel = process.env.GROQ_PRO_MODEL?.trim();
@@ -81,11 +83,13 @@ function configuredModels(): Record<ModelKey, LanguageModel | null> {
 
   return {
     "groq:llama-3.3-70b-versatile":
-      groqReady && fastModel ? groq(fastModel) : null,
+      groqReady && fastModel ? { model: groq(fastModel), modelId: fastModel } : null,
     "groq:deepseek-r1-distill-llama-70b":
-      groqReady && proModel ? groq(proModel) : null,
+      groqReady && proModel ? { model: groq(proModel), modelId: proModel } : null,
     "google:gemini-2.0-flash":
-      googleProvider && geminiModel ? googleProvider(geminiModel) : null,
+      googleProvider && geminiModel
+        ? { model: googleProvider(geminiModel), modelId: geminiModel }
+        : null,
   };
 }
 
@@ -293,8 +297,8 @@ export async function POST(request: Request) {
   const candidates: Array<{ key: ModelKey; model: LanguageModel; modelId: string }> = input.images.length
     ? visionModels.map(({ modelId, model }) => ({ key: visionModel, model, modelId }))
     : fallbackOrder(input.model).flatMap((key) => {
-        const model = models[key];
-        return model ? [{ key, model, modelId: key }] : [];
+        const configured = models[key];
+        return configured ? [{ key, ...configured }] : [];
       });
 
   if (!candidates.length) {
@@ -521,12 +525,22 @@ export async function POST(request: Request) {
     return jsonError("AI_PROVIDER_UNAVAILABLE", requestId, 503, "AI providers are temporarily unavailable.");
   }
 
-  if (selectedKey !== input.model) {
-    await db
-      .from("messages")
-      .update({ model: selectedKey })
-      .eq("id", assistant.id)
-      .eq("user_id", user.id);
+  const { error: providerMetadataError } = await db
+    .from("messages")
+    .update({
+      model: selectedKey,
+      provider_model: selectedProviderModel ?? selectedKey,
+    })
+    .eq("id", assistant.id)
+    .eq("user_id", user.id);
+
+  if (providerMetadataError) {
+    // Keep generation available if telemetry metadata has a transient write failure.
+    console.error(JSON.stringify({
+      event: "ai.provider_metadata_persist_failed",
+      requestId,
+      error: providerMetadataError.message,
+    }));
   }
 
   let buffer = "";

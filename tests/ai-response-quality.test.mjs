@@ -155,10 +155,13 @@ test("chat API errors and streamed responses are explicitly non-cacheable", () =
   assert.ok(route.includes('"X-OZLIND-Research-Sources": String(research.sources.length)'));
 });
 
-test("UI exposes the model and research count returned by the backend", () => {
+test("UI exposes the logical model, actual provider model, and research count returned by the backend", () => {
   assert.ok(chatComponent.includes("X-OZLIND-Model"));
-  assert.ok(chatComponent.includes("X-OZLIND-Research-Sources"));
+  assert.ok(chatComponent.includes("X-OZLIND-Provider-Model"));
+  assert.ok(chatComponent.includes("provider_model"));
+  assert.ok(chatComponent.includes("message.providerModel"));
   assert.ok(chatComponent.includes("message.researchSources"));
+  assert.ok(chatComponent.includes('"Provider model: " + message.providerModel'));
 });
 
 test("web research returns validated source links as part of the persisted answer", () => {
@@ -210,4 +213,14 @@ test("image attachments preserve the selected mode while routing safely through 
   assert.doesNotMatch(modeOptions, /disabled=\{streaming \|\| \(images\.length > 0 && value !== "vision"\)\}/);
   assert.ok(chatComponent.includes("Attached images use a vision-capable model automatically."));
   assert.match(route, /const candidates:[\s\S]*?input\.images\.length\s*\? visionModels\.map/);
+});
+
+
+test("provider metadata records the actual configured model ID for text and vision routes", () => {
+  assert.ok(route.includes("modelId: fastModel"));
+  assert.ok(route.includes("modelId: proModel"));
+  assert.ok(route.includes("modelId: geminiModel"));
+  assert.ok(route.includes("return configured ? [{ key, ...configured }] : [];"));
+  assert.ok(route.includes("provider_model: selectedProviderModel ?? selectedKey"));
+  assert.ok(route.includes('event: "ai.provider_metadata_persist_failed"'));
 });

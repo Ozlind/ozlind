@@ -42,6 +42,7 @@ create table if not exists public.messages (
   sources jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   model text,
+  provider_model text,
   mode text,
   feedback smallint,
   tokens_in integer,
@@ -56,7 +57,8 @@ create table if not exists public.messages (
 alter table public.conversations add column if not exists model text;
 alter table public.messages
   add column if not exists status text not null default 'complete',
-  add column if not exists idempotency_key uuid;
+  add column if not exists idempotency_key uuid,
+  add column if not exists provider_model text;
 alter table public.messages drop constraint if exists messages_status_check;
 alter table public.messages add constraint messages_status_check
   check (status in ('pending', 'streaming', 'complete', 'interrupted', 'failed'));
