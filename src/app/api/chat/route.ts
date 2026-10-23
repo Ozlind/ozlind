@@ -182,6 +182,7 @@ function jsonError(code: string, requestId: string, status: number, message?: st
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
+  const requestStartedAt = Date.now();
 
   let supabase;
   try {
@@ -484,6 +485,8 @@ export async function POST(request: Request) {
 
   let selectedKey: ModelKey | null = null;
   let selectedProviderModel: string | null = null;
+  let firstTokenAt: number | null = null;
+  let providerAttempts = 0;
   let result: ReturnType<typeof streamText> | null = null;
   let iterator: AsyncIterator<string> | null = null;
   let firstDelta = "";
@@ -494,6 +497,7 @@ export async function POST(request: Request) {
   // stream is consumed. Pull the first chunk before committing to a provider,
   // so failures before any user-visible output can safely fall back.
   for (const candidate of candidates) {
+    providerAttempts += 1;
     try {
       const candidateResult = streamText({
         model: candidate.model,
@@ -514,6 +518,7 @@ export async function POST(request: Request) {
         continue;
       }
 
+      firstTokenAt = Date.now();
       selectedKey = candidate.key;
       selectedProviderModel = candidate.modelId;
       result = candidateResult;
@@ -543,6 +548,9 @@ export async function POST(request: Request) {
       event: "ai.unavailable",
       requestId,
       providerModel: selectedProviderModel,
+      modelAttempts: providerAttempts,
+      totalDurationMs: Date.now() - requestStartedAt,
+      imageCount: input.images.length,
       error: lastProviderError instanceof Error ? lastProviderError.message : String(lastProviderError),
     }));
 
@@ -637,6 +645,23 @@ export async function POST(request: Request) {
         if (persistError || !persisted) {
           throw persistError ?? new Error("Assistant response was not persisted.");
         }
+
+        // Keep production diagnostics useful without logging prompts, replies,
+        // image payloads, user IDs, or conversation IDs.
+        console.info(JSON.stringify({
+          event: "chat.completed",
+          requestId,
+          modelKey: selectedKey,
+          providerModel: selectedProviderModel,
+          modelAttempts: providerAttempts,
+          timeToFirstTokenMs: firstTokenAt === null
+            ? null
+            : firstTokenAt - requestStartedAt,
+          totalDurationMs: Date.now() - requestStartedAt,
+          outputChars: buffer.length,
+          imageCount: input.images.length,
+          researchUsed: research.used,
+        }));
 
         controller.close();
       } catch (error) {
