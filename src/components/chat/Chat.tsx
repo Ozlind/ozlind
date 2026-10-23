@@ -370,7 +370,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
     const selected = Array.from(files).filter(file => file.type.startsWith("image/")).slice(0, remaining);
     if (!selected.length) {
-      setError("Choose an image file to use Vision mode.");
+      setError("Choose an image file to attach.");
       return;
     }
     setError("");
@@ -380,8 +380,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         mimeType: "image/jpeg" as const,
         name: file.name.slice(0, 120),
       })));
-      setImages(current => [...current, ...prepared].slice(0, 2));
-      setMode("vision");
+      // Preserve the user's selected response mode. The API safely routes
+      // image-bearing requests through its multimodal model chain.
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not attach this image.");
     }
@@ -592,9 +592,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               ] as const).map(([value, label, description]) => (
                 <button key={value} type="button" className={"composer-mode" + (mode === value ? " active" : "")}
                   aria-pressed={mode === value}
-                  title={images.length > 0 && value !== "vision" ? "Attached images require Vision mode" : description}
-                  aria-label={label + ": " + (images.length > 0 && value !== "vision" ? "Unavailable while images are attached" : description)}
-                  disabled={streaming || (images.length > 0 && value !== "vision")}
+                  title={images.length > 0 && value !== "vision" ? description + " · image requests use a vision-capable model automatically" : description}
+                  aria-label={label + ": " + (images.length > 0 && value !== "vision" ? description + ". Attached images use a vision-capable model automatically." : description)}
+                  disabled={streaming}
                   onClick={() => { setMode(value); setShowModeOptions(false); }}>
                   {value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
                    value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
@@ -651,6 +651,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
         <p className="composer-note">
           {!online ? "You’re offline. Reconnect to send a message." :
+            images.length > 0 && researchEnabled ? "Web search is on · Images use a vision-capable model automatically." :
+            images.length > 0 ? "Attached images use a vision-capable model automatically." :
             researchEnabled ? "Web search is on · Check sources and important details." :
             mode === "vision" ? "Vision mode uses Gemini · Attach up to 2 images." :
             "Ozlind can make mistakes. Check important details."}
