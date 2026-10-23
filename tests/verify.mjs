@@ -15,7 +15,8 @@ const required=[
 "supabase/migrations/20261009_stage3_chat_runtime_columns.sql",
 "supabase/migrations/20261009_stage3_rls_relationship_ownership.sql",
 "supabase/migrations/20261009_stage3_artifact_parent_ownership.sql",
-"supabase/migrations/20261009_stage3_message_parent_ownership.sql"
+"supabase/migrations/20261009_stage3_message_parent_ownership.sql",
+"supabase/migrations/20261023_provider_model_metadata.sql"
 ];
 for(const file of required)if(!fs.existsSync(path.join(root,file)))problems.push("Missing required file: "+file);
 const files=[];
@@ -30,9 +31,11 @@ for(const token of ["z.object","createClient","streamText","AbortSignal.timeout"
 const canonicalSchema=fs.readFileSync(path.join(root,"supabase/schema.sql"),"utf8");
 const rateLimitTables=canonicalSchema.match(/create table if not exists public\.rate_limits/g)||[];
 if(rateLimitTables.length!==1)problems.push("Canonical schema must define rate_limits exactly once");
-for(const token of ["create table if not exists public.user_preferences","accent text not null default '#E26F4A'","create table if not exists public.presets","create table if not exists public.artifacts","grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role"])if(!canonicalSchema.includes(token))problems.push("Canonical schema missing "+token);
+for(const token of ["create table if not exists public.user_preferences","accent text not null default '#E26F4A'","create table if not exists public.presets","create table if not exists public.artifacts","provider_model text","grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role"])if(!canonicalSchema.includes(token))problems.push("Canonical schema missing "+token);
 const runtimeMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261009_stage3_chat_runtime_columns.sql"),"utf8");
 for(const token of ["add column if not exists status","add column if not exists idempotency_key","add column if not exists model","messages_user_idempotency_key_uidx"])if(!runtimeMigration.includes(token))problems.push("Runtime schema migration missing "+token);
+const providerMetadataMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261023_provider_model_metadata.sql"),"utf8");
+for(const token of ["alter table public.messages","add column if not exists provider_model text"])if(!providerMetadataMigration.includes(token))problems.push("Provider metadata migration missing "+token);
 const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
 for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
