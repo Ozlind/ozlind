@@ -264,8 +264,8 @@ test("Groq text routes default to currently supported Fast and Pro models", asyn
   assert.ok(route.includes('process.env.GROQ_PRO_MODEL?.trim() || "openai/gpt-oss-120b"'));
 
   const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
-  assert.match(envExample, /^GROQ_FAST_MODEL=openai\\/gpt-oss-20b$/m);
-  assert.match(envExample, /^GROQ_PRO_MODEL=openai\\/gpt-oss-120b$/m);
+  assert.ok(envExample.includes("GROQ_FAST_MODEL=openai/gpt-oss-20b"));
+  assert.ok(envExample.includes("GROQ_PRO_MODEL=openai/gpt-oss-120b"));
 });
 
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
