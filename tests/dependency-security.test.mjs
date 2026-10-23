@@ -99,7 +99,7 @@ test("both CI and scheduled dependency audits fail closed when the registry cann
   ]) {
     const markerIndex = workflow.indexOf(unverifiedMarker);
     assert.notEqual(markerIndex, -1, name + " must report unavailable audit results as unverified");
-    const fallback = workflow.slice(markerIndex, workflow.indexOf("\\n            fi", markerIndex));
+    const fallback = workflow.slice(markerIndex, workflow.indexOf("\n            fi", markerIndex));
     assert.match(fallback, /exit 1/, name + " must fail when it cannot verify dependencies");
     assert.doesNotMatch(fallback, /exit 0/, name + " must not treat an unverified audit as success");
     assert.match(fallback, /::error::/, name + " must emit an actionable CI error");
