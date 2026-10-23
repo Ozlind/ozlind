@@ -260,7 +260,7 @@ test("chat completion logs latency and provider metrics without request content 
 });
 
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
-  assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.6-27b"'));
+  assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b"'));
   assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));
   assert.ok(route.includes("model: groq(groqVisionModel)"));
 
