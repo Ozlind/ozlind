@@ -236,3 +236,23 @@ test("image persistence failures are surfaced instead of silently losing preview
   );
   assert.doesNotMatch(imagePersistence, /saveMessageImages\([^;]+\.catch\(\(\) => undefined\)/);
 });
+
+
+test("vision requests fall back across providers before retrying secondary Gemini models", () => {
+  assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.6-27b"'));
+  assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));
+  assert.ok(route.includes("model: groq(groqVisionModel)"));
+
+  const primary = route.indexOf(
+    "const candidates = googleCandidates.length ? [googleCandidates[0]] : [];",
+  );
+  const groqFallback = route.indexOf("model: groq(groqVisionModel)");
+  const secondaryGoogle = route.indexOf(
+    "candidates.push(...googleCandidates.slice(1));",
+  );
+
+  assert.notEqual(primary, -1);
+  assert.notEqual(groqFallback, -1);
+  assert.notEqual(secondaryGoogle, -1);
+  assert.ok(primary < groqFallback && groqFallback < secondaryGoogle);
+});
