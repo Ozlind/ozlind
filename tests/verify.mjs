@@ -3,6 +3,7 @@ import path from "node:path";
 const root=process.cwd();
 const problems=[];
 const required=[
+".github/workflows/dependency-security.yml",
 "src/app/layout.tsx","src/app/page.tsx","src/app/login/page.tsx","src/app/app/layout.tsx",
 "src/components/chat/Chat.tsx","src/components/layout/Sidebar.tsx","src/components/layout/AppShell.tsx",
 "src/app/api/chat/route.ts","src/app/api/preferences/route.ts","src/app/api/documents/route.ts",
@@ -36,6 +37,9 @@ const runtimeMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261
 for(const token of ["add column if not exists status","add column if not exists idempotency_key","add column if not exists model","messages_user_idempotency_key_uidx"])if(!runtimeMigration.includes(token))problems.push("Runtime schema migration missing "+token);
 const providerMetadataMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261023_provider_model_metadata.sql"),"utf8");
 for(const token of ["alter table public.messages","add column if not exists provider_model text"])if(!providerMetadataMigration.includes(token))problems.push("Provider metadata migration missing "+token);
+
+const scheduledAudit=fs.readFileSync(path.join(root,".github/workflows/dependency-security.yml"),"utf8");
+for(const token of ["schedule:", 'cron: "17 4 * * *"', "workflow_dispatch:", "npm audit --omit=dev --audit-level=high", "concurrency:", "cancel-in-progress: false"])if(!scheduledAudit.includes(token))problems.push("Scheduled dependency audit missing "+token);
 const prefs=fs.readFileSync(path.join(root,"src/hooks/usePreferences.ts"),"utf8");
 for(const token of ["research_enabled","default_model","auto_scroll"])if(!prefs.includes(token))problems.push("Preferences missing "+token);
 const css=fs.readFileSync(path.join(root,"src/styles/globals.css"),"utf8");
