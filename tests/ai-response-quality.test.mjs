@@ -239,12 +239,9 @@ test("image persistence failures are surfaced instead of silently losing preview
 
 
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
-  assert.match(
-    route,
-    /process\\.env\\.GROQ_VISION_MODEL\\?\\.trim\\(\\) \\|\\| "qwen\\/qwen3\\.6-27b"/,
-  );
-  assert.match(route, /if \\(process\\.env\\.GROQ_API_KEY\\) \\{/);
-  assert.match(route, /model: groq\\(groqVisionModel\\)/);
+  assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.6-27b"'));
+  assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));
+  assert.ok(route.includes("model: groq(groqVisionModel)"));
 
   const primary = route.indexOf(
     "const candidates = googleCandidates.length ? [googleCandidates[0]] : [];",
