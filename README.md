@@ -76,7 +76,7 @@ The app uses the same canonical variable names configured in Vercel:
 
 - **Public Supabase configuration:** `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
 - **Server-only Supabase credential:** `SUPABASE_SECRET_KEY`
-- **Groq:** `GROQ_API_KEY`, `GROQ_FAST_MODEL`, `GROQ_PRO_MODEL`
+- **Groq:** `GROQ_API_KEY`, `GROQ_FAST_MODEL`, `GROQ_PRO_MODEL`, optional `GROQ_VISION_MODEL` (defaults to `qwen/qwen3.6-27b` for image fallback)
 - **Gemini:** `GEMINI_API_KEY`, `GEMINI_MODEL`
 - **Web research:** `TAVILY_API_KEY`
 
