@@ -81,3 +81,31 @@ test("Next.js image-optimization workaround stays on a patched Sharp release", a
     );
   }
 });
+
+test("both CI and scheduled dependency audits fail closed when the registry cannot be reached", async () => {
+  const ciWorkflow = await readFile(
+    new URL("../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const scheduledWorkflow = await readFile(
+    new URL("../.github/workflows/dependency-security.yml", import.meta.url),
+    "utf8",
+  );
+
+  const unverifiedMarker = "Dependency status is unverified; investigate the registry outage and rerun the audit.";
+  for (const [name, workflow] of [
+    ["pull-request CI", ciWorkflow],
+    ["scheduled dependency audit", scheduledWorkflow],
+  ]) {
+    const markerIndex = workflow.indexOf(unverifiedMarker);
+    assert.notEqual(markerIndex, -1, name + " must report unavailable audit results as unverified");
+    const errorIndex = workflow.lastIndexOf("::error::", markerIndex);
+    const fallback = workflow.slice(
+      errorIndex === -1 ? markerIndex : errorIndex,
+      workflow.indexOf("\n            fi", markerIndex),
+    );
+    assert.match(fallback, /exit 1/, name + " must fail when it cannot verify dependencies");
+    assert.doesNotMatch(fallback, /exit 0/, name + " must not treat an unverified audit as success");
+    assert.match(fallback, /::error::/, name + " must emit an actionable CI error");
+  }
+});

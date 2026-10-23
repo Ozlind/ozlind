@@ -81,8 +81,8 @@ jobs:
                 sleep 3
                 continue
               fi
-              echo "::warning::npm audit could not reach the registry after 3 bounded attempts. Dependency vulnerability status is unverified; rerun the audit when npm registry service recovers."
-              exit 0
+              echo "::error::npm audit could not reach the registry after 3 bounded attempts. Dependency status is unverified; investigate the registry outage and rerun the audit."
+              exit 1
             fi
 
             # Non-network audit errors (including high-severity findings) block the check.
