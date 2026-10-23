@@ -19,10 +19,13 @@ type Message = {
   status?: string;
   idempotency_key?: string | null;
   model?: string | null;
+  providerModel?: string | null;
   research?: boolean;
   researchSources?: number;
   images?: ChatImage[];
 };
+
+type StoredMessage = Message & { provider_model?: string | null };
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
 type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
@@ -147,7 +150,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const supabase = createClient();
         const { data, error: queryError } = await supabase
           .from("messages")
-          .select("id,role,content,status,idempotency_key,model")
+          .select("id,role,content,status,idempotency_key,model,provider_model")
           .eq("conversation_id", id)
           .order("created_at", { ascending: true });
 
@@ -156,8 +159,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           setHistoryError("Your conversation history could not be loaded.");
           return;
         }
-        const loadedMessages = (data ?? []) as Message[];
-        const hydratedMessages = await Promise.all(loadedMessages.map(async (message) => {
+        const loadedMessages = (data ?? []) as StoredMessage[];
+        const hydratedMessages = await Promise.all(loadedMessages.map(async (storedMessage) => {
+          const { provider_model: providerModel, ...message } = storedMessage;
           const messageKey = message.role === "user" && message.idempotency_key
             ? message.idempotency_key
             : message.id;
@@ -166,6 +170,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             : [];
           return {
             ...message,
+            ...(providerModel ? { providerModel } : {}),
             // Image bytes stay in this browser's IndexedDB; the message text and
             // conversation history remain in Supabase as before.
             ...(storedImages.length ? { images: storedImages } : {}),
@@ -286,11 +291,18 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       // persisted the user's prompt; do not duplicate it in the composer.
       requestAccepted = true;
       const responseModel = response.headers.get("X-OZLIND-Model") || requestedModel;
+      const responseProviderModel = response.headers.get("X-OZLIND-Provider-Model");
       const researchUsed = response.headers.get("X-OZLIND-Research") === "1";
       const parsedSourceCount = Number(response.headers.get("X-OZLIND-Research-Sources"));
       const researchSources = Number.isFinite(parsedSourceCount) ? Math.max(0, parsedSourceCount) : 0;
       setMessages((current) => current.map((message) => message.id === assistantId
-        ? { ...message, model: responseModel, research: researchUsed, researchSources }
+        ? {
+            ...message,
+            model: responseModel,
+            providerModel: responseProviderModel,
+            research: researchUsed,
+            researchSources,
+          }
         : message));
       const nextId = response.headers.get("X-OZLIND-Conversation-ID");
       if (!id && nextId) {
@@ -503,7 +515,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 </div>
                 {message.role === "assistant" && message.content && message.status !== "streaming" && (
                   <div className="message-meta" aria-label="Response details">
-                    {message.model && <span>{modelLabel(message.model)}</span>}
+                    {message.model && (
+                      <span title={message.providerModel ? "Provider model: " + message.providerModel : undefined}>
+                        {modelLabel(message.model)}{message.providerModel ? " · " + message.providerModel : ""}
+                      </span>
+                    )}
                     {message.research && (
                       <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
                     )}
