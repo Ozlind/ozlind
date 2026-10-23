@@ -530,9 +530,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                   </div>
                 )}
                 {message.status === "interrupted" && (
-                  <div className="interrupted">
+                  <div className="interrupted" role="status">
                     Generation stopped.{" "}
-                    <button onClick={() => lastUserMessage && void send("regenerate", lastUserMessage.content, lastUserMessage.images ?? [])}>Continue</button>
+                    <button
+                      type="button"
+                      onClick={() => lastUserMessage && void send("regenerate", lastUserMessage.content, lastUserMessage.images ?? [])}
+                      disabled={streaming || !online || !lastUserMessage}
+                    >
+                      Retry response
+                    </button>
                   </div>
                 )}
                 {message.role === "assistant" && message.status === "streaming" && message.content && (
