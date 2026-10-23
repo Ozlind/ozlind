@@ -263,7 +263,7 @@ test("vision requests fall back across providers before retrying secondary Gemin
   assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b"'));
   assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));
   assert.ok(route.includes("model: groq(groqVisionModel)"));
-  assert.doesNotMatch(route, /qwen\\/qwen3\\.6-27b/);
+  assert.ok(!route.includes("qwen/qwen3.6-27b"));
 
   const primary = route.indexOf(
     "const candidates = googleCandidates.length ? [googleCandidates[0]] : [];",
