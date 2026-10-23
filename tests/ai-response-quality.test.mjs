@@ -161,7 +161,7 @@ test("UI exposes the logical model, actual provider model, and research count re
   assert.ok(chatComponent.includes("provider_model"));
   assert.ok(chatComponent.includes("message.providerModel"));
   assert.ok(chatComponent.includes("message.researchSources"));
-  assert.ok(chatComponent.includes("Provider model: " + "message.providerModel"));
+  assert.ok(chatComponent.includes('"Provider model: " + message.providerModel'));
 });
 
 test("web research returns validated source links as part of the persisted answer", () => {
