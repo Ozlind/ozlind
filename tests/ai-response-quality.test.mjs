@@ -182,9 +182,10 @@ test("thinking cursor does not render beside the dots before the first token", (
   assert.match(chatComponent, /message\.status === "streaming" && message\.content &&/);
 });
 
-test("streamed response chunks are committed as they arrive instead of waiting for a UI timer", () => {
-  assert.match(chatComponent, /Commit every arriving network chunk/);
-  assert.doesNotMatch(chatComponent, /shouldFlushVisibleText/);
+test("streamed response chunks use the tested UI flush policy and flush the final tail", () => {
+  assert.match(chatComponent, /shouldFlushVisibleText\(pendingText, Date\.now\(\), lastUiFlush, force\)/);
+  assert.match(chatComponent, /flushVisibleText\(true\)/);
+  assert.match(chatComponent, /Batch tiny deltas to avoid rendering every token/);
 });
 
 test("sent image previews enlarge in a lightbox and persist locally across refreshes", () => {
