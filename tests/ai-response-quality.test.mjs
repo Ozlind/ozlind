@@ -224,3 +224,15 @@ test("provider metadata records the actual configured model ID for text and visi
   assert.ok(route.includes("provider_model: selectedProviderModel ?? selectedKey"));
   assert.ok(route.includes('event: "ai.provider_metadata_persist_failed"'));
 });
+
+
+test("image persistence failures are surfaced instead of silently losing previews after refresh", () => {
+  const imagePersistence = chatComponent.split("async function send(")[1]?.split("async function addImages(")[0] ?? "";
+  assert.ok(imagePersistence.includes("await saveMessageImages(id, key, outgoingImages).catch(() => {"));
+  assert.ok(imagePersistence.includes("await saveMessageImages(nextId, key, outgoingImages).catch(() => {"));
+  assert.equal(
+    (imagePersistence.match(/The image was sent, but its local preview could not be saved/g) ?? []).length,
+    2,
+  );
+  assert.doesNotMatch(imagePersistence, /saveMessageImages\([^;]+\.catch\(\(\) => undefined\)/);
+});
