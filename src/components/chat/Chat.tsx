@@ -225,7 +225,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     const assistantId = crypto.randomUUID();
     // For existing conversations, persist locally before the network request.
     if (action === "send" && id && outgoingImages.length) {
-      await saveMessageImages(id, key, outgoingImages).catch(() => undefined);
+      await saveMessageImages(id, key, outgoingImages).catch(() => {
+        setError("The image was sent, but its local preview could not be saved. It may not remain after refresh.");
+      });
     }
 
     if (action === "send") {
@@ -308,7 +310,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!id && nextId) {
         // A brand-new conversation receives its ID only after the API accepts it.
         if (outgoingImages.length) {
-          await saveMessageImages(nextId, key, outgoingImages).catch(() => undefined);
+          await saveMessageImages(nextId, key, outgoingImages).catch(() => {
+            setError("The image was sent, but its local preview could not be saved. It may not remain after refresh.");
+          });
         }
         setId(nextId);
         router.replace("/app/" + nextId);
