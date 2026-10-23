@@ -31,6 +31,12 @@ Ozlind is a mobile-first AI chat application built with Next.js App Router, Reac
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Chat reliability
+
+- Assistant text streams in-place; retrying or regenerating a response replaces the current answer for the latest user turn rather than creating a duplicate assistant bubble.
+- Interrupted responses keep any text already received and offer a retry action. Retry controls are disabled while a request is active or the browser is offline.
+- Image payloads are routed through configured vision-capable models; local image previews are stored in browser IndexedDB, not synced across devices.
+
 ## Verification commands
 
 | Command | Purpose |
