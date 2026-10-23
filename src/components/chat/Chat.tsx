@@ -9,7 +9,7 @@ import { OfflineBanner } from "@/components/chat/OfflineBanner";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { usePreferences } from "@/hooks/usePreferences";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
-import { loadMessageImages, saveMessageImages } from "@/lib/chat/image-persistence";
+import { deleteMessageImages, loadMessageImages, PENDING_CONVERSATION_ID, saveMessageImages, savePendingMessageImages } from "@/lib/chat/image-persistence";
 import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 import { appendOrReplaceLatestAssistant } from "@/lib/chat/message-state.mjs";
 
@@ -224,11 +224,18 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     setError("");
     const key = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
-    // For existing conversations, persist locally before the network request.
-    if (action === "send" && id && outgoingImages.length) {
-      await saveMessageImages(id, key, outgoingImages).catch(() => {
-        setError("The image was sent, but its local preview could not be saved. It may not remain after refresh.");
-      });
+    // Persist every image before network I/O. For a new chat, keep it under
+    // a pending key until the API returns the conversation ID.
+    if (action === "send" && outgoingImages.length) {
+      if (id) {
+        await saveMessageImages(id, key, outgoingImages).catch(() => {
+          setError("The image was sent, but its local preview could not be saved. It may not remain after refresh.");
+        });
+      } else {
+        await savePendingMessageImages(key, outgoingImages).catch(() => {
+          setError("The image was sent, but its local preview could not be saved. It may not remain after refresh.");
+        });
+      }
     }
 
     if (action === "send") {
@@ -317,9 +324,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       if (!id && nextId) {
         // A brand-new conversation receives its ID only after the API accepts it.
         if (outgoingImages.length) {
+          let imageSavedForConversation = true;
           await saveMessageImages(nextId, key, outgoingImages).catch(() => {
+            imageSavedForConversation = false;
             setError("The image was sent, but its local preview could not be saved. It may not remain after refresh.");
           });
+          // Keep the pending copy if migration fails so history can recover it later.
+          if (imageSavedForConversation) {
+            await deleteMessageImages(PENDING_CONVERSATION_ID, key).catch(() => undefined);
+          }
         }
         setId(nextId);
         router.replace("/app/" + nextId);
