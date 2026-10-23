@@ -19,6 +19,10 @@ const chatStyles = await readFile(
   new URL("../src/styles/globals.css", import.meta.url),
   "utf8",
 );
+const imagePersistence = await readFile(
+  new URL("../src/lib/chat/image-persistence.ts", import.meta.url),
+  "utf8",
+);
 
 const route = await readFile(
   new URL("../src/app/api/chat/route.ts", import.meta.url),
@@ -241,14 +245,24 @@ test("provider metadata records the actual configured model ID for text and visi
 
 
 test("image persistence failures are surfaced instead of silently losing previews after refresh", () => {
-  const imagePersistence = chatComponent.split("async function send(")[1]?.split("async function addImages(")[0] ?? "";
-  assert.ok(imagePersistence.includes("await saveMessageImages(id, key, outgoingImages).catch(() => {"));
-  assert.ok(imagePersistence.includes("await saveMessageImages(nextId, key, outgoingImages).catch(() => {"));
+  const sendFlow = chatComponent.split("async function send(")[1]?.split("async function addImages(")[0] ?? "";
+  assert.ok(sendFlow.includes("await saveMessageImages(id, key, outgoingImages).catch(() => {"));
+  assert.ok(sendFlow.includes("await savePendingMessageImages(key, outgoingImages).catch(() => {"));
+  assert.ok(sendFlow.includes("await saveMessageImages(nextId, key, outgoingImages).catch(() => {"));
+  assert.ok(sendFlow.includes("deleteMessageImages(PENDING_CONVERSATION_ID, key)"));
   assert.equal(
-    (imagePersistence.match(/The image was sent, but its local preview could not be saved/g) ?? []).length,
-    2,
+    (sendFlow.match(/The image was sent, but its local preview could not be saved/g) ?? []).length,
+    3,
   );
-  assert.doesNotMatch(imagePersistence, /saveMessageImages\([^;]+\.catch\(\(\) => undefined\)/);
+  assert.doesNotMatch(sendFlow, /saveMessageImages\([^;]+\.catch\(\(\) => undefined\)/);
+});
+
+test("new-chat image previews are staged before first-token latency and recovered after refresh", () => {
+  assert.match(imagePersistence, /PENDING_CONVERSATION_ID = "__pending__"/);
+  assert.match(imagePersistence, /savePendingMessageImages/);
+  assert.match(imagePersistence, /const pendingImages = await readMessageImages\(PENDING_CONVERSATION_ID, messageId\)/);
+  assert.match(imagePersistence, /await saveMessageImages\(conversationId, messageId, pendingImages\)/);
+  assert.match(imagePersistence, /await deleteMessageImages\(PENDING_CONVERSATION_ID, messageId\)/);
 });
 
 
