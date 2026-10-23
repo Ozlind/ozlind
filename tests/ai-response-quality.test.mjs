@@ -100,6 +100,20 @@ test("failed assistant rows are visible and retryable instead of rendering a bla
   assert.match(chatComponent, /Retry response/);
 });
 
+test("interrupted responses have a clear retry action disabled while busy or offline", () => {
+  const retryStart = chatComponent.indexOf('{message.status === "interrupted" && (');
+  assert.notEqual(retryStart, -1);
+  const retryEnd = chatComponent.indexOf('\n                )}', retryStart);
+  assert.notEqual(retryEnd, -1);
+  const retryBlock = chatComponent.slice(retryStart, retryEnd);
+
+  assert.match(retryBlock, /Generation stopped\./);
+  assert.match(retryBlock, /type="button"/);
+  assert.match(retryBlock, /Retry response/);
+  assert.match(retryBlock, /disabled=\{streaming \|\| !online \|\| !lastUserMessage\}/);
+  assert.match(retryBlock, /send\("regenerate", lastUserMessage\.content, lastUserMessage\.images \?\? \[\]\)/);
+});
+
 test("reloaded history preserves optimistic user message identity via idempotency keys", () => {
   assert.match(chatComponent, /id,role,content,status,idempotency_key/);
   assert.match(chatComponent, /message\.idempotency_key/);
