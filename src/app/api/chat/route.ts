@@ -678,8 +678,6 @@ export async function POST(request: Request) {
         console.error(JSON.stringify({
           event: "chat.stream_failed",
           requestId,
-          userId: user.id,
-          conversationId,
           provider: selectedKey,
           error: error instanceof Error ? error.message : String(error),
         }));
@@ -705,7 +703,6 @@ export async function POST(request: Request) {
         console.error(JSON.stringify({
           event: "chat.stream_cancel_persist_failed",
           requestId,
-          conversationId,
           error: error.message,
         }));
       }
