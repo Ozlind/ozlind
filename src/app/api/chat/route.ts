@@ -97,8 +97,8 @@ type ConfiguredModel = { model: LanguageModel; modelId: string };
 
 function configuredModels(): Record<ModelKey, ConfiguredModel | null> {
   const groqReady = Boolean(process.env.GROQ_API_KEY);
-  const fastModel = process.env.GROQ_FAST_MODEL?.trim();
-  const proModel = process.env.GROQ_PRO_MODEL?.trim();
+  const fastModel = process.env.GROQ_FAST_MODEL?.trim() || "openai/gpt-oss-20b";
+  const proModel = process.env.GROQ_PRO_MODEL?.trim() || "openai/gpt-oss-120b";
   const geminiModel = process.env.GEMINI_MODEL?.trim();
   const googleProvider =
     process.env.GEMINI_API_KEY && geminiModel
