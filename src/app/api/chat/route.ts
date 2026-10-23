@@ -498,9 +498,21 @@ export async function POST(request: Request) {
   // so failures before any user-visible output can safely fall back.
   for (const candidate of candidates) {
     providerAttempts += 1;
+    // Apply provider options only to exact model IDs that document support for
+    // reasoning effort. Fast minimizes added reasoning latency; Pro and the
+    // Qwen vision fallback get more reasoning budget for complex requests.
+    const providerOptions =
+      candidate.modelId === "openai/gpt-oss-20b"
+        ? { groq: { reasoningEffort: "low" as const } }
+        : candidate.modelId === "openai/gpt-oss-120b"
+          ? { groq: { reasoningEffort: "high" as const } }
+          : candidate.modelId === "qwen/qwen3.8-27b"
+            ? { groq: { reasoningEffort: "medium" as const } }
+            : undefined;
     try {
       const candidateResult = streamText({
         model: candidate.model,
+        ...(providerOptions ? { providerOptions } : {}),
         // Image requests should switch to the next vision model promptly
         // instead of spending the default retry budget on an overloaded model.
         maxRetries: input.images.length ? 0 : 2,
