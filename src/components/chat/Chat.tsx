@@ -380,6 +380,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         mimeType: "image/jpeg" as const,
         name: file.name.slice(0, 120),
       })));
+      setImages(current => [...current, ...prepared].slice(0, 2));
       // Preserve the user's selected response mode. The API safely routes
       // image-bearing requests through its multimodal model chain.
     } catch (caught) {
