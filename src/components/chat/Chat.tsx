@@ -11,6 +11,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { loadMessageImages, saveMessageImages } from "@/lib/chat/image-persistence";
 import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
+import { appendOrReplaceLatestAssistant } from "@/lib/chat/message-state.mjs";
 
 type Message = {
   id: string;
@@ -233,7 +234,13 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     if (action === "send") {
       setMessages((current) => current.concat({ id: key, role: "user", content: outgoingContent, status: "complete", idempotency_key: key, images: outgoingImages }));
     }
-    setMessages((current) => current.concat({ id: assistantId, role: "assistant", content: "", status: "streaming" }));
+    // A retry/regeneration replaces the previous answer to this turn in-place.
+    // Appending here left the old partial answer visible beside the new one.
+    setMessages((current) => appendOrReplaceLatestAssistant(
+      current,
+      { id: assistantId, role: "assistant", content: "", status: "streaming" },
+      action === "regenerate",
+    ));
     setStreaming(true);
 
     const controller = new AbortController();
