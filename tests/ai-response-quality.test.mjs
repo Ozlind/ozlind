@@ -238,6 +238,27 @@ test("image persistence failures are surfaced instead of silently losing preview
 });
 
 
+test("chat completion logs latency and provider metrics without request content or user identifiers", () => {
+  assert.ok(route.includes('event: "chat.completed"'));
+  assert.ok(route.includes("timeToFirstTokenMs:"));
+  assert.ok(route.includes("totalDurationMs: Date.now() - requestStartedAt"));
+  assert.ok(route.includes("modelAttempts: providerAttempts"));
+  assert.ok(route.includes("providerModel: selectedProviderModel"));
+
+  const logStart = route.indexOf('event: "chat.completed"');
+  const logEnd = route.indexOf("controller.close();", logStart);
+  const logFields = route.slice(logStart, logEnd);
+
+  assert.notEqual(logStart, -1);
+  assert.notEqual(logEnd, -1);
+  assert.ok(logFields.includes("outputChars: buffer.length"));
+  assert.ok(logFields.includes("imageCount: input.images.length"));
+  assert.ok(logFields.includes("researchUsed: research.used"));
+  assert.ok(!logFields.includes("userId"));
+  assert.ok(!logFields.includes("conversationId"));
+  assert.ok(!logFields.includes("input.content"));
+});
+
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
   assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.6-27b"'));
   assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));
