@@ -259,6 +259,15 @@ test("chat completion logs latency and provider metrics without request content 
   assert.ok(!logFields.includes("input.content"));
 });
 
+test("Groq text routes default to currently supported Fast and Pro models", async () => {
+  assert.ok(route.includes('process.env.GROQ_FAST_MODEL?.trim() || "openai/gpt-oss-20b"'));
+  assert.ok(route.includes('process.env.GROQ_PRO_MODEL?.trim() || "openai/gpt-oss-120b"'));
+
+  const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
+  assert.ok(envExample.includes("GROQ_FAST_MODEL=openai/gpt-oss-20b"));
+  assert.ok(envExample.includes("GROQ_PRO_MODEL=openai/gpt-oss-120b"));
+});
+
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
   assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b"'));
   assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));

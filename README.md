@@ -76,7 +76,7 @@ The app uses the same canonical variable names configured in Vercel:
 
 - **Public Supabase configuration:** `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
 - **Server-only Supabase credential:** `SUPABASE_SECRET_KEY`
-- **Groq:** `GROQ_API_KEY`, `GROQ_FAST_MODEL`, `GROQ_PRO_MODEL`, optional `GROQ_VISION_MODEL` (defaults to `qwen/qwen3.8-27b` for image fallback)
+- **Groq:** `GROQ_API_KEY`; `GROQ_FAST_MODEL` defaults to `openai/gpt-oss-20b`, `GROQ_PRO_MODEL` to `openai/gpt-oss-120b`, and optional `GROQ_VISION_MODEL` to `qwen/qwen3.8-27b`. Model IDs are configurable without code changes.
 - **Gemini:** `GEMINI_API_KEY`, `GEMINI_MODEL`
 - **Web research:** `TAVILY_API_KEY`
 
