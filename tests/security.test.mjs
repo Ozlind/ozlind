@@ -81,8 +81,8 @@ test("readiness checks actual Supabase Auth reachability with a bounded timeout"
   assert.match(source, /supabaseReachable/);
   assert.match(source, /Cache-Control/);
   // Text models have backend defaults, so readiness must not require explicit model IDs.
-  assert.match(source, /const groqConfigured = Boolean\\(process\\.env\\.GROQ_API_KEY\\)/);
-  assert.doesNotMatch(source, /GROQ_API_KEY\\s*&&\\s*\\(process\\.env\\.GROQ_FAST_MODEL/);
+  assert.match(source, /const groqConfigured = Boolean\(process\.env\.GROQ_API_KEY\)/);
+  assert.doesNotMatch(source, /GROQ_API_KEY\s*&&\s*\(process\.env\.GROQ_FAST_MODEL/);
   // Report multimodal readiness separately from general text readiness.
   assert.match(source, /const visionConfigured = Boolean/);
   assert.match(source, /vision: visionConfigured/);
