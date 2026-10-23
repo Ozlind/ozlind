@@ -296,6 +296,17 @@ test("Groq text routes default to currently supported Fast and Pro models", asyn
   assert.ok(envExample.includes("GROQ_PRO_MODEL=openai/gpt-oss-120b"));
 });
 
+test("Groq reasoning effort is model-aware and only set for supported model IDs", () => {
+  assert.ok(route.includes('candidate.modelId === "openai/gpt-oss-20b"'));
+  assert.ok(route.includes('reasoningEffort: "low" as const'));
+  assert.ok(route.includes('candidate.modelId === "openai/gpt-oss-120b"'));
+  assert.ok(route.includes('reasoningEffort: "high" as const'));
+  assert.ok(route.includes('candidate.modelId === "qwen/qwen3.8-27b"'));
+  assert.ok(route.includes('reasoningEffort: "medium" as const'));
+  assert.ok(route.includes("providerOptions ? { providerOptions } : {}"));
+  assert.ok(route.includes(": undefined;"));
+});
+
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
   assert.ok(route.includes('process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b"'));
   assert.ok(route.includes("if (process.env.GROQ_API_KEY) {"));
