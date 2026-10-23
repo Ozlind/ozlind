@@ -199,3 +199,15 @@ test("vision requests use a bounded recent context to reduce multimodal latency"
   assert.match(route, /const recent = chronologicalHistory\.slice\(-8\)/);
   assert.match(route, /18_000/);
 });
+
+test("image attachments preserve the selected mode while routing safely through vision models", () => {
+  assert.doesNotMatch(chatComponent, /setMode\("vision"\);/);
+  const modeOptions = chatComponent.slice(
+    chatComponent.indexOf('aria-label="Choose AI mode"'),
+    chatComponent.indexOf('className="composer"'),
+  );
+  assert.ok(modeOptions.includes("image requests use a vision-capable model automatically"));
+  assert.doesNotMatch(modeOptions, /disabled=\{streaming \|\| \(images\.length > 0 && value !== "vision"\)\}/);
+  assert.ok(chatComponent.includes("Attached images use a vision-capable model automatically."));
+  assert.match(route, /const candidates:[\s\S]*?input\.images\.length\s*\? visionModels\.map/);
+});
