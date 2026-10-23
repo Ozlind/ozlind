@@ -207,3 +207,27 @@ test("chat context excludes incomplete assistant responses", async () => {
   const historyQuery = source.slice(source.indexOf('const { data: history, error: historyError }'), source.indexOf("const lastUserIndex = historyRows"));
   assert.ok(historyQuery.includes('.eq("status", "complete")'));
 });
+
+
+test("chat interruption logs omit user and conversation identifiers", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const route = await readFile(
+    new URL("../src/app/api/chat/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  for (const event of [
+    'event: "chat.stream_failed"',
+    'event: "chat.stream_cancel_persist_failed"',
+  ]) {
+    const start = route.indexOf(event);
+    assert.notEqual(start, -1, "missing log event: " + event);
+    const end = route.indexOf("}));", start);
+    assert.notEqual(end, -1, "unterminated log object: " + event);
+    const fields = route.slice(start, end);
+
+    assert.ok(fields.includes("requestId"), event);
+    assert.ok(!fields.includes("userId"), event);
+    assert.ok(!fields.includes("conversationId"), event);
+  }
+});
