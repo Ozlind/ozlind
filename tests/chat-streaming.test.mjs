@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { CHAT_UI_FLUSH_INTERVAL_MS, shouldFlushVisibleText } from "../src/lib/chat/streaming.mjs";
+import { appendOrReplaceLatestAssistant } from "../src/lib/chat/message-state.mjs";
 
 test("keeps the chat stream UI flush window at 32ms", () => {
   assert.equal(CHAT_UI_FLUSH_INTERVAL_MS, 32);
@@ -65,4 +66,55 @@ test("stream response reports the actual provider model separately from the UI m
   assert.match(route, /"X-OZLIND-Model": selectedKey/);
   assert.match(route, /"X-OZLIND-Provider-Model": selectedProviderModel \?\? selectedKey/);
   assert.match(route, /selectedProviderModel = candidate\.modelId/);
+});
+
+test("new assistant responses append after existing chat messages", () => {
+  const messages = [
+    { id: "user-1", role: "user", content: "First" },
+    { id: "assistant-1", role: "assistant", content: "Answer one" },
+    { id: "user-2", role: "user", content: "Second" },
+  ];
+  const next = { id: "assistant-2", role: "assistant", content: "", status: "streaming" };
+
+  assert.deepEqual(
+    appendOrReplaceLatestAssistant(messages, next, false),
+    [...messages, next],
+  );
+});
+
+test("regeneration replaces the latest assistant answer in-place without duplicating it", () => {
+  const messages = [
+    { id: "user-1", role: "user", content: "First" },
+    { id: "assistant-1", role: "assistant", content: "Answer one" },
+    { id: "user-2", role: "user", content: "Second" },
+    { id: "assistant-2", role: "assistant", content: "Partial answer", status: "interrupted" },
+  ];
+  const next = { id: "assistant-3", role: "assistant", content: "", status: "streaming" };
+  const result = appendOrReplaceLatestAssistant(messages, next, true);
+
+  assert.equal(result.length, messages.length);
+  assert.deepEqual(result, [messages[0], messages[1], messages[2], next]);
+});
+
+test("regeneration never replaces an answer that predates the latest user turn", () => {
+  const messages = [
+    { id: "user-1", role: "user", content: "First" },
+    { id: "assistant-1", role: "assistant", content: "Answer one" },
+    { id: "user-2", role: "user", content: "Second" },
+  ];
+  const next = { id: "assistant-2", role: "assistant", content: "", status: "streaming" };
+
+  assert.deepEqual(
+    appendOrReplaceLatestAssistant(messages, next, true),
+    [...messages, next],
+  );
+});
+
+test("chat component uses in-place assistant replacement for regeneration", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(chat, /appendOrReplaceLatestAssistant/);
+  assert.match(chat, /action === "regenerate"/);
 });
