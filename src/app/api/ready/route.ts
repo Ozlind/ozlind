@@ -31,14 +31,18 @@ export async function GET() {
   const supabaseConfigured = Boolean(
     process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY,
   );
-  const [supabaseReachable, groqConfigured, googleConfigured] = await Promise.all([
-    checkSupabaseReachability(),
-    Promise.resolve(Boolean(
-      process.env.GROQ_API_KEY &&
-        (process.env.GROQ_FAST_MODEL || process.env.GROQ_PRO_MODEL),
-    )),
-    Promise.resolve(Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL)),
-  ]);
+  const supabaseReachable = await checkSupabaseReachability();
+  // Fast and Pro model IDs have safe defaults in the chat route, so their
+  // environment overrides are optional. A configured Groq key is sufficient
+  // to make the text-generation path available.
+  const groqConfigured = Boolean(process.env.GROQ_API_KEY);
+  const googleConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL);
+  // The vision route uses Gemini when configured and falls back to Groq's
+  // Qwen 3.8 vision model when a Groq key is available.
+  const visionConfigured = Boolean(
+    (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ||
+      process.env.GROQ_API_KEY,
+  );
 
   const checks = {
     supabase: supabaseConfigured && supabaseReachable,
@@ -46,6 +50,7 @@ export async function GET() {
     supabaseReachable,
     groq: groqConfigured,
     google: googleConfigured,
+    vision: visionConfigured,
   };
   const ready = checks.supabase && (checks.groq || checks.google);
 
