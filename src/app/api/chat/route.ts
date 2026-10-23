@@ -53,20 +53,44 @@ CORE BEHAVIOUR
 type ModelKey = z.infer<typeof schema>["model"];
 
 function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel }> {
+  const googleCandidates: Array<{ modelId: string; model: LanguageModel }> = [];
   const apiKey = process.env.GEMINI_API_KEY;
   const primaryModel = process.env.GEMINI_MODEL?.trim();
-  if (!apiKey || !primaryModel) return [];
 
-  // Gemini 3.6 Flash is a current multimodal fallback for temporary 3.8
-  // capacity errors. Additional approved fallbacks can be configured without
-  // code changes; model IDs are deduplicated and the primary stays first.
-  const fallbackModels = (process.env.GEMINI_VISION_FALLBACK_MODELS ?? "gemini-3.6-flash,gemini-3.5-flash-lite")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const modelIds = [...new Set([primaryModel, ...fallbackModels])];
-  const provider = createGoogleGenerativeAI({ apiKey });
-  return modelIds.map((modelId) => ({ modelId, model: provider(modelId) }));
+  if (apiKey && primaryModel) {
+    // Keep Gemini as the primary vision model, but do not make its capacity
+    // incidents block image requests when another configured provider is ready.
+    const fallbackModels = (
+      process.env.GEMINI_VISION_FALLBACK_MODELS ??
+      "gemini-3.6-flash,gemini-3.5-flash-lite"
+    )
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const modelIds = [...new Set([primaryModel, ...fallbackModels])];
+    const provider = createGoogleGenerativeAI({ apiKey });
+    googleCandidates.push(
+      ...modelIds.map((modelId) => ({ modelId, model: provider(modelId) })),
+    );
+  }
+
+  // Groq's Qwen vision model accepts the same image parts used by the chat
+  // route. The ID is configurable so a supported model can be selected
+  // without a code change; no new secret is needed beyond GROQ_API_KEY.
+  const candidates = googleCandidates.length ? [googleCandidates[0]] : [];
+  if (process.env.GROQ_API_KEY) {
+    const groqVisionModel =
+      process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.6-27b";
+    candidates.push({
+      modelId: groqVisionModel,
+      model: groq(groqVisionModel),
+    });
+  }
+
+  // Try the independent provider before secondary Google models, since
+  // Gemini capacity errors can affect multiple models at the same time.
+  candidates.push(...googleCandidates.slice(1));
+  return candidates;
 }
 
 type ConfiguredModel = { model: LanguageModel; modelId: string };
