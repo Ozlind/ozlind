@@ -55,7 +55,7 @@ export function SaveResponseButton({ content }: { content: string }) {
         />
         {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : "Save"}
       </button>
-      <span className="sr-only" role={state === "error" ? "alert" : "status"}>{message}</span>
+      <span className={state === "error" ? "message-save-error" : "visually-hidden"} role={state === "error" ? "alert" : "status"}>{message}</span>
     </>
   );
 }
