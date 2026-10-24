@@ -347,3 +347,17 @@ test("vision requests fall back across providers before retrying secondary Gemin
   assert.notEqual(secondaryGoogle, -1);
   assert.ok(primary < groqFallback && groqFallback < secondaryGoogle);
 });
+
+
+test("saved preset model wins over preference hydration when a preset is selected", () => {
+  const modelPreferenceEffect = chatComponent.indexOf(
+    "if (activePreset || presetSelectionDirty) return;",
+  );
+  const pendingPresetEffect = chatComponent.indexOf("const applyEventPreset =");
+  assert.notEqual(modelPreferenceEffect, -1);
+  assert.notEqual(pendingPresetEffect, -1);
+  assert.ok(
+    modelPreferenceEffect < pendingPresetEffect,
+    "preference hydration must run before pending preset application",
+  );
+});

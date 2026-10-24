@@ -1822,3 +1822,25 @@ a { color: inherit; }
 @keyframes command-palette-in{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:768px){.chat-header{padding-right:12px;gap:6px}.chat-header-tools{gap:4px}.chat-header-tool{min-height:32px;padding:0 7px;font-size:11px}.chat-header-feedback{right:12px}.command-palette-footer{flex-wrap:wrap;justify-content:flex-start}.conversation-view-switch{margin-bottom:0}}
 @media(prefers-reduced-motion:reduce){.command-palette{animation:none}}
+
+
+/* Saved preset and artifact actions */
+.workspace-use-preset{min-height:30px!important;padding:0 9px!important;margin-top:9px;font-size:11px!important}
+.workspace-preview-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.workspace-preview-actions .ui-button{min-height:34px;font-size:12px}
+.workspace-preview pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+.workspace-item-copy{min-width:0;overflow-wrap:anywhere}
+.workspace-item-copy p{overflow-wrap:anywhere}
+.conversation-link-title{display:flex;align-items:center;gap:6px;min-width:0}.conversation-link-title>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.conversation-link-title>svg{flex:0 0 auto;color:var(--accent)}
+.conversation-row:has(.conversation-menu) .conversation-link{min-width:0}
+@media(max-width:480px){.workspace-preview-actions{display:grid;grid-template-columns:1fr 1fr}.workspace-preview-actions .ui-button{padding:0 8px;font-size:11px}.workspace-use-preset{max-width:100%}}
+
+
+/* Saved working context */
+.chat-title-group{display:flex;align-items:center;gap:10px;min-width:0}
+.chat-title-group h2{flex:0 0 auto}
+.active-preset-chip{display:inline-flex;align-items:center;gap:6px;max-width:min(380px,46vw);min-height:28px;padding:3px 6px 3px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text-muted);font-size:11px}
+.active-preset-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.active-preset-chip button{display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--text-muted)}
+.active-preset-chip button:hover:not(:disabled){background:var(--bg);color:var(--text)}
+@media(max-width:768px){.chat-title-group{gap:6px}.active-preset-chip{max-width:38vw;font-size:10px;padding-left:6px}.chat-header-tools{flex-shrink:0}}

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
@@ -32,6 +32,31 @@ type StoredMessage = Message & { provider_model?: string | null };
 
 type ChatMode = "auto" | "fast" | "vision" | "pro";
 type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
+type ChatPreset = { id: string; name: string; system_prompt: string; model: string };
+
+const PENDING_PRESET_KEY = "ozlind:pending-preset";
+const PRESET_MODELS = [
+  "groq:llama-3.3-70b-versatile",
+  "groq:deepseek-r1-distill-llama-70b",
+  "google:gemini-2.0-flash",
+] as const;
+
+function isChatPreset(value: unknown): value is ChatPreset {
+  if (!value || typeof value !== "object") return false;
+  const preset = value as Partial<ChatPreset>;
+  return typeof preset.id === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(preset.id)
+    && typeof preset.name === "string" && preset.name.length > 0 && preset.name.length <= 80
+    && typeof preset.system_prompt === "string" && preset.system_prompt.length <= 12000
+    && typeof preset.model === "string" && (PRESET_MODELS as readonly string[]).includes(preset.model);
+}
+
+function modeForModel(model: string): ChatMode {
+  if (model === "groq:deepseek-r1-distill-llama-70b") return "pro";
+  if (model === "google:gemini-2.0-flash") return "vision";
+  if (model === "groq:llama-3.3-70b-versatile") return "fast";
+  return "auto";
+}
 
 function modelLabel(model?: string | null): string {
   switch (model) {
@@ -78,6 +103,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [draft, setDraft] = useState("");
   const { preferences } = usePreferences();
   const [model, setModel] = useState<string>(preferences.default_model);
+  const [activePreset, setActivePreset] = useState<ChatPreset | null>(null);
+  const [presetSelectionDirty, setPresetSelectionDirty] = useState(false);
+  const [clearingPreset, setClearingPreset] = useState(false);
   const [mode, setMode] = useState<ChatMode>(() =>
     preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
     preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto"
@@ -99,7 +127,90 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const stick = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const applyPreset = useCallback((preset: ChatPreset) => {
+    setActivePreset(preset);
+    setModel(preset.model);
+    setMode(modeForModel(preset.model));
+    setPresetSelectionDirty(true);
+    setError("");
+  }, []);
+
   useEffect(() => setId(initialId), [initialId]);
+
+  useEffect(() => {
+    if (activePreset || presetSelectionDirty) return;
+    setModel(preferences.default_model);
+    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
+      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
+  }, [preferences.default_model, activePreset, presetSelectionDirty]);
+
+  useEffect(() => {
+    const applyEventPreset = (event: Event) => {
+      const preset = (event as CustomEvent<unknown>).detail;
+      if (!isChatPreset(preset)) {
+        setError("That preset could not be loaded. Open Workspace and choose it again.");
+        return;
+      }
+      try { sessionStorage.removeItem(PENDING_PRESET_KEY); } catch { /* Optional browser storage. */ }
+      applyPreset(preset);
+    };
+
+    window.addEventListener("ozlind:apply-preset", applyEventPreset);
+    try {
+      const pending = sessionStorage.getItem(PENDING_PRESET_KEY);
+      if (pending) {
+        sessionStorage.removeItem(PENDING_PRESET_KEY);
+        const parsed: unknown = JSON.parse(pending);
+        if (isChatPreset(parsed)) applyPreset(parsed);
+        else setError("That preset could not be loaded. Open Workspace and choose it again.");
+      }
+    } catch {
+      setError("Could not load the saved preset in this browser. Please choose it again from Workspace.");
+    }
+
+    return () => window.removeEventListener("ozlind:apply-preset", applyEventPreset);
+  }, [applyPreset]);
+
+  useEffect(() => {
+    if (!id || presetSelectionDirty) return;
+    let live = true;
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: conversation, error: conversationError } = await supabase
+          .from("conversations")
+          .select("preset_id")
+          .eq("id", id)
+          .maybeSingle();
+        if (!live || conversationError) return;
+
+        if (!conversation?.preset_id) {
+          setActivePreset(null);
+          return;
+        }
+
+        const { data: preset, error: presetError } = await supabase
+          .from("presets")
+          .select("id,name,system_prompt,model")
+          .eq("id", conversation.preset_id)
+          .maybeSingle();
+        if (!live || presetError) return;
+
+        if (preset && isChatPreset(preset)) {
+          setActivePreset(preset);
+          setModel(preset.model);
+          setMode(modeForModel(preset.model));
+        } else {
+          setActivePreset(null);
+        }
+      } catch {
+        if (live) setError("Could not load this conversation’s saved preset.");
+      }
+    })();
+
+    return () => { live = false; };
+  }, [id, presetSelectionDirty]);
 
   useEffect(() => {
     if (!previewImage) return;
@@ -109,11 +220,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [previewImage]);
-  useEffect(() => {
-    setModel(preferences.default_model);
-    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
-      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
-  }, [preferences.default_model]);
+
   useEffect(() => setResearchEnabled(preferences.research_enabled), [preferences.research_enabled]);
 
   useEffect(() => {
@@ -282,6 +389,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           model: requestedModel,
           action,
           idempotencyKey: key,
+          ...(presetSelectionDirty ? { presetId: activePreset?.id ?? null } : {}),
           research: researchEnabled,
           images: outgoingImages.map(({ dataUrl, mimeType }) => ({ dataUrl, mimeType })),
         }),
@@ -337,6 +445,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           }
         }
         setId(nextId);
+        setPresetSelectionDirty(false);
         router.replace("/app/" + nextId);
       }
 
@@ -399,6 +508,30 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
   }
 
+  async function clearActivePreset() {
+    if (!activePreset || streaming || clearingPreset) return;
+    setClearingPreset(true);
+    setError("");
+    try {
+      if (id) {
+        const supabase = createClient();
+        const { data, error: updateError } = await supabase
+          .from("conversations")
+          .update({ preset_id: null })
+          .eq("id", id)
+          .select("id")
+          .maybeSingle();
+        if (updateError || !data) throw updateError ?? new Error("Conversation was not found.");
+      }
+      setActivePreset(null);
+      setPresetSelectionDirty(true);
+    } catch {
+      setError("Could not remove this preset from the conversation. Please try again.");
+    } finally {
+      setClearingPreset(false);
+    }
+  }
+
   async function addImages(files: FileList | null) {
     if (!files?.length) return;
     const remaining = Math.max(0, 2 - images.length);
@@ -454,8 +587,17 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     <main className="chat-page">
       <OfflineBanner />
       <header className="chat-header">
-        <div>
+        <div className="chat-title-group">
           <h2>Ozlind</h2>
+          {activePreset && (
+            <span className="active-preset-chip">
+              <OzlindIcon name="i-bookmark" size={13} aria-hidden="true" />
+              <span title={activePreset.name}>{activePreset.name}</span>
+              <button type="button" onClick={() => void clearActivePreset()} disabled={streaming || clearingPreset} aria-label={"Remove preset " + activePreset.name} title="Remove this preset from the conversation">
+                <OzlindIcon name="i-close" size={12} />
+              </button>
+            </span>
+          )}
         </div>
         <ChatUtilities conversationId={id} messages={messages} streaming={streaming} />
       </header>

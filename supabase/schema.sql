@@ -397,6 +397,9 @@ create table if not exists public.presets (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.conversations
+  add column if not exists preset_id uuid references public.presets(id) on delete set null;
+create index if not exists conversations_preset_id_idx on public.conversations(preset_id);
 alter table public.presets enable row level security;
 drop policy if exists presets_own on public.presets;
 create policy presets_own on public.presets for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);

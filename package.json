@@ -11,13 +11,14 @@
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run test:security && npm run test:dependency-security && npm run test:chat-streaming && npm run test:ai-response-quality && npm run test:chat-export && npm run typecheck && npm run lint && npm run verify:architecture && npm run build",
+    "verify": "npm run test:security && npm run test:dependency-security && npm run test:chat-streaming && npm run test:ai-response-quality && npm run test:chat-export && npm run test:ai-preset && npm run typecheck && npm run lint && npm run verify:architecture && npm run build",
     "verify:architecture": "node tests/verify.mjs",
     "test:security": "node --test tests/security.test.mjs",
     "test:chat-streaming": "node --test tests/chat-streaming.test.mjs",
     "test:ai-response-quality": "node --test tests/ai-response-quality.test.mjs",
     "test:dependency-security": "node --test tests/dependency-security.test.mjs",
-    "test:chat-export": "node --test tests/chat-export.test.mjs"
+    "test:chat-export": "node --test tests/chat-export.test.mjs",
+    "test:ai-preset": "node --test tests/ai-preset-context.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "2.0.77",
