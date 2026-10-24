@@ -33,6 +33,38 @@ test("AI request analytics contains outcomes, never prompt or completion text", 
   assert.doesNotMatch(eventCall, /outgoingContent|message\.content|response\.text|error\.message|conversationId|idempotencyKey/);
 });
 
+test("analytics payloads are session-aware, retry-safe, and avoid page-title leakage", async () => {
+  const analytics = await readText("../src/lib/analytics.ts");
+  const identity = await readText("../src/components/analytics/PostHogIdentity.tsx");
+  const component = await readText("../src/components/analytics/PostHogAnalytics.tsx");
+
+  assert.match(analytics, /uuid: makeDistinctId\(\)/);
+  assert.match(analytics, /\$session_id: getSessionId\(\)/);
+  assert.match(analytics, /\$window_id: getWindowId\(\)/);
+  assert.match(analytics, /\$device_id: getAnonymousId\(\)/);
+  assert.match(analytics, /attempt < 2/);
+  assert.match(analytics, /response\.status >= 500/);
+  assert.doesNotMatch(analytics, /\$title/);
+  assert.match(analytics, /memoryOptOut = optOut/);
+  assert.match(identity, /ozlind:analytics-consent-changed/);
+  assert.match(component, /Do not send document\.title/);
+  assert.match(component, /maxCumulativeLayoutShift/);
+  assert.match(component, /interactionDurations/);
+  assert.match(component, /Math\.floor\(durations\.length \/ 50\)/);
+});
+
+test("analytics restricts string values and bounds browser-error deduplication memory", async () => {
+  const analytics = await readText("../src/lib/analytics.ts");
+  const component = await readText("../src/components/analytics/PostHogAnalytics.tsx");
+
+  assert.match(analytics, /ALLOWED_STRING_VALUES/);
+  assert.match(analytics, /key === "error_type"/);
+  assert.match(analytics, /key === "status_code"/);
+  assert.match(analytics, /key === "duration_ms"/);
+  assert.match(component, /recentErrors\.size > 100/);
+  assert.match(component, /now - timestamp > 60_000/);
+});
+
 test("authenticated identification uses a stable user ID and excludes profile PII", async () => {
   const identity = await readText("../src/components/analytics/PostHogIdentity.tsx");
   const analytics = await readText("../src/lib/analytics.ts");
