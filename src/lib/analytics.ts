@@ -152,7 +152,7 @@ function currentDistinctId(): string {
 function safePath(pathname: string): string {
   // Only emit known application routes. Conversation IDs, arbitrary dynamic
   // segments, slugs and future unknown paths collapse to a non-identifying route.
-  const normalized = pathname.replace(/\\/+?/g, "/").replace(/\\/$/, "") || "/";
+  const normalized = pathname.replace(/\/+/g, "/").replace(/\/$/, "") || "/";
   const knownRoutes = new Set([
     "/",
     "/login",
@@ -162,7 +162,7 @@ function safePath(pathname: string): string {
     "/app/workspace",
   ]);
   if (knownRoutes.has(normalized)) return normalized;
-  if (/^\\/app\\/[^/]+$/.test(normalized)) return "/app/[conversation]";
+  if (/^\/app\/[^/]+$/.test(normalized)) return "/app/[conversation]";
   return "/other";
 }
 
@@ -186,7 +186,7 @@ function safeProperties(properties: Record<string, AnalyticsValue>): Record<stri
       continue;
     }
 
-    const clean = value.replace(/[\\r\\n\\t]/g, " ").trim().slice(0, 120);
+    const clean = value.replace(/[\r\n\t]/g, " ").trim().slice(0, 120);
     if (!clean) continue;
 
     if (key === "$anon_distinct_id") {
