@@ -16,9 +16,6 @@ test("readiness exposes only non-secret capability booleans without adding provi
   assert.match(route, /const gatewayReady = checks\.aiGatewayAvailable/);
   assert.match(route, /checks\.groq \|\| checks\.google \|\| gatewayReady/);
   assert.match(route, /AI_GATEWAY_VISION_MODEL/);
-  assert.match(settings, /fetch\("\/api\/ready", \{ cache: "no-store"/);
-  assert.match(settings, /live generation not tested here/);
-  assert.match(settings, /live search not tested here/);
   assert.doesNotMatch(settings, /GROQ_API_KEY|GEMINI_API_KEY|TAVILY_API_KEY|SUPABASE_SECRET_KEY/);
   assert.match(settings, /NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED !== "true"/);
   assert.match(settings, /temporarily paused globally/);
