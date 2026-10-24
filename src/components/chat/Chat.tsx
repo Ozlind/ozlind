@@ -12,6 +12,8 @@ import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { deleteMessageImages, loadMessageImages, PENDING_CONVERSATION_ID, saveMessageImages, savePendingMessageImages } from "@/lib/chat/image-persistence";
 import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 import { appendOrReplaceLatestAssistant } from "@/lib/chat/message-state.mjs";
+import { ChatUtilities } from "@/components/chat/ChatUtilities";
+import { SaveResponseButton } from "@/components/chat/SaveResponseButton";
 
 type Message = {
   id: string;
@@ -455,6 +457,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         <div>
           <h2>Ozlind</h2>
         </div>
+        <ChatUtilities conversationId={id} messages={messages} streaming={streaming} />
       </header>
 
       <div
@@ -573,6 +576,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     >
                       <><OzlindIcon name={copiedMessageId === message.id ? "i-check" : "i-copy"} size={14} />{copiedMessageId === message.id ? "Copied" : "Copy"}</>
                     </button>
+                    <SaveResponseButton content={message.content} />
                     {message.id === lastAssistantMessageId && message.status !== "interrupted" && lastUserMessage && (
                       <button
                         type="button"
