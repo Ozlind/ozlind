@@ -1,5 +1,21 @@
 import type { NextConfig } from "next";
 
+function getPostHogOrigin(): string | null {
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+  if (!host) return null;
+  try {
+    const url = new URL(host);
+    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+const postHogOrigin = getPostHogOrigin();
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -9,6 +25,14 @@ const nextConfig: NextConfig = {
   env: {
     SUPABASE_URL: process.env.SUPABASE_URL ?? "",
     SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY ?? "",
+  },
+  async rewrites() {
+    // Keep the event request same-origin so the browser's connect-src 'self'
+    // policy allows it and tracker blockers are less likely to drop it.
+    // Only the capture endpoint is proxied; this is not an open proxy.
+    return postHogOrigin
+      ? [{ source: "/ingest/i/v0/e", destination: `${postHogOrigin}/i/v0/e/` }]
+      : [];
   },
   async headers() {
     return [

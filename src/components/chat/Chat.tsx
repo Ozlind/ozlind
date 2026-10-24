@@ -14,6 +14,7 @@ import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 import { appendOrReplaceLatestAssistant } from "@/lib/chat/message-state.mjs";
 import { ChatUtilities } from "@/components/chat/ChatUtilities";
 import { SaveResponseButton } from "@/components/chat/SaveResponseButton";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 type Message = {
   id: string;
@@ -361,6 +362,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const analyticsStartedAt = Date.now();
+    let analyticsStatusCode = 0;
+    let analyticsResult: "success" | "failed" | "aborted" | "duplicate" = "failed";
     let requestErrorCode: string | null = null;
     let requestAccepted = false;
     let receivedAssistantText = false;
@@ -396,7 +400,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         signal: controller.signal,
       });
 
+      analyticsStatusCode = response.status;
       if (response.status === 204) {
+        analyticsResult = "duplicate";
         const duplicateConversationId = response.headers.get("X-OZLIND-Conversation-ID");
         setMessages((current) => current.filter((message) => message.id !== key && message.id !== assistantId));
         if (duplicateConversationId) {
@@ -481,7 +487,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       setMessages((current) =>
         current.map((message) => (message.id === assistantId ? { ...message, status: "complete" } : message)),
       );
+      analyticsResult = "success";
     } catch (caught) {
+      analyticsResult = controller.signal.aborted ? "aborted" : "failed";
       const trailingText = pendingText;
       pendingText = "";
       if (!controller.signal.aborted) {
@@ -503,6 +511,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         return { ...message, content, status: controller.signal.aborted || content ? "interrupted" : "failed" };
       }));
     } finally {
+      trackAnalyticsEvent("ozlind_ai_request_completed", {
+        action,
+        model_mode: mode,
+        has_attachments: outgoingImages.length > 0,
+        status_code: analyticsStatusCode,
+        duration_ms: Math.max(0, Date.now() - analyticsStartedAt),
+        result: analyticsResult,
+        used_web_search: researchEnabled,
+      });
       if (abortRef.current === controller) abortRef.current = null;
       setStreaming(false);
     }

@@ -2,111 +2,64 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
-const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const HOST = (process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com").replace(/\/$/, "");
-const OPT_OUT_KEY = "ozlind_analytics_opt_out";
-const DISTINCT_ID_KEY = "ozlind_analytics_distinct_id";
+const sentVitals = new Set<string>();
+const recentErrors = new Map<string, number>();
 
-function isOptedOut(): boolean {
-  try {
-    return localStorage.getItem(OPT_OUT_KEY) === "1" || navigator.doNotTrack === "1";
-  } catch {
-    return true;
-  }
+function metricRating(name: string, value: number): string {
+  if (name === "LCP") return value <= 2500 ? "good" : value <= 4000 ? "needs-improvement" : "poor";
+  if (name === "INP") return value <= 200 ? "good" : value <= 500 ? "needs-improvement" : "poor";
+  if (name === "CLS") return value <= 0.1 ? "good" : value <= 0.25 ? "needs-improvement" : "poor";
+  if (name === "FCP") return value <= 1800 ? "good" : value <= 3000 ? "needs-improvement" : "poor";
+  if (name === "TTFB") return value <= 800 ? "good" : value <= 1800 ? "needs-improvement" : "poor";
+  return "unknown";
 }
 
-function getDistinctId(): string | null {
-  try {
-    let id = localStorage.getItem(DISTINCT_ID_KEY);
-    if (!id) {
-      id = typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `oz_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
-      localStorage.setItem(DISTINCT_ID_KEY, id);
-    }
-    return id;
-  } catch {
-    return null;
-  }
-}
-
-function safePath(pathname: string): string {
-  return pathname
-    .split("/")
-    .map((segment) => {
-      if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(segment) || /^[a-z0-9_-]{24,}$/i.test(segment)) {
-        return "[id]";
-      }
-      return segment;
-    })
-    .join("/");
-}
-
-function capture(event: string, properties: Record<string, string | number | boolean>): void {
-  if (!KEY || isOptedOut()) return;
-  const distinctId = getDistinctId();
-  if (!distinctId) return;
-
-  const path = safePath(window.location.pathname);
-  const body = JSON.stringify({
-    api_key: KEY,
-    event,
-    distinct_id: distinctId,
-    properties: {
-      $current_url: `${window.location.origin}${path}`,
-      $pathname: path,
-      $lib: "ozlind-native",
-      $lib_version: "1.0.2",
-      ...properties,
-    },
+function emitVital(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0) return;
+  const rounded = name === "CLS" ? Math.round(value * 1000) / 1000 : Math.round(value);
+  const key = `${Math.floor(performance.timeOrigin)}:${name}`;
+  if (sentVitals.has(key)) return;
+  sentVitals.add(key);
+  trackAnalyticsEvent("ozlind_web_vital", {
+    metric_name: name,
+    metric_value: rounded,
+    metric_rating: metricRating(name, rounded),
   });
+}
 
-  // Use the documented capture endpoint with JSON so ingestion can validate
-  // the event payload. A queued sendBeacon can silently hide cross-origin
-  // ingestion failures, so use fetch and check the HTTP response instead.
-  try {
-    void fetch(`${HOST}/i/v0/e/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-      mode: "cors",
-      credentials: "omit",
-    }).then((response) => {
-      if (!response.ok) {
-        console.warn("[Ozlind analytics] PostHog rejected an event:", response.status);
-      }
-    }).catch(() => {
-      console.warn("[Ozlind analytics] Could not reach the PostHog ingestion endpoint.");
-    });
-  } catch {
-    // Analytics must never break the application.
-  }
+function captureSafeClientError(errorType: string, source: "window" | "promise"): void {
+  const normalizedType = /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(errorType) ? errorType : "Error";
+  const key = `${source}:${normalizedType}`;
+  const now = Date.now();
+  if (now - (recentErrors.get(key) ?? 0) < 30_000) return;
+  recentErrors.set(key, now);
+  trackAnalyticsEvent("ozlind_client_error", {
+    error_type: normalizedType,
+    error_source: source,
+  });
 }
 
 export default function PostHogAnalytics() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!KEY || !pathname) return;
-    capture("$pageview", { $title: document.title });
+    if (!pathname) return;
+    trackAnalyticsEvent("$pageview", { $title: document.title });
   }, [pathname]);
 
   useEffect(() => {
-    if (!KEY) return;
-
     const onError = (event: ErrorEvent) => {
-      capture("ozlind_client_error", {
-        error_type: event.error instanceof Error ? event.error.name : "WindowError",
-        error_source: "window",
-      });
+      // Deliberately omit error.message, stack and source URL to avoid capturing
+      // prompts, response fragments, query strings or other user content.
+      const errorType = event.error instanceof Error ? event.error.name : "WindowError";
+      captureSafeClientError(errorType, "window");
     };
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      capture("ozlind_client_error", {
-        error_type: event.reason instanceof Error ? event.reason.name : "UnhandledRejection",
-        error_source: "promise",
-      });
+      // Never serialize a rejection reason: it may contain server or user text.
+      const errorType = event.reason instanceof Error ? event.reason.name : "UnhandledRejection";
+      captureSafeClientError(errorType, "promise");
     };
 
     window.addEventListener("error", onError);
@@ -114,6 +67,84 @@ export default function PostHogAnalytics() {
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    };
+  }, []);
+
+  useEffect(() => {
+    let largestContentfulPaint = 0;
+    let cumulativeLayoutShift = 0;
+    let sawLayoutShift = false;
+    let maxInteractionLatency = 0;
+    let sawInteraction = false;
+    const observers: PerformanceObserver[] = [];
+
+    const observe = (type: string, callback: (entries: PerformanceEntry[]) => void) => {
+      try {
+        if (!PerformanceObserver.supportedEntryTypes?.includes(type)) return;
+        const observer = new PerformanceObserver((list) => callback(list.getEntries()));
+        observer.observe({ type, buffered: true } as PerformanceObserverInit);
+        observers.push(observer);
+      } catch {
+        // Unsupported entries should not affect app behavior.
+      }
+    };
+
+    observe("paint", (entries) => {
+      for (const entry of entries) {
+        if (entry.name === "first-contentful-paint") emitVital("FCP", entry.startTime);
+      }
+    });
+
+    observe("largest-contentful-paint", (entries) => {
+      for (const entry of entries) largestContentfulPaint = entry.startTime;
+    });
+
+    observe("layout-shift", (entries) => {
+      for (const entry of entries) {
+        const shift = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+        if (!shift.hadRecentInput && typeof shift.value === "number") {
+          cumulativeLayoutShift += shift.value;
+          sawLayoutShift = true;
+        }
+      }
+    });
+
+    observe("event", (entries) => {
+      for (const entry of entries) {
+        const eventEntry = entry as PerformanceEntry & { interactionId?: number; duration: number };
+        if ((eventEntry.interactionId ?? 0) > 0) {
+          maxInteractionLatency = Math.max(maxInteractionLatency, eventEntry.duration);
+          sawInteraction = true;
+        }
+      }
+    });
+
+    const reportTimeToFirstByte = () => {
+      const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      if (navigation && navigation.responseStart >= navigation.requestStart) {
+        emitVital("TTFB", navigation.responseStart - navigation.requestStart);
+      }
+    };
+
+    const flushOnHide = () => {
+      if (largestContentfulPaint > 0) emitVital("LCP", largestContentfulPaint);
+      if (sawLayoutShift) emitVital("CLS", cumulativeLayoutShift);
+      if (sawInteraction) emitVital("INP", maxInteractionLatency);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushOnHide();
+    };
+
+    if (document.readyState === "complete") reportTimeToFirstByte();
+    else window.addEventListener("load", reportTimeToFirstByte, { once: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flushOnHide);
+
+    return () => {
+      observers.forEach((observer) => observer.disconnect());
+      window.removeEventListener("load", reportTimeToFirstByte);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flushOnHide);
     };
   }, []);
 
