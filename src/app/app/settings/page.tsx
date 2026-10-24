@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { setAnalyticsOptOut } from "@/lib/analytics";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { usePreferences, type Preferences, defaultPreferences } from "@/hooks/usePreferences";
 import { t } from "@/lib/i18n";
@@ -13,6 +15,25 @@ const models: Array<[Preferences["default_model"], string, string]> = [
 
 export default function SettingsPage() {
   const { preferences, update, loading, saving, saveError, clearSaveError } = usePreferences();
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
+  const [analyticsSettingsLoaded, setAnalyticsSettingsLoaded] = useState(false);
+  const [browserDoNotTrack, setBrowserDoNotTrack] = useState(false);
+
+  useEffect(() => {
+    const doNotTrack = navigator.doNotTrack === "1";
+    setBrowserDoNotTrack(doNotTrack);
+    try {
+      setAnalyticsEnabled(!doNotTrack && localStorage.getItem("ozlind_analytics_opt_out") !== "1");
+    } catch {
+      setAnalyticsEnabled(!doNotTrack);
+    }
+    setAnalyticsSettingsLoaded(true);
+  }, []);
+
+  function updateAnalyticsConsent(enabled: boolean) {
+    setAnalyticsEnabled(enabled);
+    setAnalyticsOptOut(!enabled);
+  }
   const tr = (key: Parameters<typeof t>[1]) => t(preferences.language, key);
 
   function resetPreferences() {
@@ -111,6 +132,34 @@ export default function SettingsPage() {
           <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-research">
             <span><strong>Live web research</strong><small>Allow supported chat flows to use live web research.</small></span>
             <input id="pref-research" type="checkbox" checked={preferences.research_enabled} onChange={e => void update({ research_enabled: e.target.checked })} />
+          </label>
+        </div>
+      </section>
+
+
+      <section className="settings-section settings-section-polished" aria-labelledby="settings-analytics">
+        <div className="settings-section-intro">
+          <h2 id="settings-analytics">Privacy & analytics</h2>
+          <p>Choose whether Ozlind can send limited product diagnostics to help improve reliability and speed.</p>
+        </div>
+        <div className="settings-grid settings-grid-polished">
+          <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-analytics">
+            <span>
+              <strong>Share product diagnostics</strong>
+              <small>
+                Records page visits, browser error types, performance timings, and chat request outcomes.
+                Prompts, replies, uploaded content, emails, and error stacks are not sent. Signed-in events
+                use your internal account ID rather than your email.
+                {browserDoNotTrack ? " Your browser's Do Not Track setting disables analytics." : ""}
+              </small>
+            </span>
+            <input
+              id="pref-analytics"
+              type="checkbox"
+              checked={analyticsEnabled && !browserDoNotTrack}
+              disabled={!analyticsSettingsLoaded || browserDoNotTrack}
+              onChange={e => updateAnalyticsConsent(e.target.checked)}
+            />
           </label>
         </div>
       </section>
