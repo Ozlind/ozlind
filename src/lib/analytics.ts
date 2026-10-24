@@ -1,5 +1,7 @@
 "use client";
 
+// Analytics are paused by default. Set NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED=true to resume collection.
+const ANALYTICS_ENABLED = process.env.NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED === "true";
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const INGEST_PATH = "/ingest/i/v0/e";
@@ -236,6 +238,7 @@ export function trackAnalyticsEvent(
   properties: Record<string, AnalyticsValue> = {},
 ): void {
   if (
+    !ANALYTICS_ENABLED ||
     typeof window === "undefined" ||
     !POSTHOG_KEY ||
     !POSTHOG_HOST ||
@@ -278,6 +281,7 @@ export function trackAnalyticsEvent(
 
 export function identifyAnalyticsUser(userId: string): void {
   if (
+    !ANALYTICS_ENABLED ||
     typeof window === "undefined" ||
     !POSTHOG_KEY ||
     !POSTHOG_HOST ||

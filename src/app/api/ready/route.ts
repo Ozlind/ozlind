@@ -39,9 +39,18 @@ export async function GET() {
   const googleConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL);
   // The vision route uses Gemini when configured and falls back to Groq's
   // Qwen 3.8 vision model when a Groq key is available.
+  const researchConfigured = Boolean(process.env.TAVILY_API_KEY);
+  const aiGatewayConfigured = Boolean(process.env.AI_GATEWAY_API_KEY);
+  const aiGatewayAvailable = Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL);
+  const gatewayFallbackModelsConfigured = Boolean(process.env.AI_GATEWAY_FALLBACK_MODELS?.split(",").some((model) => model.trim()));
+  const gatewayFastModelConfigured = Boolean(process.env.AI_GATEWAY_FAST_MODEL?.trim());
+  const gatewayProModelConfigured = Boolean(process.env.AI_GATEWAY_PRO_MODEL?.trim());
+  const gatewayAutoModelConfigured = Boolean(process.env.AI_GATEWAY_AUTO_MODEL?.trim());
+  const gatewayVisionModelConfigured = Boolean(process.env.AI_GATEWAY_VISION_MODEL?.trim());
   const visionConfigured = Boolean(
     (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ||
-      process.env.GROQ_API_KEY,
+      process.env.GROQ_API_KEY ||
+      (aiGatewayAvailable && gatewayVisionModelConfigured),
   );
 
   const checks = {
@@ -51,8 +60,22 @@ export async function GET() {
     groq: groqConfigured,
     google: googleConfigured,
     vision: visionConfigured,
+    researchConfigured,
+    aiGatewayConfigured,
+    aiGatewayAvailable,
+    gatewayFallbackModelsConfigured,
+    gatewayFastModelConfigured,
+    gatewayProModelConfigured,
+    gatewayAutoModelConfigured,
+    gatewayVisionModelConfigured,
   };
-  const ready = checks.supabase && (checks.groq || checks.google);
+  const gatewayReady = checks.aiGatewayAvailable && (
+    checks.gatewayFastModelConfigured ||
+    checks.gatewayProModelConfigured ||
+    checks.gatewayAutoModelConfigured ||
+    checks.gatewayFallbackModelsConfigured
+  );
+  const ready = checks.supabase && (checks.groq || checks.google || gatewayReady);
 
   return NextResponse.json(
     {

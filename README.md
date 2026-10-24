@@ -7,7 +7,7 @@ Ozlind is a mobile-first AI chat application built with Next.js App Router, Reac
 - Node.js 20.9 or later, below 25 (see `.nvmrc` and `package.json`)
 - npm
 - A Supabase project
-- At least one configured AI provider: Groq or Google Generative AI
+- At least one configured AI provider: Groq or Google Generative AI. Vercel AI Gateway is optional and can provide additional models/providers.
 
 ## Local development
 
@@ -31,11 +31,33 @@ Ozlind is a mobile-first AI chat application built with Next.js App Router, Reac
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## AI provider routing
+
+Ozlind supports Groq and Google Generative AI directly. An optional Vercel AI Gateway integration can add models from OpenAI, Anthropic, Google, and other supported providers without adding a separate SDK for every vendor. Configure these server-only Vercel environment variables to enable it:
+
+- `AI_GATEWAY_API_KEY`: Vercel AI Gateway API key.
+- `AI_GATEWAY_FAST_MODEL`: gateway model ID for the Fast fallback.
+- `AI_GATEWAY_PRO_MODEL`: gateway model ID for the Pro/reasoning fallback.
+- `AI_GATEWAY_AUTO_MODEL`: gateway model ID for the Auto/Gemini fallback slot.
+- `AI_GATEWAY_VISION_MODEL`: a gateway model ID that supports image input.
+- `AI_GATEWAY_FALLBACK_MODELS`: optional comma-separated list of up to eight additional gateway model IDs tried after the primary configured candidates. Use exact IDs shown in your Gateway model catalog.
+
+Gateway model IDs are explicit and optional; Ozlind will not guess a model or route image requests to a text-only model. Native Groq/Google models remain first in the fallback chain, followed by explicitly configured Gateway models and then the optional fallback list. On Vercel, the SDK can use the platform Gateway runtime without a separately supplied Gateway key; outside Vercel, set `AI_GATEWAY_API_KEY`. Keep all credentials server-side. Check model availability, supported modalities, pricing, and account access before enabling a model. Provider availability is not the same as free usage: each provider/model has its own quota and pricing.
+
+PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED=false` (or unset) to leave it paused; enabling collection requires explicitly setting it to `true` and redeploying.
+
 ## Chat reliability
 
 - Assistant text streams in-place; retrying or regenerating a response replaces the current answer for the latest user turn rather than creating a duplicate assistant bubble.
 - Interrupted responses keep any text already received and offer a retry action. Retry controls are disabled while a request is active or the browser is offline.
 - Image payloads are routed through configured vision-capable models; local image previews are stored in browser IndexedDB, not synced across devices.
+
+## Voice interactions
+
+- The chat composer includes browser-supported speech-to-text dictation. In **Voice** mode, a recognized utterance is submitted automatically and the completed answer is read aloud; without Voice mode, dictation fills the draft for review before sending.
+- Assistant messages also have an on-demand **Read aloud** control. Speech playback uses the browser's native speech synthesis; speech recognition depends on browser support and microphone permission, and uses the browser's configured language/locale.
+- No speech provider SDK or API key is required. Speech audio is not uploaded to an Ozlind speech endpoint; however, the browser's speech-recognition implementation may process audio through its own service. Use regular text input if voice recognition is unavailable or not appropriate for your privacy needs.
+- Voice recognition is turn-based: tap the microphone for each utterance. It does not continuously record in the background.
 
 ## Verification commands
 

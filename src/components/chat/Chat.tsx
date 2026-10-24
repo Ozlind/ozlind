@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Mic, Volume2, VolumeX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { OfflineBanner } from "@/components/chat/OfflineBanner";
@@ -34,6 +35,26 @@ type StoredMessage = Message & { provider_model?: string | null };
 type ChatMode = "auto" | "fast" | "vision" | "pro";
 type ChatImage = { dataUrl: string; mimeType: "image/jpeg"; name: string };
 type ChatPreset = { id: string; name: string; system_prompt: string; model: string };
+
+type SpeechResultEvent = {
+  resultIndex: number;
+  results: ArrayLike<{ isFinal?: boolean; 0?: { transcript: string } }>;
+};
+type BrowserSpeechRecognition = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechResultEvent) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+};
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: new () => BrowserSpeechRecognition;
+  webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
+};
 
 const PENDING_PRESET_KEY = "ozlind:pending-preset";
 const PRESET_MODELS = [
@@ -127,6 +148,17 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const voiceModeRef = useRef(false);
+  const streamingRef = useRef(false);
+  const speakingRef = useRef(false);
+  const voiceSessionRef = useRef(false);
+  const startVoiceRecognitionRef = useRef<(() => void) | null>(null);
+  const lastSpokenMessageId = useRef<string | null>(null);
+  const [voiceInputSupported, setVoiceInputSupported] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
   const applyPreset = useCallback((preset: ChatPreset) => {
     setActivePreset(preset);
@@ -319,6 +351,127 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
   }, [draft]);
 
+  useEffect(() => {
+    const speechWindow = window as SpeechRecognitionWindow;
+    setVoiceInputSupported(Boolean(speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition));
+    return () => {
+      recognitionRef.current?.stop();
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  const speakMessage = useCallback((message: Message) => {
+    if (!("speechSynthesis" in window) || !message.content.trim()) {
+      setError("Voice playback is not supported in this browser.");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const spokenText = message.content
+      .replace(/```[\s\S]*?```/g, "Code block omitted.")
+      .replace(/!?\[([^\]]+)\]\((?:[^()]|\([^()]*\))*\)/g, "$1")
+      .replace(/https?:\/\/\S+/g, "link")
+      .replace(/[#>*_~`]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!spokenText) return;
+    const utterance = new SpeechSynthesisUtterance(spokenText);
+    utterance.lang = navigator.language || "en-US";
+    utterance.onstart = () => { speakingRef.current = true; setSpeakingMessageId(message.id); };
+    utterance.onend = () => {
+      speakingRef.current = false;
+      setSpeakingMessageId(current => current === message.id ? null : current);
+      if (voiceModeRef.current && voiceSessionRef.current) window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
+    };
+    utterance.onerror = () => {
+      speakingRef.current = false;
+      setSpeakingMessageId(current => current === message.id ? null : current);
+      if (voiceModeRef.current && voiceSessionRef.current) window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
+    };
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  useEffect(() => {
+    if (!voiceMode) return;
+    const latest = [...messages].reverse().find(message =>
+      message.role === "assistant" && message.status === "complete" && message.content.trim(),
+    );
+    if (latest && lastSpokenMessageId.current !== latest.id) {
+      lastSpokenMessageId.current = latest.id;
+      speakMessage(latest);
+    }
+  }, [messages, voiceMode, speakMessage]);
+
+  const startVoiceRecognition = useCallback(() => {
+    if (!voiceSessionRef.current || streamingRef.current || speakingRef.current || voiceListening) return;
+    const speechWindow = window as SpeechRecognitionWindow;
+    const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setError("Voice input is not supported in this browser. Try the latest Chrome browser.");
+      voiceSessionRef.current = false;
+      return;
+    }
+    try {
+      const recognition = new Recognition();
+      recognition.lang = navigator.language || "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = event => {
+        const transcript: string[] = [];
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          if (result?.[0]?.transcript && result.isFinal !== false) transcript.push(result[0].transcript);
+        }
+        const text = transcript.join(" ").trim();
+        if (!text) return;
+        if (voiceModeRef.current) {
+          recognition.stop();
+          void send("send", text);
+        } else {
+          setDraft(current => current.trim() ? current.trimEnd() + " " + text : text);
+        }
+      };
+      recognition.onerror = event => {
+        setVoiceListening(false);
+        if (event.error !== "no-speech" && event.error !== "aborted") {
+          setError(event.error === "not-allowed"
+            ? "Microphone permission was denied. Allow microphone access in your browser settings."
+            : "Voice input stopped. Please try again.");
+          if (event.error === "not-allowed") voiceSessionRef.current = false;
+        }
+      };
+      recognition.onend = () => {
+        setVoiceListening(false);
+        if (voiceModeRef.current && voiceSessionRef.current && !streamingRef.current && !speakingRef.current) {
+          window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
+        }
+      };
+      recognitionRef.current = recognition;
+      setError("");
+      setVoiceListening(true);
+      recognition.start();
+    } catch {
+      setVoiceListening(false);
+      setError("Could not start the microphone. Check browser permission and try again.");
+    }
+  }, [voiceListening]);
+
+  useEffect(() => { startVoiceRecognitionRef.current = startVoiceRecognition; }, [startVoiceRecognition]);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { streamingRef.current = streaming; }, [streaming]);
+  useEffect(() => { speakingRef.current = Boolean(speakingMessageId); }, [speakingMessageId]);
+
+  function toggleVoiceInput() {
+    if (voiceSessionRef.current) {
+      voiceSessionRef.current = false;
+      recognitionRef.current?.stop();
+      setVoiceListening(false);
+      return;
+    }
+    voiceSessionRef.current = true;
+    startVoiceRecognition();
+  }
+
   useEffect(() => () => abortRef.current?.abort(), []);
 
   async function send(action: "send" | "regenerate" = "send", contentOverride?: string, imagesOverride?: ChatImage[]) {
@@ -358,6 +511,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       { id: assistantId, role: "assistant", content: "", status: "streaming" },
       action === "regenerate",
     ));
+    streamingRef.current = true;
     setStreaming(true);
 
     const controller = new AbortController();
@@ -735,6 +889,23 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     >
                       <><OzlindIcon name={copiedMessageId === message.id ? "i-check" : "i-copy"} size={14} />{copiedMessageId === message.id ? "Copied" : "Copy"}</>
                     </button>
+                    <button
+                      type="button"
+                      className="message-action"
+                      onClick={() => {
+                        if (speakingMessageId === message.id) {
+                          window.speechSynthesis.cancel();
+                          setSpeakingMessageId(null);
+                        } else {
+                          speakMessage(message);
+                        }
+                      }}
+                      aria-label={speakingMessageId === message.id ? "Stop reading response aloud" : "Read response aloud"}
+                      title={speakingMessageId === message.id ? "Stop reading aloud" : "Read aloud"}
+                    >
+                      {speakingMessageId === message.id ? <VolumeX size={14} aria-hidden="true" /> : <Volume2 size={14} aria-hidden="true" />}
+                      {speakingMessageId === message.id ? "Stop voice" : "Read aloud"}
+                    </button>
                     <SaveResponseButton content={message.content} />
                     {message.id === lastAssistantMessageId && message.status !== "interrupted" && lastUserMessage && (
                       <button
@@ -761,6 +932,13 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
       )}
 
+      {voiceMode && (
+        <div className={"voice-orb-panel" + (voiceListening ? " is-listening" : streaming ? " is-thinking" : speakingMessageId ? " is-speaking" : "")} role="status" aria-live="polite">
+          <span className="voice-orb" aria-hidden="true"><span /></span>
+          <span className="voice-orb-copy">{streaming ? "Ozlind is thinking…" : speakingMessageId ? "Ozlind is speaking…" : voiceListening ? "I’m listening" : "Voice chat ready"}</span>
+          <button type="button" className="voice-orb-stop" onClick={() => { voiceSessionRef.current = false; recognitionRef.current?.stop(); if ("speechSynthesis" in window) window.speechSynthesis.cancel(); speakingRef.current = false; setSpeakingMessageId(null); setVoiceMode(false); voiceModeRef.current = false; }} aria-label="End voice chat">End</button>
+        </div>
+      )}
       <div className="composer-wrap">
         {images.length > 0 && (
           <div className="composer-attachments" aria-label="Attached images">
@@ -774,6 +952,33 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           </div>
         )}
         <div className="composer-modebar" role="group" aria-label="AI mode">
+          <button
+            type="button"
+            className={"composer-research" + (voiceMode ? " active" : "")}
+            aria-pressed={voiceMode}
+            onClick={() => {
+              const nextVoiceMode = !voiceMode;
+              voiceModeRef.current = nextVoiceMode;
+              if (!nextVoiceMode) {
+                voiceSessionRef.current = false;
+                recognitionRef.current?.stop();
+              } else {
+                const latest = [...messages].reverse().find(message => message.role === "assistant" && message.status === "complete");
+                lastSpokenMessageId.current = latest?.id ?? null;
+              }
+              setVoiceMode(nextVoiceMode);
+              if (voiceMode && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+                speakingRef.current = false;
+                setSpeakingMessageId(null);
+              }
+            }}
+            title={voiceMode ? "Turn voice replies off" : "Automatically read new replies aloud"}
+            aria-label={voiceMode ? "Turn voice replies off" : "Turn voice replies on"}
+          >
+            {voiceMode ? <Volume2 size={15} aria-hidden="true" /> : <Mic size={15} aria-hidden="true" />}
+            <span>{voiceMode ? "Voice on" : "Voice"}</span>
+          </button>
           <button
             type="button"
             className={"composer-mode" + (mode === "auto" ? " active" : "")}
@@ -818,6 +1023,17 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         <div className="composer">
           <input ref={fileInputRef} type="file" accept="image/*" multiple hidden
             onChange={(event) => void addImages(event.target.files)} aria-label="Attach images" />
+          <button
+            type="button"
+            className="composer-attach composer-mic"
+            onClick={toggleVoiceInput}
+            disabled={streaming || !online || !voiceInputSupported}
+            aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
+            aria-pressed={voiceListening}
+            title={!voiceInputSupported ? "Voice input is not supported in this browser" : voiceListening ? "Listening… tap to stop" : "Dictate a message"}
+          >
+            <Mic size={18} aria-hidden="true" />
+          </button>
           <button type="button" className="composer-attach" onClick={() => fileInputRef.current?.click()}
             disabled={streaming || images.length >= 2} aria-label="Attach an image" title="Attach an image to ask about it">
             <OzlindIcon name="i-attach" size={19} />

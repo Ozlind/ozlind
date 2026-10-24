@@ -36,6 +36,19 @@ test("AI response policy is multilingual and follows the user's language", () =>
   assert.match(route, /including mixed-language messages when natural/);
 });
 
+test("chat provides discreet voice input, read-aloud, and opt-in hands-free voice turns", () => {
+  assert.match(chatComponent, /webkitSpeechRecognition/);
+  assert.match(chatComponent, /function toggleVoiceInput\(\)/);
+  assert.match(chatComponent, /SpeechSynthesisUtterance/);
+  assert.match(chatComponent, /Automatically read new replies aloud/);
+  assert.match(chatComponent, /recognition\.continuous = true/);
+  assert.match(chatComponent, /voiceSessionRef/);
+  assert.match(chatComponent, /voice-orb-panel/);
+  assert.match(chatComponent, /if \(voiceModeRef\.current\)/);
+  assert.match(chatComponent, /Read response aloud/);
+  assert.match(chatComponent, /Microphone permission was denied/);
+});
+
 test("AI response policy prioritizes accuracy and honest uncertainty", () => {
   assert.match(route, /Never fabricate citations, sources, capabilities, or current information/);
   assert.match(route, /distinguish verified facts from estimates and uncertainty/);
@@ -191,12 +204,14 @@ test("web research returns validated source links as part of the persisted answe
   assert.ok(route.includes("buffer += footer"));
 });
 
-test("image requests retry a configured multimodal fallback after temporary Gemini capacity failures", () => {
+test("image requests fail over promptly to configured multimodal providers after capacity failures", () => {
   assert.ok(route.includes("GEMINI_VISION_FALLBACK_MODELS"));
   assert.ok(route.includes('"gemini-3.6-flash,gemini-3.5-flash-lite"'));
   assert.ok(route.includes("providerModel: candidate.modelId"));
   assert.ok(route.includes("selectedProviderModel = candidate.modelId"));
-  assert.ok(route.includes("maxRetries: input.images.length ? 0 : 2"));
+  assert.ok(route.includes("maxRetries: 0"));
+  assert.ok(route.includes("AbortSignal.timeout(input.images.length ? 18000 : 12000)"));
+  assert.ok(route.includes("nativeGroqModelIds.has(candidate.modelId)"));
 });
 
 
