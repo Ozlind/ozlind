@@ -40,6 +40,11 @@ export async function GET() {
   // The vision route uses Gemini when configured and falls back to Groq's
   // Qwen 3.8 vision model when a Groq key is available.
   const researchConfigured = Boolean(process.env.TAVILY_API_KEY);
+  const aiGatewayConfigured = Boolean(process.env.AI_GATEWAY_API_KEY);
+  const gatewayFastModelConfigured = Boolean(process.env.AI_GATEWAY_FAST_MODEL?.trim());
+  const gatewayProModelConfigured = Boolean(process.env.AI_GATEWAY_PRO_MODEL?.trim());
+  const gatewayAutoModelConfigured = Boolean(process.env.AI_GATEWAY_AUTO_MODEL?.trim());
+  const gatewayVisionModelConfigured = Boolean(process.env.AI_GATEWAY_VISION_MODEL?.trim());
   const visionConfigured = Boolean(
     (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ||
       process.env.GROQ_API_KEY,
@@ -53,6 +58,11 @@ export async function GET() {
     google: googleConfigured,
     vision: visionConfigured,
     researchConfigured,
+    aiGatewayConfigured,
+    gatewayFastModelConfigured,
+    gatewayProModelConfigured,
+    gatewayAutoModelConfigured,
+    gatewayVisionModelConfigured,
   };
   const ready = checks.supabase && (checks.groq || checks.google);
 
