@@ -7,6 +7,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { checkUserRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { PayloadTooLargeError, readJsonBody } from "@/lib/security/request.mjs";
 import { normalizeTavilyResponse } from "@/lib/research/tavily.mjs";
+import { getReasoningEffort } from "@/lib/ai/reasoning.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -501,14 +502,10 @@ export async function POST(request: Request) {
     // Apply provider options only to exact model IDs that document support for
     // reasoning effort. Fast minimizes added reasoning latency; Pro and the
     // Qwen vision fallback get more reasoning budget for complex requests.
-    const providerOptions =
-      candidate.modelId === "openai/gpt-oss-20b"
-        ? { groq: { reasoningEffort: "low" as const } }
-        : candidate.modelId === "openai/gpt-oss-120b"
-          ? { groq: { reasoningEffort: "high" as const } }
-          : candidate.modelId === "qwen/qwen3.8-27b"
-            ? { groq: { reasoningEffort: "medium" as const } }
-            : undefined;
+    const reasoningEffort = getReasoningEffort(candidate.modelId, input.content);
+    const providerOptions = reasoningEffort
+      ? { groq: { reasoningEffort } }
+      : undefined;
     try {
       const candidateResult = streamText({
         model: candidate.model,
