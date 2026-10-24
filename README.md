@@ -52,6 +52,13 @@ PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_AN
 - Interrupted responses keep any text already received and offer a retry action. Retry controls are disabled while a request is active or the browser is offline.
 - Image payloads are routed through configured vision-capable models; local image previews are stored in browser IndexedDB, not synced across devices.
 
+## Voice interactions
+
+- The chat composer includes browser-supported speech-to-text dictation. In **Voice** mode, a recognized utterance is submitted automatically and the completed answer is read aloud; without Voice mode, dictation fills the draft for review before sending.
+- Assistant messages also have an on-demand **Read aloud** control. Speech playback uses the browser's native speech synthesis; speech recognition depends on browser support and microphone permission, and uses the browser's configured language/locale.
+- No speech provider SDK or API key is required. Speech audio is not uploaded to an Ozlind speech endpoint; however, the browser's speech-recognition implementation may process audio through its own service. Use regular text input if voice recognition is unavailable or not appropriate for your privacy needs.
+- Voice recognition is turn-based: tap the microphone for each utterance. It does not continuously record in the background.
+
 ## Verification commands
 
 | Command | Purpose |
