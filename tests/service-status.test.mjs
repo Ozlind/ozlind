@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const readText = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("readiness exposes only non-secret capability booleans for the settings UI", async () => {
+test("readiness exposes only non-secret capability booleans without adding provider controls to the UI", async () => {
   const route = await readText("../src/app/api/ready/route.ts");
   const settings = await readText("../src/app/app/settings/page.tsx");
   assert.match(route, /researchConfigured = Boolean\(process\.env\.TAVILY_API_KEY\)/);
@@ -22,8 +22,7 @@ test("readiness exposes only non-secret capability booleans for the settings UI"
   assert.doesNotMatch(settings, /GROQ_API_KEY|GEMINI_API_KEY|TAVILY_API_KEY|SUPABASE_SECRET_KEY/);
   assert.match(settings, /NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED !== "true"/);
   assert.match(settings, /temporarily paused globally/);
-  assert.match(settings, /Additional model fallbacks/);
-  assert.match(settings, /gatewayFallbackModelsConfigured/);
+  assert.doesNotMatch(settings, /settings-health|Multi-provider AI Gateway|Additional model fallbacks|AI_GATEWAY_FALLBACK_MODELS/);
 });
 
 test("chat route supports optional AI Gateway fallback models without replacing native providers", async () => {
