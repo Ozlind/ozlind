@@ -94,9 +94,10 @@ function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel
   // Google and other model providers. It is only used when both a server-side
   // gateway key and an explicit model ID are configured.
   const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+  const gatewayAvailable = Boolean(gatewayKey || process.env.VERCEL);
   const gatewayVisionModel = process.env.AI_GATEWAY_VISION_MODEL?.trim();
-  if (gatewayKey && gatewayVisionModel) {
-    const gateway = createGateway({ apiKey: gatewayKey });
+  if (gatewayAvailable && gatewayVisionModel && /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$/.test(gatewayVisionModel)) {
+    const gateway = gatewayKey ? createGateway({ apiKey: gatewayKey }) : createGateway();
     candidates.push({ modelId: gatewayVisionModel, model: gateway(gatewayVisionModel) });
   }
 
@@ -132,9 +133,9 @@ function configuredModels(): Record<ModelKey, ConfiguredModel | null> {
 
 function configuredGatewayModels(): Partial<Record<ModelKey, ConfiguredModel>> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) return {};
+  if (!apiKey && !process.env.VERCEL) return {};
 
-  const gateway = createGateway({ apiKey });
+  const gateway = apiKey ? createGateway({ apiKey }) : createGateway();
   const configured: Partial<Record<ModelKey, ConfiguredModel>> = {};
   const modelEntries: Array<[ModelKey, string | undefined]> = [
     ["groq:llama-3.3-70b-versatile", process.env.AI_GATEWAY_FAST_MODEL],
@@ -144,9 +145,23 @@ function configuredGatewayModels(): Partial<Record<ModelKey, ConfiguredModel>> {
 
   for (const [key, value] of modelEntries) {
     const modelId = value?.trim();
-    if (modelId) configured[key] = { model: gateway(modelId), modelId };
+    if (modelId && /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$/.test(modelId)) {
+      configured[key] = { model: gateway(modelId), modelId };
+    }
   }
   return configured;
+}
+
+function configuredGatewayFallbacks(): Array<{ model: LanguageModel; modelId: string }> {
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey && !process.env.VERCEL) return [];
+  const gateway = apiKey ? createGateway({ apiKey }) : createGateway();
+  return [...new Set((process.env.AI_GATEWAY_FALLBACK_MODELS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$/.test(value)))]
+    .slice(0, 8)
+    .map((modelId) => ({ model: gateway(modelId), modelId }));
 }
 
 function fallbackOrder(requested: ModelKey): ModelKey[] {
@@ -377,6 +392,7 @@ export async function POST(request: Request) {
   }
   const models = configuredModels();
   const gatewayModels = configuredGatewayModels();
+  const gatewayFallbacks = configuredGatewayFallbacks();
   const visionModel: ModelKey = "google:gemini-2.0-flash";
   const visionModels = configuredVisionModels();
 
@@ -402,6 +418,7 @@ export async function POST(request: Request) {
           const configured = gatewayModels[key];
           return configured ? [{ key, ...configured }] : [];
         }),
+        ...gatewayFallbacks.map(({ model, modelId }) => ({ key: input.model, model, modelId })),
       ];
 
   if (!candidates.length) {
