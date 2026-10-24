@@ -104,7 +104,7 @@ export default function WorkspacePage() {
     }
   }
 
-  function usePreset(preset: Preset) {
+  function openPresetInChat(preset: Preset) {
     const pending = {
       id: preset.id,
       name: preset.name,
@@ -271,7 +271,7 @@ export default function WorkspacePage() {
                       <h3>{item.name}</h3>
                       <p>{item.system_prompt}</p>
                       <span className="workspace-item-meta">{PRESET_MODELS.find(option => option.value === item.model)?.label ?? "Custom model"}</span>
-                      <button type="button" className="ui-button ui-button-secondary workspace-use-preset" onClick={() => usePreset(item)} disabled={deletingId === item.id}>
+                      <button type="button" className="ui-button ui-button-secondary workspace-use-preset" onClick={() => openPresetInChat(item)} disabled={deletingId === item.id}>
                         <OzlindIcon name="i-new-conversation" size={14} /> Use in chat
                       </button>
                     </div>
