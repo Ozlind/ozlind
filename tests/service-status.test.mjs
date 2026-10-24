@@ -11,6 +11,8 @@ test("readiness exposes only non-secret capability booleans for the settings UI"
   assert.match(route, /researchConfigured,/);
   assert.match(route, /aiGatewayConfigured = Boolean\(process\.env\.AI_GATEWAY_API_KEY\)/);
   assert.match(route, /gatewayVisionModelConfigured,/);
+  assert.match(route, /const gatewayReady = checks\.aiGatewayConfigured/);
+  assert.match(route, /checks\.groq \|\| checks\.google \|\| gatewayReady/);
   assert.match(route, /AI_GATEWAY_VISION_MODEL/);
   assert.match(settings, /fetch\("\/api\/ready", \{ cache: "no-store"/);
   assert.match(settings, /live generation not tested here/);
