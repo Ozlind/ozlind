@@ -84,3 +84,12 @@ test("browser errors are rate-limited and performance telemetry names core web v
   }
   assert.match(component, /Never serialize a rejection reason/);
 });
+
+test("analytics collection is disabled by default and can only be explicitly re-enabled", async () => {
+  const analytics = await readText("../src/lib/analytics.ts");
+  const layout = await readText("../src/app/layout.tsx");
+
+  assert.match(analytics, /NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED === "true"/);
+  assert.equal((analytics.match(/!ANALYTICS_ENABLED/g) ?? []).length, 2);
+  assert.doesNotMatch(layout, /PostHogAnalytics/);
+});
