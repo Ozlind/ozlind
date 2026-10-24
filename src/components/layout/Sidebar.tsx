@@ -253,7 +253,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
                     aria-current={path === "/app/" + conversation.id ? "page" : undefined}
                     title={conversation.title || "New conversation"}
                   >
-                    <span className="conversation-link-title">{conversation.title || "New conversation"}</span>
+                    <span className="conversation-link-title">{conversation.pinned && <OzlindIcon name="i-bookmark" size={12} aria-hidden="true" />}<span>{conversation.title || "New conversation"}</span></span>
                   </Link>
                   <details className="conversation-menu">
                     <summary aria-label={"Actions for " + (conversation.title || "New conversation")} title="Conversation actions">···</summary>
