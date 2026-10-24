@@ -141,8 +141,9 @@ export function trackAnalyticsEvent(
     const body = JSON.stringify({
       api_key: POSTHOG_KEY,
       event,
-      distinct_id: currentDistinctId(),
       properties: {
+        // PostHog Capture API requires distinct_id inside properties.
+        distinct_id: currentDistinctId(),
         $current_url: `${window.location.origin}${path}`,
         $pathname: path,
         $lib: "ozlind-native",
