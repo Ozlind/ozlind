@@ -982,7 +982,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             onChange={(event) => void addImages(event.target.files)} aria-label="Attach images" />
           <button
             type="button"
-            className="composer-attach"
+            className="composer-attach composer-mic"
             onClick={toggleVoiceInput}
             disabled={streaming || !online || !voiceInputSupported}
             aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
