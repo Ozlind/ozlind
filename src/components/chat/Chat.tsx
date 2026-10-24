@@ -361,11 +361,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
     window.speechSynthesis.cancel();
     const spokenText = message.content
-      .replace(/```[\\s\\S]*?```/g, "Code block omitted.")
-      .replace(/!?\\[([^\\]]+)\\]\\((?:[^()]|\\([^()]*\\))*\\)/g, "$1")
-      .replace(/https?:\\/\\/\\S+/g, "link")
+      .replace(/```[\s\S]*?```/g, "Code block omitted.")
+      .replace(/!?\[([^\]]+)\]\((?:[^()]|\([^()]*\))*\)/g, "$1")
+      .replace(/https?:\/\/\S+/g, "link")
       .replace(/[#>*_~`]/g, " ")
-      .replace(/\\s+/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
     if (!spokenText) return;
     const utterance = new SpeechSynthesisUtterance(spokenText);
