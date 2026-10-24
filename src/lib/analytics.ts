@@ -129,6 +129,17 @@ function currentDistinctId(): string {
   return getStoredUserId() || getAnonymousId();
 }
 
+function resetTabScopedIdentity(): void {
+  memorySessionId = null;
+  memoryWindowId = null;
+  try {
+    sessionStorage.removeItem(SESSION_ID_KEY);
+    sessionStorage.removeItem(WINDOW_ID_KEY);
+  } catch {
+    // The in-memory identifiers will rotate on the next event.
+  }
+}
+
 function safePath(pathname: string): string {
   return pathname
     .split("/")
@@ -282,6 +293,7 @@ export function identifyAnalyticsUser(userId: string): void {
     // Never connect two signed-in accounts through the same anonymous identity.
     memoryUserId = null;
     memoryAnonymousId = makeDistinctId();
+    resetTabScopedIdentity();
     anonymousId = memoryAnonymousId;
     try {
       localStorage.removeItem(ANONYMOUS_ID_KEY);
@@ -307,19 +319,12 @@ export function resetAnalyticsIdentity(): void {
   if (typeof window === "undefined") return;
   memoryUserId = null;
   memoryAnonymousId = makeDistinctId();
-  memorySessionId = null;
-  memoryWindowId = null;
+  resetTabScopedIdentity();
   try {
     localStorage.removeItem(USER_ID_KEY);
     localStorage.setItem(ANONYMOUS_ID_KEY, memoryAnonymousId);
   } catch {
     // In-memory anonymous identity remains usable.
-  }
-  try {
-    sessionStorage.removeItem(SESSION_ID_KEY);
-    sessionStorage.removeItem(WINDOW_ID_KEY);
-  } catch {
-    // In-memory session identifiers will rotate as needed.
   }
 }
 
