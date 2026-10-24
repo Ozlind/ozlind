@@ -366,6 +366,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     let analyticsStatusCode = 0;
     let analyticsResult: "success" | "failed" | "aborted" | "duplicate" = "failed";
     let requestErrorCode: string | null = null;
+    let analyticsResolvedModel: "fast" | "vision" | "pro" = mode === "vision" ? "vision" : mode === "pro" ? "pro" : "fast";
     let requestAccepted = false;
     let receivedAssistantText = false;
     // Keep buffered text outside try so a stream failure cannot discard it.
@@ -383,6 +384,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           : mode === "pro"
             ? proModel
             : ([fastModel, proModel, visionModel].includes(model) ? model : fastModel);
+      analyticsResolvedModel = requestedModel === visionModel ? "vision" : requestedModel === proModel ? "pro" : "fast";
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -514,6 +516,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       trackAnalyticsEvent("ozlind_ai_request_completed", {
         action,
         model_mode: mode,
+        resolved_model_mode: analyticsResolvedModel,
+        error_code: requestErrorCode ?? "",
         has_attachments: outgoingImages.length > 0,
         status_code: analyticsStatusCode,
         duration_ms: Math.max(0, Date.now() - analyticsStartedAt),
