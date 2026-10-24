@@ -105,7 +105,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         .select("id")
         .maybeSingle();
       if (error || !data) throw error ?? new Error("Conversation was not found.");
-      trackAnalyticsEvent("ozlind_product_interaction", { action: "toggle_pin", result: pinned ? "disabled" : "enabled" });
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "toggle_pin", result: pinned ? "enabled" : "disabled" });
       await refetch();
     } catch {
       trackAnalyticsEvent("ozlind_product_interaction", { action: "toggle_pin", result: "failed" });
