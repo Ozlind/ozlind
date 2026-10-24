@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 
@@ -35,6 +35,19 @@ function captureSafeClientError(errorType: string, source: "window" | "promise")
   const now = Date.now();
   if (now - (recentErrors.get(key) ?? 0) < 30_000) return;
   recentErrors.set(key, now);
+
+  // Keep the deduplication cache bounded even if a browser emits many unusual error names.
+  if (recentErrors.size > 100) {
+    for (const [existingKey, timestamp] of recentErrors) {
+      if (now - timestamp > 60_000) recentErrors.delete(existingKey);
+    }
+    while (recentErrors.size > 100) {
+      const oldestKey = recentErrors.keys().next().value;
+      if (!oldestKey) break;
+      recentErrors.delete(oldestKey);
+    }
+  }
+
   trackAnalyticsEvent("ozlind_client_error", {
     error_type: normalizedType,
     error_source: source,
@@ -43,10 +56,17 @@ function captureSafeClientError(errorType: string, source: "window" | "promise")
 
 export default function PostHogAnalytics() {
   const pathname = usePathname();
+  const previousPathname = useRef<string | null>(null);
 
   useEffect(() => {
     if (!pathname) return;
-    trackAnalyticsEvent("$pageview", { $title: document.title });
+    const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    const navigationType = previousPathname.current
+      ? "navigate"
+      : navigation?.type ?? "unknown";
+    previousPathname.current = pathname;
+    // Do not send document.title: it can become user-generated on future routes.
+    trackAnalyticsEvent("$pageview", { navigation_type: navigationType });
   }, [pathname]);
 
   useEffect(() => {
@@ -72,10 +92,13 @@ export default function PostHogAnalytics() {
 
   useEffect(() => {
     let largestContentfulPaint = 0;
-    let cumulativeLayoutShift = 0;
+    let maxCumulativeLayoutShift = 0;
+    let clsSessionStart = 0;
+    let clsSessionLast = 0;
+    let clsSessionValue = 0;
+    let hasClsSession = false;
     let sawLayoutShift = false;
-    let maxInteractionLatency = 0;
-    let sawInteraction = false;
+    const interactionDurations = new Map<number, number>();
     const observers: PerformanceObserver[] = [];
 
     const observe = (type: string, callback: (entries: PerformanceEntry[]) => void) => {
@@ -102,20 +125,33 @@ export default function PostHogAnalytics() {
     observe("layout-shift", (entries) => {
       for (const entry of entries) {
         const shift = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
-        if (!shift.hadRecentInput && typeof shift.value === "number") {
-          cumulativeLayoutShift += shift.value;
-          sawLayoutShift = true;
+        if (shift.hadRecentInput || typeof shift.value !== "number" || shift.value <= 0) continue;
+
+        const time = entry.startTime;
+        // CLS is the largest session window (1s gap, 5s maximum window), not
+        // the sum of every shift over the whole page lifetime.
+        if (!hasClsSession || time - clsSessionLast >= 1_000 || time - clsSessionStart >= 5_000) {
+          clsSessionStart = time;
+          clsSessionValue = shift.value;
+          hasClsSession = true;
+        } else {
+          clsSessionValue += shift.value;
         }
+        clsSessionLast = time;
+        maxCumulativeLayoutShift = Math.max(maxCumulativeLayoutShift, clsSessionValue);
+        sawLayoutShift = true;
       }
     });
 
     observe("event", (entries) => {
       for (const entry of entries) {
         const eventEntry = entry as PerformanceEntry & { interactionId?: number; duration: number };
-        if ((eventEntry.interactionId ?? 0) > 0) {
-          maxInteractionLatency = Math.max(maxInteractionLatency, eventEntry.duration);
-          sawInteraction = true;
-        }
+        const interactionId = eventEntry.interactionId ?? 0;
+        if (interactionId <= 0 || !Number.isFinite(eventEntry.duration)) continue;
+        interactionDurations.set(
+          interactionId,
+          Math.max(interactionDurations.get(interactionId) ?? 0, eventEntry.duration),
+        );
       }
     });
 
@@ -128,8 +164,15 @@ export default function PostHogAnalytics() {
 
     const flushOnHide = () => {
       if (largestContentfulPaint > 0) emitVital("LCP", largestContentfulPaint);
-      if (sawLayoutShift) emitVital("CLS", cumulativeLayoutShift);
-      if (sawInteraction) emitVital("INP", maxInteractionLatency);
+      if (sawLayoutShift) emitVital("CLS", maxCumulativeLayoutShift);
+
+      // INP uses interaction-group durations and a high-percentile sample,
+      // rather than treating each event entry as an independent interaction.
+      const durations = [...interactionDurations.values()].sort((left, right) => right - left);
+      if (durations.length > 0) {
+        const percentileIndex = Math.min(Math.floor(durations.length / 50), 10, durations.length - 1);
+        emitVital("INP", durations[percentileIndex]);
+      }
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") flushOnHide();
