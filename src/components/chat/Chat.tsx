@@ -47,6 +47,7 @@ type BrowserSpeechRecognition = {
   onresult: ((event: SpeechResultEvent) => void) | null;
   onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
+  continuous: boolean;
   start: () => void;
   stop: () => void;
 };
@@ -148,6 +149,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const stick = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const voiceModeRef = useRef(false);
+  const streamingRef = useRef(false);
+  const speakingRef = useRef(false);
+  const voiceSessionRef = useRef(false);
+  const startVoiceRecognitionRef = useRef<(() => void) | null>(null);
   const lastSpokenMessageId = useRef<string | null>(null);
   const [voiceInputSupported, setVoiceInputSupported] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
@@ -370,9 +376,17 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     if (!spokenText) return;
     const utterance = new SpeechSynthesisUtterance(spokenText);
     utterance.lang = navigator.language || "en-US";
-    utterance.onstart = () => setSpeakingMessageId(message.id);
-    utterance.onend = () => setSpeakingMessageId(current => current === message.id ? null : current);
-    utterance.onerror = () => setSpeakingMessageId(current => current === message.id ? null : current);
+    utterance.onstart = () => { speakingRef.current = true; setSpeakingMessageId(message.id); };
+    utterance.onend = () => {
+      speakingRef.current = false;
+      setSpeakingMessageId(current => current === message.id ? null : current);
+      if (voiceModeRef.current && voiceSessionRef.current) window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
+    };
+    utterance.onerror = () => {
+      speakingRef.current = false;
+      setSpeakingMessageId(current => current === message.id ? null : current);
+      if (voiceModeRef.current && voiceSessionRef.current) window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
+    };
     window.speechSynthesis.speak(utterance);
   }, []);
 
@@ -387,21 +401,19 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     }
   }, [messages, voiceMode, speakMessage]);
 
-  function toggleVoiceInput() {
-    if (voiceListening) {
-      recognitionRef.current?.stop();
-      setVoiceListening(false);
-      return;
-    }
+  const startVoiceRecognition = useCallback(() => {
+    if (!voiceSessionRef.current || streamingRef.current || speakingRef.current || voiceListening) return;
     const speechWindow = window as SpeechRecognitionWindow;
     const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!Recognition) {
       setError("Voice input is not supported in this browser. Try the latest Chrome browser.");
+      voiceSessionRef.current = false;
       return;
     }
     try {
       const recognition = new Recognition();
       recognition.lang = navigator.language || "en-US";
+      recognition.continuous = true;
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.onresult = event => {
@@ -411,15 +423,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           if (result?.[0]?.transcript && result.isFinal !== false) transcript.push(result[0].transcript);
         }
         const text = transcript.join(" ").trim();
-        if (text) {
-          if (voiceMode && !draft.trim()) {
-            // Voice mode is an explicit opt-in to hands-free turns: submit the
-            // recognized utterance, then read the completed answer aloud.
-            void send("send", text);
-          } else {
-            setDraft(current => current.trim() ? current.trimEnd() + " " + text : text);
-            requestAnimationFrame(() => textareaRef.current?.focus());
-          }
+        if (!text) return;
+        if (voiceModeRef.current) {
+          recognition.stop();
+          void send("send", text);
+        } else {
+          setDraft(current => current.trim() ? current.trimEnd() + " " + text : text);
         }
       };
       recognition.onerror = event => {
@@ -428,9 +437,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           setError(event.error === "not-allowed"
             ? "Microphone permission was denied. Allow microphone access in your browser settings."
             : "Voice input stopped. Please try again.");
+          if (event.error === "not-allowed") voiceSessionRef.current = false;
         }
       };
-      recognition.onend = () => setVoiceListening(false);
+      recognition.onend = () => {
+        setVoiceListening(false);
+        if (voiceModeRef.current && voiceSessionRef.current && !streamingRef.current && !speakingRef.current) {
+          window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
+        }
+      };
       recognitionRef.current = recognition;
       setError("");
       setVoiceListening(true);
@@ -439,6 +454,22 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       setVoiceListening(false);
       setError("Could not start the microphone. Check browser permission and try again.");
     }
+  }, [voiceListening]);
+
+  useEffect(() => { startVoiceRecognitionRef.current = startVoiceRecognition; }, [startVoiceRecognition]);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { streamingRef.current = streaming; }, [streaming]);
+  useEffect(() => { speakingRef.current = Boolean(speakingMessageId); }, [speakingMessageId]);
+
+  function toggleVoiceInput() {
+    if (voiceSessionRef.current) {
+      voiceSessionRef.current = false;
+      recognitionRef.current?.stop();
+      setVoiceListening(false);
+      return;
+    }
+    voiceSessionRef.current = true;
+    startVoiceRecognition();
   }
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -480,6 +511,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       { id: assistantId, role: "assistant", content: "", status: "streaming" },
       action === "regenerate",
     ));
+    streamingRef.current = true;
     setStreaming(true);
 
     const controller = new AbortController();
@@ -900,6 +932,13 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         </div>
       )}
 
+      {voiceMode && (
+        <div className={"voice-orb-panel" + (voiceListening ? " is-listening" : streaming ? " is-thinking" : speakingMessageId ? " is-speaking" : "")} role="status" aria-live="polite">
+          <span className="voice-orb" aria-hidden="true"><span /></span>
+          <span className="voice-orb-copy">{streaming ? "Ozlind is thinking…" : speakingMessageId ? "Ozlind is speaking…" : voiceListening ? "I’m listening" : "Voice chat ready"}</span>
+          <button type="button" className="voice-orb-stop" onClick={() => { voiceSessionRef.current = false; recognitionRef.current?.stop(); if ("speechSynthesis" in window) window.speechSynthesis.cancel(); speakingRef.current = false; setSpeakingMessageId(null); setVoiceMode(false); voiceModeRef.current = false; }} aria-label="End voice chat">End</button>
+        </div>
+      )}
       <div className="composer-wrap">
         {images.length > 0 && (
           <div className="composer-attachments" aria-label="Attached images">
@@ -919,6 +958,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             aria-pressed={voiceMode}
             onClick={() => {
               setVoiceMode(current => {
+                voiceModeRef.current = !current;
+                if (current) {
+                  voiceSessionRef.current = false;
+                  recognitionRef.current?.stop();
+                }
                 if (!current) {
                   const latest = [...messages].reverse().find(message => message.role === "assistant" && message.status === "complete");
                   lastSpokenMessageId.current = latest?.id ?? null;
@@ -927,6 +971,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               });
               if (voiceMode && "speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
+                speakingRef.current = false;
                 setSpeakingMessageId(null);
               }
             }}
