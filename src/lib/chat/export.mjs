@@ -7,11 +7,11 @@ function cleanLine(value) {
 }
 
 function cleanHeading(value) {
-  return cleanLine(value).replace(/[#*_~[\]]/g, "").slice(0, 120) || "Ozlind conversation";
+  return cleanLine(value).replace(/[#*_~]/g, "").split(String.fromCharCode(96)).join("").replace(/\[/g, "").replace(/\]/g, "").slice(0, 120) || "Ozlind conversation";
 }
 
 function cleanAttachmentName(value) {
-  return cleanLine(value).replace(/[[\]<>]/g, "").slice(0, 160) || "Attached image";
+  return cleanLine(value).replace(/</g, "").replace(/>/g, "").replace(/\[/g, "").replace(/\]/g, "").slice(0, 160) || "Attached image";
 }
 
 export function suggestArtifactTitle(messages, prefix = "Ozlind") {
