@@ -38,7 +38,7 @@ type ChatPreset = { id: string; name: string; system_prompt: string; model: stri
 
 type SpeechResultEvent = {
   resultIndex: number;
-  results: ArrayLike<ArrayLike<{ transcript: string; isFinal?: boolean }>>;
+  results: ArrayLike<{ isFinal?: boolean; 0?: { transcript: string } }>;
 };
 type BrowserSpeechRecognition = {
   lang: string;
@@ -408,7 +408,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         const transcript: string[] = [];
         for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
-          if (result?.[0]?.transcript && result[0].isFinal !== false) transcript.push(result[0].transcript);
+          if (result?.[0]?.transcript && result.isFinal !== false) transcript.push(result[0].transcript);
         }
         const text = transcript.join(" ").trim();
         if (text) {
