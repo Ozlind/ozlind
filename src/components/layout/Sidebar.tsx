@@ -19,6 +19,11 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
   const path = usePathname();
   const [query, setQuery] = useState("");
   const [isMobile, setIsMobile] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [conversationActionError, setConversationActionError] = useState("");
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 768px)");
@@ -36,14 +41,14 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["conversations", user.id],
+    queryKey: ["conversations", user.id, showArchived],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("conversations")
         .select("id,title,updated_at")
         .eq("user_id", user.id)
-        .eq("archived", false)
+        .eq("archived", showArchived)
         .order("updated_at", { ascending: false })
         .limit(100);
 
@@ -51,6 +56,61 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       return data ?? [];
     },
   });
+
+  async function renameConversation(event: React.FormEvent<HTMLFormElement>, conversationId: string) {
+    event.preventDefault();
+    const title = renameTitle.trim().slice(0, 160);
+    if (!title) {
+      setConversationActionError("Give this conversation a name before saving.");
+      return;
+    }
+    if (actionBusyId) return;
+    setActionBusyId(conversationId);
+    setConversationActionError("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("conversations")
+        .update({ title })
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error || !data) throw error ?? new Error("Conversation was not found.");
+      setRenamingId(null);
+      setRenameTitle("");
+      await refetch();
+    } catch {
+      setConversationActionError("Could not rename this conversation. Please try again.");
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function archiveConversation(conversationId: string, archived: boolean) {
+    if (actionBusyId) return;
+    setActionBusyId(conversationId);
+    setConversationActionError("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("conversations")
+        .update({ archived })
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error || !data) throw error ?? new Error("Conversation was not found.");
+      if (archived && path === "/app/" + conversationId) router.replace("/app");
+      await refetch();
+    } catch {
+      setConversationActionError(archived
+        ? "Could not archive this conversation. Please try again."
+        : "Could not restore this conversation. Please try again.");
+    } finally {
+      setActionBusyId(null);
+    }
+  }
 
   async function signOut() {
     if (signingOut) return;
@@ -126,7 +186,13 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         </label>
       </div>
 
-      <nav className="conversation-list" aria-label="Conversation history">
+      <div className="conversation-view-switch" role="group" aria-label="Conversation history filter">
+        <button type="button" className={!showArchived ? "active" : ""} aria-pressed={!showArchived} onClick={() => { setShowArchived(false); setRenamingId(null); }}>Recent</button>
+        <button type="button" className={showArchived ? "active" : ""} aria-pressed={showArchived} onClick={() => { setShowArchived(true); setRenamingId(null); }}>Archived</button>
+      </div>
+
+      <nav className="conversation-list" aria-label={showArchived ? "Archived conversations" : "Conversation history"}>
+        {conversationActionError && <p className="sidebar-action-error" role="alert">{conversationActionError}</p>}
         {isLoading ? (
           <p className="sidebar-state" role="status">Loading conversations…</p>
         ) : isError ? (
@@ -142,16 +208,48 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           </p>
         ) : (
           filteredConversations.map((conversation) => (
-            <Link
-              key={conversation.id}
-              href={"/app/" + conversation.id}
-              onClick={onClose}
-              className={path === "/app/" + conversation.id ? "conversation-link active" : "conversation-link"}
-              aria-current={path === "/app/" + conversation.id ? "page" : undefined}
-              title={conversation.title || "New conversation"}
-            >
-              {conversation.title || "New conversation"}
-            </Link>
+            <div className="conversation-row" key={conversation.id}>
+              {renamingId === conversation.id ? (
+                <form className="conversation-rename-form" onSubmit={(event) => void renameConversation(event, conversation.id)}>
+                  <input
+                    value={renameTitle}
+                    onChange={(event) => setRenameTitle(event.target.value)}
+                    maxLength={160}
+                    aria-label="New conversation name"
+                    autoFocus
+                  />
+                  <button type="submit" disabled={actionBusyId === conversation.id || !renameTitle.trim()}>Save</button>
+                  <button type="button" onClick={() => { setRenamingId(null); setRenameTitle(""); }} disabled={actionBusyId === conversation.id}>Cancel</button>
+                </form>
+              ) : (
+                <>
+                  <Link
+                    href={"/app/" + conversation.id}
+                    onClick={onClose}
+                    className={path === "/app/" + conversation.id ? "conversation-link active" : "conversation-link"}
+                    aria-current={path === "/app/" + conversation.id ? "page" : undefined}
+                    title={conversation.title || "New conversation"}
+                  >
+                    {conversation.title || "New conversation"}
+                  </Link>
+                  <details className="conversation-menu">
+                    <summary aria-label={"Actions for " + (conversation.title || "New conversation")} title="Conversation actions">···</summary>
+                    <div className="conversation-menu-panel">
+                      <button type="button" onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        setRenamingId(conversation.id);
+                        setRenameTitle(conversation.title || "");
+                        setConversationActionError("");
+                      }}><OzlindIcon name="i-edit" size={14} /> Rename</button>
+                      <button type="button" disabled={actionBusyId === conversation.id} onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        void archiveConversation(conversation.id, !showArchived);
+                      }}><OzlindIcon name={showArchived ? "i-refresh" : "i-bookmark"} size={14} /> {showArchived ? "Restore" : "Archive"}</button>
+                    </div>
+                  </details>
+                </>
+              )}
+            </div>
           ))
         )}
       </nav>
