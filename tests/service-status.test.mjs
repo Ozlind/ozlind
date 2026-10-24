@@ -13,7 +13,7 @@ test("readiness exposes only non-secret capability booleans for the settings UI"
   assert.match(route, /gatewayVisionModelConfigured,/);
   assert.match(route, /aiGatewayAvailable = Boolean\(process\.env\.AI_GATEWAY_API_KEY \|\| process\.env\.VERCEL\)/);
   assert.match(route, /gatewayFallbackModelsConfigured,/);
-  assert.match(route, /const gatewayReady = checks\\.aiGatewayAvailable/);
+  assert.match(route, /const gatewayReady = checks\.aiGatewayAvailable/);
   assert.match(route, /checks\.groq \|\| checks\.google \|\| gatewayReady/);
   assert.match(route, /AI_GATEWAY_VISION_MODEL/);
   assert.match(settings, /fetch\("\/api\/ready", \{ cache: "no-store"/);
