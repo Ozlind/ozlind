@@ -40,8 +40,9 @@ Ozlind supports Groq and Google Generative AI directly. An optional Vercel AI Ga
 - `AI_GATEWAY_PRO_MODEL`: gateway model ID for the Pro/reasoning fallback.
 - `AI_GATEWAY_AUTO_MODEL`: gateway model ID for the Auto/Gemini fallback slot.
 - `AI_GATEWAY_VISION_MODEL`: a gateway model ID that supports image input.
+- `AI_GATEWAY_FALLBACK_MODELS`: optional comma-separated list of up to eight additional gateway model IDs tried after the primary configured candidates. Use exact IDs shown in your Gateway model catalog.
 
-Gateway model IDs are explicit and optional; Ozlind will not guess a model or route image requests to a text-only model. Native Groq/Google models remain first in the fallback chain, and gateway models are attempted only after those configured candidates. Keep all gateway credentials server-side. Check model availability, supported modalities, pricing, and account access with your gateway before enabling a model.
+Gateway model IDs are explicit and optional; Ozlind will not guess a model or route image requests to a text-only model. Native Groq/Google models remain first in the fallback chain, followed by explicitly configured Gateway models and then the optional fallback list. On Vercel, the SDK can use the platform Gateway runtime without a separately supplied Gateway key; outside Vercel, set `AI_GATEWAY_API_KEY`. Keep all credentials server-side. Check model availability, supported modalities, pricing, and account access before enabling a model. Provider availability is not the same as free usage: each provider/model has its own quota and pricing.
 
 PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED=false` (or unset) to leave it paused; enabling collection requires explicitly setting it to `true` and redeploying.
 
