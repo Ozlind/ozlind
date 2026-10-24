@@ -39,6 +39,7 @@ export async function GET() {
   const googleConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL);
   // The vision route uses Gemini when configured and falls back to Groq's
   // Qwen 3.8 vision model when a Groq key is available.
+  const researchConfigured = Boolean(process.env.TAVILY_API_KEY);
   const visionConfigured = Boolean(
     (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ||
       process.env.GROQ_API_KEY,
@@ -51,6 +52,7 @@ export async function GET() {
     groq: groqConfigured,
     google: googleConfigured,
     vision: visionConfigured,
+    researchConfigured,
   };
   const ready = checks.supabase && (checks.groq || checks.google);
 
