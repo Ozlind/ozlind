@@ -13,7 +13,8 @@ import { deleteMessageImages, loadMessageImages, PENDING_CONVERSATION_ID, saveMe
 import { shouldFlushVisibleText } from "@/lib/chat/streaming.mjs";
 import { appendOrReplaceLatestAssistant } from "@/lib/chat/message-state.mjs";
 import { ChatUtilities } from "@/components/chat/ChatUtilities";
-import { SaveResponseButton } from "@/components/chat/SaveResponseButton";\nimport { trackAnalyticsEvent } from "@/lib/analytics";
+import { SaveResponseButton } from "@/components/chat/SaveResponseButton";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 type Message = {
   id: string;
