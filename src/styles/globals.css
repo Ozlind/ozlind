@@ -1847,7 +1847,7 @@ a { color: inherit; }
 @media(max-width:768px){.chat-title-group{gap:6px}.active-preset-chip{max-width:38vw;font-size:10px;padding-left:6px}.chat-header-tools{flex-shrink:0}}
 
 /* Small, calm voice-chat indicator; respects reduced-motion preferences. */
-.voice-orb-panel{position:fixed;z-index:20;left:calc(280px + 24px);right:24px;bottom:126px;margin:0 auto;width:min(360px,calc(100% - 48px));display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-md);color:var(--text-muted);font-size:12px;backdrop-filter:blur(12px)}
+.voice-orb-panel{position:fixed;z-index:20;left:calc(280px + 24px);right:24px;bottom:126px;margin:0 auto;width:min(360px,calc(100% - 48px));display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-md);color:var(--text-muted);font-size:12px}
 .voice-orb{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--accent) 16%,var(--surface));position:relative}
 .voice-orb:before,.voice-orb span{content:"";display:block;position:absolute;width:9px;height:9px;border-radius:50%;background:var(--accent);transition:transform .2s ease}
 .voice-orb span{width:16px;height:16px;opacity:.24}
