@@ -5,7 +5,7 @@ const problems=[];
 const required=[
 ".github/workflows/dependency-security.yml",
 "src/app/layout.tsx","src/app/page.tsx","src/app/login/page.tsx","src/app/app/layout.tsx",
-"src/components/chat/Chat.tsx","src/components/layout/Sidebar.tsx","src/components/layout/AppShell.tsx",
+"src/components/chat/Chat.tsx","src/components/chat/ChatUtilities.tsx","src/components/chat/SaveResponseButton.tsx","src/components/layout/Sidebar.tsx","src/components/layout/AppShell.tsx","src/components/layout/CommandPalette.tsx","src/lib/chat/export.mjs","src/lib/chat/export.d.mts","tests/chat-export.test.mjs",
 "src/app/api/chat/route.ts","src/app/api/preferences/route.ts","src/app/api/documents/route.ts",
 "src/app/api/research/route.ts","src/app/api/presets/route.ts","src/app/api/artifacts/route.ts",
 "src/app/api/health/route.ts","src/app/api/ready/route.ts","src/lib/supabase/server.ts",
@@ -83,6 +83,11 @@ const chatStreaming=fs.readFileSync(path.join(root,"src/lib/chat/streaming.mjs")
 for(const token of ["CHAT_UI_FLUSH_INTERVAL_MS = 32","shouldFlushVisibleText"])if(!chatStreaming.includes(token))problems.push("Chat streaming policy missing "+token);
 const chatUi=fs.readFileSync(path.join(root,"src/components/chat/Chat.tsx"),"utf8");
 if(!chatUi.includes("shouldFlushVisibleText(pendingText, Date.now(), lastUiFlush, force)"))problems.push("Chat UI does not use the tested stream flush policy");
+for(const token of ["ChatUtilities","SaveResponseButton"])if(!chatUi.includes(token))problems.push("Chat UI missing "+token);
+const commandPalette=fs.readFileSync(path.join(root,"src/components/layout/CommandPalette.tsx"),"utf8");
+for(const token of ["event.metaKey","event.ctrlKey","aria-modal","ArrowDown","ArrowUp"])if(!commandPalette.includes(token))problems.push("Command palette missing accessibility or keyboard behavior: "+token);
+const sidebar=fs.readFileSync(path.join(root,"src/components/layout/Sidebar.tsx"),"utf8");
+for(const token of ["renameConversation","archiveConversation","showArchived","select(\"id\")"])if(!sidebar.includes(token))problems.push("Sidebar conversation management missing "+token);
 
 if(problems.length){console.error("OZLIND architecture verification FAILED:\n");for(const p of problems)console.error(" - "+p);process.exit(1)}
 console.log("OZLIND architecture verification passed ("+files.length+" src files checked).");

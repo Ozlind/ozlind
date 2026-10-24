@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { usePreferences } from "@/hooks/usePreferences";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 
 export function AppShell({ user, children }: { user: { id: string; email: string; displayName: string }; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -102,6 +103,7 @@ export function AppShell({ user, children }: { user: { id: string; email: string
 
   return (
     <div className="app-shell">
+      <CommandPalette />
       <Sidebar user={user} mobileOpen={open} onClose={() => closeNavigation(false)} />
       {open && (
         <button
