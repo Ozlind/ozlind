@@ -48,27 +48,24 @@ function capture(event: string, properties: Record<string, string | number | boo
   const distinctId = getDistinctId();
   if (!distinctId) return;
 
+  const path = safePath(window.location.pathname);
   const body = JSON.stringify({
     api_key: KEY,
     event,
+    distinct_id: distinctId,
     properties: {
-      distinct_id: distinctId,
-      $current_url: `${window.location.origin}${safePath(window.location.pathname)}`,
-      $pathname: safePath(window.location.pathname),
+      $current_url: `${window.location.origin}${path}`,
+      $pathname: path,
       $lib: "ozlind-native",
-      $lib_version: "1.0.0",
+      $lib_version: "1.0.2",
       ...properties,
     },
   });
 
+  // Use the documented capture endpoint with JSON so ingestion can validate
+  // the event payload. A queued sendBeacon can silently hide cross-origin
+  // ingestion failures, so use fetch and check the HTTP response instead.
   try {
-    if (navigator.sendBeacon) {
-      const sent = navigator.sendBeacon(
-        `${HOST}/i/v0/e/`,
-        new Blob([body], { type: "application/json" }),
-      );
-      if (sent) return;
-    }
     void fetch(`${HOST}/i/v0/e/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -76,7 +73,13 @@ function capture(event: string, properties: Record<string, string | number | boo
       keepalive: true,
       mode: "cors",
       credentials: "omit",
-    }).catch(() => undefined);
+    }).then((response) => {
+      if (!response.ok) {
+        console.warn("[Ozlind analytics] PostHog rejected an event:", response.status);
+      }
+    }).catch(() => {
+      console.warn("[Ozlind analytics] Could not reach the PostHog ingestion endpoint.");
+    });
   } catch {
     // Analytics must never break the application.
   }
