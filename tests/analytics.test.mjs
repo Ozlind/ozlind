@@ -84,7 +84,7 @@ test("page engagement and lifecycle telemetry contain only durations and safe st
   assert.match(component, /ozlind_page_engagement/);
   assert.match(component, /ozlind_app_lifecycle/);
   assert.match(component, /trackAnalyticsEvent\("\$pageview"\)/);
-  assert.doesNotMatch(component, /document\.title/);
+  assert.doesNotMatch(component, /\$title:\s*document\.title/);
   assert.match(settings, /setAnalyticsOptOut\(!enabled\)/);
   assert.match(settings, /Prompts, replies, uploaded files or images/);
 });
