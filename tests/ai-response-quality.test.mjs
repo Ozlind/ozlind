@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizeTavilyResponse } from "../src/lib/research/tavily.mjs";
+import { getReasoningEffort } from "../src/lib/ai/reasoning.mjs";
 
 const researchRoute = await readFile(
   new URL("../src/app/api/research/route.ts", import.meta.url),
@@ -296,15 +297,35 @@ test("Groq text routes default to currently supported Fast and Pro models", asyn
   assert.ok(envExample.includes("GROQ_PRO_MODEL=openai/gpt-oss-120b"));
 });
 
-test("Groq reasoning effort is model-aware and only set for supported model IDs", () => {
-  assert.ok(route.includes('candidate.modelId === "openai/gpt-oss-20b"'));
-  assert.ok(route.includes('reasoningEffort: "low" as const'));
-  assert.ok(route.includes('candidate.modelId === "openai/gpt-oss-120b"'));
-  assert.ok(route.includes('reasoningEffort: "high" as const'));
-  assert.ok(route.includes('candidate.modelId === "qwen/qwen3.8-27b"'));
-  assert.ok(route.includes('reasoningEffort: "medium" as const'));
+test("Fast reasoning adapts to prompt complexity without penalizing simple prompts", () => {
+  assert.equal(getReasoningEffort("openai/gpt-oss-20b", "Hi"), "low");
+  assert.equal(getReasoningEffort("openai/gpt-oss-20b", "What is the capital of India?"), "low");
+  assert.equal(
+    getReasoningEffort(
+      "openai/gpt-oss-20b",
+      "Compare these options:\n- Option A\n- Option B\nExplain the trade-offs and recommend one.",
+    ),
+    "medium",
+  );
+  assert.equal(
+    getReasoningEffort(
+      "openai/gpt-oss-20b",
+      "Review this implementation:\n```ts\nconst total = 1;\n```\nFind bugs and suggest a safer version.",
+    ),
+    "medium",
+  );
+  assert.equal(
+    getReasoningEffort("openai/gpt-oss-20b", "Question one? Question two?"),
+    "medium",
+  );
+});
+
+test("reasoning settings remain model-specific and custom model IDs stay untouched", () => {
+  assert.equal(getReasoningEffort("openai/gpt-oss-120b", "Hi"), "high");
+  assert.equal(getReasoningEffort("qwen/qwen3.8-27b", "Describe this picture"), "medium");
+  assert.equal(getReasoningEffort("vendor/custom-model", "Compare these options"), undefined);
+  assert.ok(route.includes('getReasoningEffort(candidate.modelId, input.content)'));
   assert.ok(route.includes("providerOptions ? { providerOptions } : {}"));
-  assert.ok(route.includes(": undefined;"));
 });
 
 test("vision requests fall back across providers before retrying secondary Gemini models", () => {
