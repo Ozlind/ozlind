@@ -35,7 +35,7 @@ export function ChatUtilities({
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
     setFeedback("Markdown export downloaded.");
     setFeedbackError(false);
   }
