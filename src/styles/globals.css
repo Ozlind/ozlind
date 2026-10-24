@@ -1831,7 +1831,7 @@ a { color: inherit; }
 .workspace-preview pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
 .workspace-item-copy{min-width:0;overflow-wrap:anywhere}
 .workspace-item-copy p{overflow-wrap:anywhere}
-.conversation-link-title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conversation-link-title{display:flex;align-items:center;gap:6px;min-width:0}.conversation-link-title>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.conversation-link-title>svg{flex:0 0 auto;color:var(--accent)}
 .conversation-row:has(.conversation-menu) .conversation-link{min-width:0}
 @media(max-width:480px){.workspace-preview-actions{display:grid;grid-template-columns:1fr 1fr}.workspace-preview-actions .ui-button{padding:0 8px;font-size:11px}.workspace-use-preset{max-width:100%}}
 
