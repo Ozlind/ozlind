@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";\nimport { resetAnalyticsIdentity } from "@/lib/analytics";
 import { useEffect, useState } from "react";
 
 type SidebarProps = {
@@ -144,6 +144,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       const supabase = createClient();
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      resetAnalyticsIdentity();
       window.location.assign("/login");
     } catch {
       setSignOutError("Could not sign out. Please try again.");
