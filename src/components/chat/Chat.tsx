@@ -412,9 +412,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         }
         const text = transcript.join(" ").trim();
         if (text) {
-          setDraft(current => current.trim() ? current.trimEnd() + " " + text : text);
-          setVoiceMode(true);
-          requestAnimationFrame(() => textareaRef.current?.focus());
+          if (voiceMode && !draft.trim()) {
+            // Voice mode is an explicit opt-in to hands-free turns: submit the
+            // recognized utterance, then read the completed answer aloud.
+            void send("send", text);
+          } else {
+            setDraft(current => current.trim() ? current.trimEnd() + " " + text : text);
+            requestAnimationFrame(() => textareaRef.current?.focus());
+          }
         }
       };
       recognition.onerror = event => {
