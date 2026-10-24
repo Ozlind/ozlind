@@ -7,7 +7,7 @@ Ozlind is a mobile-first AI chat application built with Next.js App Router, Reac
 - Node.js 20.9 or later, below 25 (see `.nvmrc` and `package.json`)
 - npm
 - A Supabase project
-- At least one configured AI provider: Groq or Google Generative AI
+- At least one configured AI provider: Groq or Google Generative AI. Vercel AI Gateway is optional and can provide additional models/providers.
 
 ## Local development
 
@@ -30,6 +30,20 @@ Ozlind is a mobile-first AI chat application built with Next.js App Router, Reac
    ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## AI provider routing
+
+Ozlind supports Groq and Google Generative AI directly. An optional Vercel AI Gateway integration can add models from OpenAI, Anthropic, Google, and other supported providers without adding a separate SDK for every vendor. Configure these server-only Vercel environment variables to enable it:
+
+- `AI_GATEWAY_API_KEY`: Vercel AI Gateway API key.
+- `AI_GATEWAY_FAST_MODEL`: gateway model ID for the Fast fallback.
+- `AI_GATEWAY_PRO_MODEL`: gateway model ID for the Pro/reasoning fallback.
+- `AI_GATEWAY_AUTO_MODEL`: gateway model ID for the Auto/Gemini fallback slot.
+- `AI_GATEWAY_VISION_MODEL`: a gateway model ID that supports image input.
+
+Gateway model IDs are explicit and optional; Ozlind will not guess a model or route image requests to a text-only model. Native Groq/Google models remain first in the fallback chain, and gateway models are attempted only after those configured candidates. Keep all gateway credentials server-side. Check model availability, supported modalities, pricing, and account access with your gateway before enabling a model.
+
+PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED=false` (or unset) to leave it paused; enabling collection requires explicitly setting it to `true` and redeploying.
 
 ## Chat reliability
 
