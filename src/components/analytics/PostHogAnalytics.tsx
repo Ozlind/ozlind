@@ -46,8 +46,63 @@ export default function PostHogAnalytics() {
 
   useEffect(() => {
     if (!pathname) return;
-    trackAnalyticsEvent("$pageview", { $title: document.title });
+    // Do not send document.title: chat titles or other user-generated content
+    // could be reflected there. analytics.ts also normalizes dynamic route paths.
+    trackAnalyticsEvent("$pageview");
   }, [pathname]);
+
+  useEffect(() => {
+    let visibleSince = document.visibilityState === "visible" ? Date.now() : null;
+    let visibleMilliseconds = 0;
+    let finalized = false;
+
+    const onVisibilityChange = () => {
+      const now = Date.now();
+      if (document.visibilityState === "hidden") {
+        if (visibleSince !== null) visibleMilliseconds += Math.max(0, now - visibleSince);
+        visibleSince = null;
+      } else if (!finalized && visibleSince === null) {
+        visibleSince = now;
+      }
+    };
+
+    const finalize = () => {
+      if (finalized) return;
+      if (visibleSince !== null) {
+        visibleMilliseconds += Math.max(0, Date.now() - visibleSince);
+        visibleSince = null;
+      }
+      finalized = true;
+      if (visibleMilliseconds > 0) {
+        trackAnalyticsEvent("ozlind_page_engagement", {
+          duration_ms: Math.min(3_600_000, Math.round(visibleMilliseconds)),
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", finalize);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", finalize);
+      finalize();
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    const reportOnline = () => trackAnalyticsEvent("ozlind_app_lifecycle", { result: "online" });
+    const reportOffline = () => trackAnalyticsEvent("ozlind_app_lifecycle", { result: "offline" });
+
+    trackAnalyticsEvent("ozlind_app_lifecycle", {
+      result: navigator.onLine ? "online" : "offline",
+    });
+    window.addEventListener("online", reportOnline);
+    window.addEventListener("offline", reportOffline);
+    return () => {
+      window.removeEventListener("online", reportOnline);
+      window.removeEventListener("offline", reportOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const onError = (event: ErrorEvent) => {
