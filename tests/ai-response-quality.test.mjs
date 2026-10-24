@@ -303,14 +303,14 @@ test("Fast reasoning adapts to prompt complexity without penalizing simple promp
   assert.equal(
     getReasoningEffort(
       "openai/gpt-oss-20b",
-      "Compare these options:\\n- Option A\\n- Option B\\nExplain the trade-offs and recommend one.",
+      "Compare these options:\n- Option A\n- Option B\nExplain the trade-offs and recommend one.",
     ),
     "medium",
   );
   assert.equal(
     getReasoningEffort(
       "openai/gpt-oss-20b",
-      "Review this implementation:\\n```ts\\nconst total = 1;\\n```\\nFind bugs and suggest a safer version.",
+      "Review this implementation:\n```ts\nconst total = 1;\n```\nFind bugs and suggest a safer version.",
     ),
     "medium",
   );
