@@ -46,6 +46,8 @@ const ALLOWED_PROPERTIES = new Set([
   "duration_ms",
   "status_code",
   "model_mode",
+  "resolved_model_mode",
+  "error_code",
   "has_attachments",
   "attachment_count",
   "action",
@@ -74,6 +76,19 @@ const SAFE_ENUM_VALUES: Record<string, ReadonlySet<string>> = {
   metric_rating: new Set(["good", "needs-improvement", "poor", "unknown"]),
   navigation_type: new Set(["navigate", "reload", "back_forward", "prerender"]),
   model_mode: new Set(["auto", "fast", "vision", "pro"]),
+  resolved_model_mode: new Set(["fast", "vision", "pro"]),
+  error_code: new Set([
+    "AUTH_REQUIRED",
+    "REQUEST_LOOKUP_FAILED",
+    "CONVERSATION_LOOKUP_FAILED",
+    "PRESET_LOOKUP_FAILED",
+    "PRESET_BINDING_UPDATE_FAILED",
+    "CONVERSATION_CREATE_FAILED",
+    "MESSAGE_SAVE_FAILED",
+    "HISTORY_LOAD_FAILED",
+    "ASSISTANT_CREATE_FAILED",
+    "AI_PROVIDER_UNAVAILABLE",
+  ]),
   action: new Set([
     "send",
     "regenerate",
@@ -410,6 +425,9 @@ export function setAnalyticsOptOut(optOut: boolean): void {
     } else {
       localStorage.removeItem(OPT_OUT_KEY);
       getAnonymousId();
+      // Re-identify the current signed-in user after re-enabling telemetry.
+      // This event is local only; normal opt-out checks still gate capture.
+      window.dispatchEvent(new Event("ozlind:analytics-consent-change"));
     }
   } catch {
     // Respect a failed storage write as best effort without disrupting the app.
