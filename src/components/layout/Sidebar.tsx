@@ -46,9 +46,10 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("conversations")
-        .select("id,title,updated_at")
+        .select("id,title,updated_at,pinned")
         .eq("user_id", user.id)
         .eq("archived", showArchived)
+        .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false })
         .limit(100);
 
@@ -82,6 +83,28 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       await refetch();
     } catch {
       setConversationActionError("Could not rename this conversation. Please try again.");
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function togglePinned(conversationId: string, pinned: boolean) {
+    if (actionBusyId) return;
+    setActionBusyId(conversationId);
+    setConversationActionError("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("conversations")
+        .update({ pinned })
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error || !data) throw error ?? new Error("Conversation was not found.");
+      await refetch();
+    } catch {
+      setConversationActionError("Could not update this conversation's pin. Please try again.");
     } finally {
       setActionBusyId(null);
     }
@@ -230,11 +253,15 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
                     aria-current={path === "/app/" + conversation.id ? "page" : undefined}
                     title={conversation.title || "New conversation"}
                   >
-                    {conversation.title || "New conversation"}
+                    <span className="conversation-link-title">{conversation.title || "New conversation"}</span>
                   </Link>
                   <details className="conversation-menu">
                     <summary aria-label={"Actions for " + (conversation.title || "New conversation")} title="Conversation actions">···</summary>
                     <div className="conversation-menu-panel">
+                      <button type="button" disabled={actionBusyId === conversation.id} onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        void togglePinned(conversation.id, !conversation.pinned);
+                      }}><OzlindIcon name="i-bookmark" size={14} /> {conversation.pinned ? "Unpin" : "Pin to top"}</button>
                       <button type="button" onClick={(event) => {
                         event.currentTarget.closest("details")?.removeAttribute("open");
                         setRenamingId(conversation.id);
