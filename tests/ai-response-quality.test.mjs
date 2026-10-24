@@ -191,12 +191,14 @@ test("web research returns validated source links as part of the persisted answe
   assert.ok(route.includes("buffer += footer"));
 });
 
-test("image requests retry a configured multimodal fallback after temporary Gemini capacity failures", () => {
+test("image requests fail over promptly to configured multimodal providers after capacity failures", () => {
   assert.ok(route.includes("GEMINI_VISION_FALLBACK_MODELS"));
   assert.ok(route.includes('"gemini-3.6-flash,gemini-3.5-flash-lite"'));
   assert.ok(route.includes("providerModel: candidate.modelId"));
   assert.ok(route.includes("selectedProviderModel = candidate.modelId"));
-  assert.ok(route.includes("maxRetries: input.images.length ? 0 : 2"));
+  assert.ok(route.includes("maxRetries: 0"));
+  assert.ok(route.includes("AbortSignal.timeout(input.images.length ? 18000 : 12000)"));
+  assert.ok(route.includes("nativeGroqModelIds.has(candidate.modelId)"));
 });
 
 
