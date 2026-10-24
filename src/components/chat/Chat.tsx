@@ -138,6 +138,13 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   useEffect(() => setId(initialId), [initialId]);
 
   useEffect(() => {
+    if (activePreset || presetSelectionDirty) return;
+    setModel(preferences.default_model);
+    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
+      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
+  }, [preferences.default_model, activePreset, presetSelectionDirty]);
+
+  useEffect(() => {
     const applyEventPreset = (event: Event) => {
       const preset = (event as CustomEvent<unknown>).detail;
       if (!isChatPreset(preset)) {
@@ -213,11 +220,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [previewImage]);
-  useEffect(() => {
-    setModel(preferences.default_model);
-    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
-      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
-  }, [preferences.default_model]);
+
   useEffect(() => setResearchEnabled(preferences.research_enabled), [preferences.research_enabled]);
 
   useEffect(() => {
