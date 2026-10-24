@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { suggestArtifactTitle } from "@/lib/chat/export.mjs";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 export function SaveResponseButton({ content }: { content: string }) {
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -32,9 +33,11 @@ export function SaveResponseButton({ content }: { content: string }) {
 
       setState("saved");
       setMessage("Saved to Workspace.");
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "save_response", result: "success" });
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "This answer could not be saved.");
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "save_response", result: "failed" });
     }
   }
 
