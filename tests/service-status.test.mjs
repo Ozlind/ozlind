@@ -11,6 +11,8 @@ test("readiness exposes only non-secret capability booleans for the settings UI"
   assert.match(route, /researchConfigured,/);
   assert.match(route, /aiGatewayConfigured = Boolean\(process\.env\.AI_GATEWAY_API_KEY\)/);
   assert.match(route, /gatewayVisionModelConfigured,/);
+  assert.match(route, /aiGatewayAvailable = Boolean\(process\.env\.AI_GATEWAY_API_KEY \|\| process\.env\.VERCEL\)/);
+  assert.match(route, /gatewayFallbackModelsConfigured,/);
   assert.match(route, /const gatewayReady = checks\.aiGatewayConfigured/);
   assert.match(route, /checks\.groq \|\| checks\.google \|\| gatewayReady/);
   assert.match(route, /AI_GATEWAY_VISION_MODEL/);
@@ -20,6 +22,8 @@ test("readiness exposes only non-secret capability booleans for the settings UI"
   assert.doesNotMatch(settings, /GROQ_API_KEY|GEMINI_API_KEY|TAVILY_API_KEY|SUPABASE_SECRET_KEY/);
   assert.match(settings, /NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED !== "true"/);
   assert.match(settings, /temporarily paused globally/);
+  assert.match(settings, /Additional model fallbacks/);
+  assert.match(settings, /gatewayFallbackModelsConfigured/);
 });
 
 test("chat route supports optional AI Gateway fallback models without replacing native providers", async () => {
