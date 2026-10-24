@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 
@@ -29,7 +29,7 @@ export function CommandPalette() {
   }, [query]);
 
   useEffect(() => {
-    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+    const handleGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -57,18 +57,20 @@ export function CommandPalette() {
     };
   }, [open]);
 
-  useEffect(() => setActiveIndex(0), [query]);
-
-  function execute(href: string) {
+  function closePalette() {
     setOpen(false);
     setQuery("");
+  }
+
+  function execute(href: string) {
+    closePalette();
     router.push(href);
   }
 
-  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function handleDialogKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      setOpen(false);
+      closePalette();
       return;
     }
     if (event.key === "ArrowDown") {
@@ -109,14 +111,14 @@ export function CommandPalette() {
   if (!open) return null;
 
   return (
-    <div className="command-palette-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+    <div className="command-palette-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) closePalette(); }}>
       <div className="command-palette" role="dialog" aria-modal="true" aria-labelledby="command-palette-title" onKeyDown={handleDialogKeyDown}>
         <div className="command-palette-search">
           <OzlindIcon name="i-search" size={18} aria-hidden="true" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }}
             placeholder="Where do you want to go?"
             aria-label="Search Ozlind commands"
             aria-controls="command-palette-results"
