@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { setAnalyticsOptOut } from "@/lib/analytics";
+import { setAnalyticsOptOut, trackAnalyticsEvent } from "@/lib/analytics";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { usePreferences, type Preferences, defaultPreferences } from "@/hooks/usePreferences";
 import { t } from "@/lib/i18n";
@@ -33,6 +33,13 @@ export default function SettingsPage() {
   function updateAnalyticsConsent(enabled: boolean) {
     setAnalyticsEnabled(enabled);
     setAnalyticsOptOut(!enabled);
+  }
+
+  function recordPreferenceChange(interaction: "theme" | "accent" | "density" | "layout" | "default_model" | "language" | "enter_to_send" | "auto_scroll" | "show_reasoning" | "research_enabled") {
+    trackAnalyticsEvent("ozlind_product_interaction", {
+      action: "change_preference",
+      interaction,
+    });
   }
   const tr = (key: Parameters<typeof t>[1]) => t(preferences.language, key);
 
@@ -76,23 +83,23 @@ export default function SettingsPage() {
         <div className="settings-grid settings-grid-polished">
           <label className="setting-row setting-row-polished" htmlFor="pref-theme">
             <span><strong>{tr("theme")}</strong><small>Choose light, dark, or follow your device.</small></span>
-            <select id="pref-theme" value={preferences.theme} onChange={e => void update({ theme: e.target.value as Preferences["theme"] })}>
+            <select id="pref-theme" value={preferences.theme} onChange={e => { recordPreferenceChange("theme"); void update({ theme: e.target.value as Preferences["theme"] }); }}>
               <option value="system">{tr("system")}</option><option value="light">{tr("light")}</option><option value="dark">{tr("dark")}</option>
             </select>
           </label>
           <label className="setting-row setting-row-polished" htmlFor="pref-accent">
             <span><strong>{tr("accent")}</strong><small>Pick the highlight color used for key actions.</small></span>
-            <span className="settings-color-control"><span className="settings-color-swatch" style={{ backgroundColor: preferences.accent }} aria-hidden="true" /><input id="pref-accent" type="color" value={preferences.accent} onChange={e => void update({ accent: e.target.value })} aria-label="Accent color" /></span>
+            <span className="settings-color-control"><span className="settings-color-swatch" style={{ backgroundColor: preferences.accent }} aria-hidden="true" /><input id="pref-accent" type="color" value={preferences.accent} onChange={e => { recordPreferenceChange("accent"); void update({ accent: e.target.value }); }} aria-label="Accent color" /></span>
           </label>
           <label className="setting-row setting-row-polished" htmlFor="pref-density">
             <span><strong>{tr("density")}</strong><small>Control the vertical space between messages.</small></span>
-            <select id="pref-density" value={preferences.density} onChange={e => void update({ density: e.target.value as Preferences["density"] })}>
+            <select id="pref-density" value={preferences.density} onChange={e => { recordPreferenceChange("density"); void update({ density: e.target.value as Preferences["density"] }); }}>
               <option value="compact">{tr("compact")}</option><option value="comfortable">{tr("comfortable")}</option><option value="spacious">{tr("spacious")}</option>
             </select>
           </label>
           <label className="setting-row setting-row-polished" htmlFor="pref-layout">
             <span><strong>{tr("layout")}</strong><small>Use the standard reading width or a wider canvas.</small></span>
-            <select id="pref-layout" value={preferences.layout} onChange={e => void update({ layout: e.target.value as Preferences["layout"] })}>
+            <select id="pref-layout" value={preferences.layout} onChange={e => { recordPreferenceChange("layout"); void update({ layout: e.target.value as Preferences["layout"] }); }}>
               <option value="standard">{tr("standard")}</option><option value="wide">{tr("wide")}</option>
             </select>
           </label>
@@ -107,31 +114,31 @@ export default function SettingsPage() {
         <div className="settings-grid settings-grid-polished">
           <label className="setting-row setting-row-polished" htmlFor="pref-model">
             <span><strong>{tr("defaultModel")}</strong><small>Used as the starting model for new chats.</small></span>
-            <select id="pref-model" value={preferences.default_model} onChange={e => void update({ default_model: e.target.value as Preferences["default_model"] })}>
+            <select id="pref-model" value={preferences.default_model} onChange={e => { recordPreferenceChange("default_model"); void update({ default_model: e.target.value as Preferences["default_model"] }); }}>
               {models.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
           <label className="setting-row setting-row-polished" htmlFor="pref-language">
             <span><strong>{tr("language")}</strong><small>Choose the interface language.</small></span>
-            <select id="pref-language" value={preferences.language} onChange={e => void update({ language: e.target.value as Preferences["language"] })}>
+            <select id="pref-language" value={preferences.language} onChange={e => { recordPreferenceChange("language"); void update({ language: e.target.value as Preferences["language"] }); }}>
               <option value="en">English</option><option value="ml">മലയാളം</option>
             </select>
           </label>
           <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-enter">
             <span><strong>{tr("enterToSend")}</strong><small>Press Enter to send; use Shift + Enter for a new line.</small></span>
-            <input id="pref-enter" type="checkbox" checked={preferences.enter_to_send} onChange={e => void update({ enter_to_send: e.target.checked })} />
+            <input id="pref-enter" type="checkbox" checked={preferences.enter_to_send} onChange={e => { recordPreferenceChange("enter_to_send"); void update({ enter_to_send: e.target.checked }); }} />
           </label>
           <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-scroll">
             <span><strong>{tr("autoScroll")}</strong><small>Keep the latest response in view as it streams.</small></span>
-            <input id="pref-scroll" type="checkbox" checked={preferences.auto_scroll} onChange={e => void update({ auto_scroll: e.target.checked })} />
+            <input id="pref-scroll" type="checkbox" checked={preferences.auto_scroll} onChange={e => { recordPreferenceChange("auto_scroll"); void update({ auto_scroll: e.target.checked }); }} />
           </label>
           <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-reasoning">
             <span><strong>{tr("showReasoning")}</strong><small>Show reasoning details when the selected model provides them.</small></span>
-            <input id="pref-reasoning" type="checkbox" checked={preferences.show_reasoning} onChange={e => void update({ show_reasoning: e.target.checked })} />
+            <input id="pref-reasoning" type="checkbox" checked={preferences.show_reasoning} onChange={e => { recordPreferenceChange("show_reasoning"); void update({ show_reasoning: e.target.checked }); }} />
           </label>
           <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-research">
             <span><strong>Live web research</strong><small>Allow supported chat flows to use live web research.</small></span>
-            <input id="pref-research" type="checkbox" checked={preferences.research_enabled} onChange={e => void update({ research_enabled: e.target.checked })} />
+            <input id="pref-research" type="checkbox" checked={preferences.research_enabled} onChange={e => { recordPreferenceChange("research_enabled"); void update({ research_enabled: e.target.checked }); }} />
           </label>
         </div>
       </section>
@@ -147,8 +154,10 @@ export default function SettingsPage() {
             <span>
               <strong>Share product diagnostics</strong>
               <small>
-                Records page visits, browser error types, performance timings, and chat request outcomes.
-                Prompts, replies, uploaded content, emails, and error stacks are not sent. Signed-in events
+                Records privacy-filtered page visits, browser error categories, performance timings, AI request outcomes,
+                and limited feature-use events (such as response mode, web-search toggles, attachment counts,
+                copy/save actions, and preference categories). Prompts, replies, uploaded files or images,
+                filenames, preference values, emails, titles, and error stacks are not sent. Signed-in events
                 use your internal account ID rather than your email.
                 {browserDoNotTrack ? " Your browser's Do Not Track setting disables analytics." : ""}
               </small>
