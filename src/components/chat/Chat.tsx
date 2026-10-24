@@ -957,18 +957,16 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             className={"composer-research" + (voiceMode ? " active" : "")}
             aria-pressed={voiceMode}
             onClick={() => {
-              setVoiceMode(current => {
-                voiceModeRef.current = !current;
-                if (current) {
-                  voiceSessionRef.current = false;
-                  recognitionRef.current?.stop();
-                }
-                if (!current) {
-                  const latest = [...messages].reverse().find(message => message.role === "assistant" && message.status === "complete");
-                  lastSpokenMessageId.current = latest?.id ?? null;
-                }
-                return !current;
-              });
+              const nextVoiceMode = !voiceMode;
+              voiceModeRef.current = nextVoiceMode;
+              if (!nextVoiceMode) {
+                voiceSessionRef.current = false;
+                recognitionRef.current?.stop();
+              } else {
+                const latest = [...messages].reverse().find(message => message.role === "assistant" && message.status === "complete");
+                lastSpokenMessageId.current = latest?.id ?? null;
+              }
+              setVoiceMode(nextVoiceMode);
               if (voiceMode && "speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
                 speakingRef.current = false;
