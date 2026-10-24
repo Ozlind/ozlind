@@ -5,7 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/Button";\nimport { resetAnalyticsIdentity } from "@/lib/analytics";
+import { Button } from "@/components/ui/Button";
+import { resetAnalyticsIdentity } from "@/lib/analytics";
 import { useEffect, useState } from "react";
 
 type SidebarProps = {
