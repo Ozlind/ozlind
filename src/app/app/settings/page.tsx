@@ -19,10 +19,6 @@ export default function SettingsPage() {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [analyticsSettingsLoaded, setAnalyticsSettingsLoaded] = useState(false);
   const [browserDoNotTrack, setBrowserDoNotTrack] = useState(false);
-  const [healthRefresh, setHealthRefresh] = useState(0);
-  const [serviceStatus, setServiceStatus] = useState<null | { ready: boolean; checks: { supabase: boolean; supabaseConfigured: boolean; supabaseReachable: boolean; groq: boolean; google: boolean; vision: boolean; researchConfigured: boolean; aiGatewayConfigured: boolean; aiGatewayAvailable: boolean; gatewayFallbackModelsConfigured: boolean; gatewayFastModelConfigured: boolean; gatewayProModelConfigured: boolean; gatewayAutoModelConfigured: boolean; gatewayVisionModelConfigured: boolean }; timestamp: string }>(null);
-  const [healthLoading, setHealthLoading] = useState(true);
-  const [healthError, setHealthError] = useState(false);
 
   useEffect(() => {
     const doNotTrack = navigator.doNotTrack === "1";
@@ -35,25 +31,6 @@ export default function SettingsPage() {
     setAnalyticsSettingsLoaded(true);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    setHealthLoading(true);
-    setHealthError(false);
-    fetch("/api/ready", { cache: "no-store", headers: { Accept: "application/json" } })
-      .then(async response => {
-        if (!response.ok && response.status !== 503) throw new Error("Health check unavailable");
-        return response.json();
-      })
-      .then((data: unknown) => {
-        if (cancelled || !data || typeof data !== "object") return;
-        const value = data as typeof serviceStatus;
-        if (!value || typeof value.ready !== "boolean" || !value.checks) throw new Error("Invalid health response");
-        setServiceStatus(value);
-      })
-      .catch(() => { if (!cancelled) { setServiceStatus(null); setHealthError(true); } })
-      .finally(() => { if (!cancelled) setHealthLoading(false); });
-    return () => { cancelled = true; };
-  }, [healthRefresh]);
 
   function updateAnalyticsConsent(enabled: boolean) {
     setAnalyticsEnabled(enabled);
@@ -190,24 +167,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="settings-section settings-section-polished" aria-labelledby="settings-health">
-        <div className="settings-section-intro">
-          <h2 id="settings-health">Service status</h2>
-          <p>Live configuration checks for the services that power your workspace. Provider credentials are never shown.</p>
-        </div>
-        <div className="settings-grid settings-grid-polished">
-          {healthLoading ? <p role="status">Checking service status…</p> : healthError || !serviceStatus ? <p role="status">Status is temporarily unavailable. Your chats are not changed by this check.</p> : <>
-            <div className="setting-row setting-row-polished"><span><strong>Supabase</strong><small>{serviceStatus.checks.supabaseReachable ? "Connected" : serviceStatus.checks.supabaseConfigured ? "Configured, connection unavailable" : "Needs configuration"}</small></span><span aria-label={serviceStatus.checks.supabaseReachable ? "Connected" : "Not connected"}>{serviceStatus.checks.supabaseReachable ? "●" : "○"}</span></div>
-            <div className="setting-row setting-row-polished"><span><strong>AI text generation</strong><small>{serviceStatus.checks.groq || serviceStatus.checks.google || (serviceStatus.checks.aiGatewayAvailable && (serviceStatus.checks.gatewayFastModelConfigured || serviceStatus.checks.gatewayProModelConfigured || serviceStatus.checks.gatewayAutoModelConfigured || serviceStatus.checks.gatewayFallbackModelsConfigured)) ? "Provider configured; live generation not tested here" : "No text provider configured"}</small></span><span>{serviceStatus.checks.groq || serviceStatus.checks.google || serviceStatus.checks.aiGatewayConfigured ? "●" : "○"}</span></div>
-            <div className="setting-row setting-row-polished"><span><strong>Image understanding</strong><small>{serviceStatus.checks.vision || (serviceStatus.checks.aiGatewayAvailable && serviceStatus.checks.gatewayVisionModelConfigured) ? "Vision provider configured; live inference not tested here" : "Needs provider configuration"}</small></span><span>{serviceStatus.checks.vision || (serviceStatus.checks.aiGatewayConfigured && serviceStatus.checks.gatewayVisionModelConfigured) ? "●" : "○"}</span></div>
-            <div className="setting-row setting-row-polished"><span><strong>Multi-provider AI Gateway</strong><small>{serviceStatus.checks.aiGatewayConfigured ? "Gateway key configured; model routing depends on the configured model IDs" : serviceStatus.checks.aiGatewayAvailable ? "Vercel Gateway runtime available; configure model IDs for routing" : "Optional — configure AI_GATEWAY_API_KEY server-side to add gateway-routed models"}</small></span><span>{serviceStatus.checks.aiGatewayAvailable ? "●" : "○"}</span></div>
-            <div className="setting-row setting-row-polished"><span><strong>Additional model fallbacks</strong><small>{serviceStatus.checks.gatewayFallbackModelsConfigured ? "Custom fallback model IDs configured" : "Optional — set AI_GATEWAY_FALLBACK_MODELS to a comma-separated list of supported model IDs"}</small></span><span>{serviceStatus.checks.gatewayFallbackModelsConfigured ? "●" : "○"}</span></div>
-            <div className="setting-row setting-row-polished"><span><strong>Live web research</strong><small>{serviceStatus.checks.researchConfigured ? "Search provider configured; live search not tested here" : "Search provider not configured"}</small></span><span>{serviceStatus.checks.researchConfigured ? "●" : "○"}</span></div>
-          </>}
-        </div>
-        <button type="button" className="ui-button ui-button-secondary settings-reset-button" onClick={() => setHealthRefresh(value => value + 1)} disabled={healthLoading}>Refresh status</button>
-        {serviceStatus && !healthLoading && <p className="settings-persisted">Last checked {new Date(serviceStatus.timestamp).toLocaleTimeString()}</p>}
-      </section>
+
 
       <section className="settings-section settings-section-polished settings-reset-section">
         <div className="settings-section-intro">
