@@ -4,6 +4,7 @@ import "../styles/globals.css";
 import "../styles/sidebar-polish.css";
 import "../styles/unified-design-system.css";
 import { QueryProvider } from "@/providers/QueryProvider";
+import PostHogAnalytics from "@/components/analytics/PostHogAnalytics";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ozlind.vercel.app"),
@@ -37,5 +38,14 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en" suppressHydrationWarning><body><QueryProvider>{children}</QueryProvider></body></html>;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <QueryProvider>
+          <PostHogAnalytics />
+          {children}
+        </QueryProvider>
+      </body>
+    </html>
+  );
 }
