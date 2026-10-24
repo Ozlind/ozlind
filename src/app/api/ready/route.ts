@@ -47,7 +47,8 @@ export async function GET() {
   const gatewayVisionModelConfigured = Boolean(process.env.AI_GATEWAY_VISION_MODEL?.trim());
   const visionConfigured = Boolean(
     (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ||
-      process.env.GROQ_API_KEY,
+      process.env.GROQ_API_KEY ||
+      (aiGatewayConfigured && gatewayVisionModelConfigured),
   );
 
   const checks = {
@@ -64,7 +65,12 @@ export async function GET() {
     gatewayAutoModelConfigured,
     gatewayVisionModelConfigured,
   };
-  const ready = checks.supabase && (checks.groq || checks.google);
+  const gatewayReady = checks.aiGatewayConfigured && (
+    checks.gatewayFastModelConfigured ||
+    checks.gatewayProModelConfigured ||
+    checks.gatewayAutoModelConfigured
+  );
+  const ready = checks.supabase && (checks.groq || checks.google || gatewayReady);
 
   return NextResponse.json(
     {
