@@ -32,14 +32,19 @@ export function CommandPalette() {
     const handleGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        setOpen((current) => !current);
+        if (open) {
+          setOpen(false);
+          setQuery("");
+        } else {
+          previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          setOpen(true);
+        }
       }
     };
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     setOpen(false);
