@@ -174,7 +174,7 @@ function safeProperties(properties: Record<string, AnalyticsValue>): Record<stri
       continue;
     }
 
-    const clean = value.replace(/[\\r\\n\\t]/g, " ").trim().slice(0, 120);
+    const clean = value.replace(/[\r\n\t]/g, " ").trim().slice(0, 120);
     if (!clean) continue;
     const allowedValues = ALLOWED_STRING_VALUES[key];
     if (allowedValues && !allowedValues.has(clean)) continue;
