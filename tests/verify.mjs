@@ -9,7 +9,7 @@ const required=[
 "src/app/api/chat/route.ts","src/app/api/preferences/route.ts","src/app/api/documents/route.ts",
 "src/app/api/research/route.ts","src/app/api/presets/route.ts","src/app/api/artifacts/route.ts",
 "src/app/api/health/route.ts","src/app/api/ready/route.ts","src/lib/supabase/server.ts",
-"src/lib/supabase/middleware.ts","src/hooks/usePreferences.ts","src/lib/i18n.ts","src/lib/chat/streaming.mjs","src/lib/chat/streaming.d.mts",
+"src/lib/supabase/middleware.ts","src/hooks/usePreferences.ts","src/lib/i18n.ts","src/lib/chat/streaming.mjs","src/lib/chat/streaming.d.mts","src/lib/ai/reasoning.mjs","src/lib/ai/reasoning.d.mts",
 "supabase/migrations/20261008_stage2_preferences.sql","supabase/migrations/20261008_stage2_workspace.sql",
 "supabase/migrations/20261008_stage2_research_preference.sql",
 "supabase/migrations/20261009_stage3_rate_limit_user_scope.sql",
@@ -29,6 +29,7 @@ for(const file of files){
 }
 const chat=fs.readFileSync(path.join(root,"src/app/api/chat/route.ts"),"utf8");
 for(const token of ["z.object","createClient","streamText","AbortSignal.timeout","AbortSignal.any","idempotencyKey","X-OZLIND-Request-ID","researchContext","checkUserRateLimit","candidateIterator.next()","firstDelta","iterator.next()","idempotency.lookup_failed","modelId: fastModel","modelId: proModel","modelId: geminiModel","provider_model: selectedProviderModel ?? selectedKey",'.eq("status", "complete")'])if(!chat.includes(token))problems.push("Chat route missing "+token);
+if(!chat.includes("getReasoningEffort(candidate.modelId, input.content)"))problems.push("Chat route missing adaptive reasoning effort selection");
 const canonicalSchema=fs.readFileSync(path.join(root,"supabase/schema.sql"),"utf8");
 const rateLimitTables=canonicalSchema.match(/create table if not exists public\.rate_limits/g)||[];
 if(rateLimitTables.length!==1)problems.push("Canonical schema must define rate_limits exactly once");
