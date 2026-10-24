@@ -1845,3 +1845,19 @@ a { color: inherit; }
 .active-preset-chip button{display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--text-muted)}
 .active-preset-chip button:hover:not(:disabled){background:var(--bg);color:var(--text)}
 @media(max-width:768px){.chat-title-group{gap:6px}.active-preset-chip{max-width:38vw;font-size:10px;padding-left:6px}.chat-header-tools{flex-shrink:0}}
+
+/* Small, calm voice-chat indicator; respects reduced-motion preferences. */
+.voice-orb-panel{position:fixed;z-index:20;left:calc(280px + 24px);right:24px;bottom:126px;margin:0 auto;width:min(360px,calc(100% - 48px));display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-md);color:var(--text-muted);font-size:12px;backdrop-filter:blur(12px)}
+.voice-orb{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--accent) 16%,var(--surface));position:relative}
+.voice-orb:before,.voice-orb span{content:"";display:block;position:absolute;width:9px;height:9px;border-radius:50%;background:var(--accent);transition:transform .2s ease}
+.voice-orb span{width:16px;height:16px;opacity:.24}
+.voice-orb-panel.is-listening .voice-orb:before{animation:ozlind-voice-pulse 1.15s ease-in-out infinite}
+.voice-orb-panel.is-speaking .voice-orb:before{animation:ozlind-voice-breathe .65s ease-in-out infinite alternate}
+.voice-orb-panel.is-thinking .voice-orb span{animation:ozlind-voice-pulse .9s ease-in-out infinite}
+.voice-orb-copy{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.voice-orb-stop{border:0;background:transparent;color:var(--text-muted);font-size:12px;padding:5px 8px;border-radius:999px}
+.voice-orb-stop:hover{background:var(--bg);color:var(--text)}
+@keyframes ozlind-voice-pulse{0%,100%{transform:scale(.8);opacity:.65}50%{transform:scale(1.3);opacity:1}}
+@keyframes ozlind-voice-breathe{from{transform:scale(.8)}to{transform:scale(1.25)}}
+@media(max-width:760px){.voice-orb-panel{left:12px;right:12px;bottom:120px;width:calc(100% - 24px)}}
+@media(prefers-reduced-motion:reduce){.voice-orb-panel *{animation:none!important;transition:none!important}}
