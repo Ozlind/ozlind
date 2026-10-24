@@ -933,11 +933,24 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       )}
 
       {voiceMode && (
-        <div className={"voice-orb-panel" + (voiceListening ? " is-listening" : streaming ? " is-thinking" : speakingMessageId ? " is-speaking" : "")} role="status" aria-live="polite">
-          <span className="voice-orb" aria-hidden="true"><span /></span>
-          <span className="voice-orb-copy">{streaming ? "Ozlind is thinking…" : speakingMessageId ? "Ozlind is speaking…" : voiceListening ? "I’m listening" : "Voice chat ready"}</span>
+        <section
+          className={"voice-orb-panel voice-orb-stage" + (speakingMessageId ? " is-speaking" : streaming ? " is-thinking" : voiceListening ? " is-listening" : "")}
+          role="status"
+          aria-live="polite"
+          aria-label="Voice conversation"
+        >
+          <div className="voice-orb-visual" aria-hidden="true">
+            <span className="voice-orb-ring voice-orb-ring-one" />
+            <span className="voice-orb-ring voice-orb-ring-two" />
+            <span className="voice-orb-ring voice-orb-ring-three" />
+            <span className="voice-orb"><span /></span>
+          </div>
+          <div className="voice-orb-text">
+            <span className="voice-orb-copy">{streaming ? "Ozlind is thinking…" : speakingMessageId ? "Ozlind is speaking…" : voiceListening ? "I’m listening" : "Voice chat ready"}</span>
+            <span className="voice-orb-caption">{streaming ? "Putting a response together" : speakingMessageId ? "Listen, then speak whenever you’re ready" : voiceListening ? "Speak naturally. I’m here." : "Your microphone is ready"}</span>
+          </div>
           <button type="button" className="voice-orb-stop" onClick={() => { voiceSessionRef.current = false; recognitionRef.current?.stop(); if ("speechSynthesis" in window) window.speechSynthesis.cancel(); speakingRef.current = false; setSpeakingMessageId(null); setVoiceMode(false); voiceModeRef.current = false; }} aria-label="End voice chat">End</button>
-        </div>
+        </section>
       )}
       <div className="composer-wrap">
         {images.length > 0 && (
