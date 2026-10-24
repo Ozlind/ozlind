@@ -88,8 +88,6 @@ const SAFE_ENUM_VALUES: Record<string, ReadonlySet<string>> = {
     "new_chat",
     "retry_history",
     "clear_preset",
-    "new_chat",
-    "save_response",
     "rename_conversation",
     "toggle_pin",
     "archive_conversation",
