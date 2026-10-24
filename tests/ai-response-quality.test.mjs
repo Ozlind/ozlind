@@ -36,6 +36,16 @@ test("AI response policy is multilingual and follows the user's language", () =>
   assert.match(route, /including mixed-language messages when natural/);
 });
 
+test("chat provides discreet voice input, read-aloud, and opt-in hands-free voice turns", () => {
+  assert.match(chatComponent, /webkitSpeechRecognition/);
+  assert.match(chatComponent, /function toggleVoiceInput\(\)/);
+  assert.match(chatComponent, /SpeechSynthesisUtterance/);
+  assert.match(chatComponent, /Automatically read new replies aloud/);
+  assert.match(chatComponent, /if \(voiceMode && !draft\.trim\(\)\)/);
+  assert.match(chatComponent, /Read response aloud/);
+  assert.match(chatComponent, /Microphone permission was denied/);
+});
+
 test("AI response policy prioritizes accuracy and honest uncertainty", () => {
   assert.match(route, /Never fabricate citations, sources, capabilities, or current information/);
   assert.match(route, /distinguish verified facts from estimates and uncertainty/);
