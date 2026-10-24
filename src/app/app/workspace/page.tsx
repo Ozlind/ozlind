@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { OzlindIcon } from "@/components/ui/OzlindIcon";
 
 type Preset = { id: string; name: string; system_prompt: string; model: string };
@@ -9,6 +10,12 @@ type Artifact = { id: string; title: string; kind: "text" | "code" | "markdown" 
 type WorkspaceTab = "presets" | "artifacts";
 
 const DEFAULT_MODEL = "groq:llama-3.3-70b-versatile";
+const PENDING_PRESET_KEY = "ozlind:pending-preset";
+const PRESET_MODELS = [
+  { value: "groq:llama-3.3-70b-versatile", label: "Fast — everyday tasks" },
+  { value: "groq:deepseek-r1-distill-llama-70b", label: "Pro — deeper reasoning" },
+  { value: "google:gemini-2.0-flash", label: "Vision — image-capable model" },
+] as const;
 
 async function readPayload(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -30,10 +37,12 @@ async function readPayload(response: Response) {
 }
 
 export default function WorkspacePage() {
+  const router = useRouter();
   const [presets, setPresets] = useState<Preset[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [presetModel, setPresetModel] = useState<string>(DEFAULT_MODEL);
   const [artifactTitle, setArtifactTitle] = useState("");
   const [artifactContent, setArtifactContent] = useState("");
   const [artifactKind, setArtifactKind] = useState<Artifact["kind"]>("markdown");
@@ -80,11 +89,12 @@ export default function WorkspacePage() {
       const response = await fetch("/api/presets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), system_prompt: prompt.trim(), model: DEFAULT_MODEL }),
+        body: JSON.stringify({ name: name.trim(), system_prompt: prompt.trim(), model: presetModel }),
       });
       await readPayload(response);
       setName("");
       setPrompt("");
+      setPresetModel(DEFAULT_MODEL);
       setNotice("Preset saved. It’s ready for your next conversation.");
       await load();
     } catch (cause) {
@@ -92,6 +102,58 @@ export default function WorkspacePage() {
     } finally {
       setSavingPreset(false);
     }
+  }
+
+  function usePreset(preset: Preset) {
+    const pending = {
+      id: preset.id,
+      name: preset.name,
+      system_prompt: preset.system_prompt,
+      model: preset.model,
+    };
+    try {
+      sessionStorage.setItem(PENDING_PRESET_KEY, JSON.stringify(pending));
+    } catch {
+      setError("This browser could not prepare the preset. Check storage settings and try again.");
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("ozlind:apply-preset", { detail: pending }));
+    router.push("/app");
+  }
+
+  async function copyArtifact(artifact: Artifact) {
+    setError("");
+    setNotice("");
+    try {
+      await navigator.clipboard.writeText(artifact.content);
+      setNotice("Copied “" + artifact.title + "” to the clipboard.");
+    } catch {
+      setError("Clipboard access was blocked. You can still download this artifact.");
+    }
+  }
+
+  function downloadArtifact(artifact: Artifact) {
+    const mime = artifact.kind === "markdown" ? "text/markdown;charset=utf-8"
+      : artifact.kind === "json" ? "application/json;charset=utf-8"
+      : "text/plain;charset=utf-8";
+    const extensions: Record<Artifact["kind"], string> = {
+      markdown: "md", json: "json", code: "txt", text: "txt",
+    };
+    const filename = (artifact.title || "ozlind-artifact")
+      .normalize("NFKD")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "ozlind-artifact";
+    const url = URL.createObjectURL(new Blob([artifact.content], { type: mime }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename + "." + extensions[artifact.kind];
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+    setError("");
+    setNotice("Downloaded “" + artifact.title + "”.");
   }
 
   async function addArtifact(event: FormEvent<HTMLFormElement>) {
@@ -208,7 +270,10 @@ export default function WorkspacePage() {
                     <div className="workspace-item-copy">
                       <h3>{item.name}</h3>
                       <p>{item.system_prompt}</p>
-                      <span className="workspace-item-meta">{item.model.replace("groq:", "").replace("google:", "")}</span>
+                      <span className="workspace-item-meta">{PRESET_MODELS.find(option => option.value === item.model)?.label ?? "Custom model"}</span>
+                      <button type="button" className="ui-button ui-button-secondary workspace-use-preset" onClick={() => usePreset(item)} disabled={deletingId === item.id}>
+                        <OzlindIcon name="i-new-conversation" size={14} /> Use in chat
+                      </button>
                     </div>
                     <button type="button" className="icon-button workspace-delete" disabled={deletingId === item.id} onClick={() => void removeItem("presets", item.id, item.name)} aria-label={`Delete ${item.name}`} title="Delete preset">
                       {deletingId === item.id ? <OzlindIcon name="sym-processing" size={16} className="workspace-spin" /> : <OzlindIcon name="i-delete" size={16} />}
@@ -243,6 +308,7 @@ export default function WorkspacePage() {
               <form className="stack-4" onSubmit={addPreset}>
                 <label className="field" htmlFor="preset-name">Name<input id="preset-name" className="ui-input" value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Product reviewer" maxLength={80} required /></label>
                 <label className="field" htmlFor="preset-prompt">Instructions<textarea id="preset-prompt" className="ui-input workspace-textarea" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="How should Ozlind approach this kind of task?" maxLength={12000} required /></label>
+                <label className="field" htmlFor="preset-model">Preferred model<select id="preset-model" className="ui-input" value={presetModel} onChange={event => setPresetModel(event.target.value)}>{PRESET_MODELS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
                 <p className="workspace-helper">{prompt.length.toLocaleString()} / 12,000 characters</p>
                 <button className="ui-button ui-button-primary workspace-submit" type="submit" disabled={savingPreset || !name.trim() || !prompt.trim()}>{savingPreset ? <><OzlindIcon name="sym-processing" size={16} className="workspace-spin" /> Saving preset…</> : <><OzlindIcon name="i-plus" size={16} /> Save preset</>}</button>
               </form>
@@ -262,6 +328,10 @@ export default function WorkspacePage() {
           {selectedArtifact && tab === "artifacts" && (
             <section className="workspace-form-card workspace-preview">
               <div className="workspace-form-heading"><div><h2>{selectedArtifact.title}</h2><p>{selectedArtifact.kind.toUpperCase()} · Version {selectedArtifact.version}</p></div><button type="button" className="icon-button" aria-label="Close artifact preview" onClick={() => setSelectedArtifact(null)}><OzlindIcon name="i-close" size={17} /></button></div>
+              <div className="workspace-preview-actions">
+                <button type="button" className="ui-button ui-button-secondary" onClick={() => void copyArtifact(selectedArtifact)}><OzlindIcon name="i-copy" size={15} /> Copy content</button>
+                <button type="button" className="ui-button ui-button-secondary" onClick={() => downloadArtifact(selectedArtifact)}><OzlindIcon name="i-download" size={15} /> Download file</button>
+              </div>
               <pre>{selectedArtifact.content}</pre>
             </section>
           )}
