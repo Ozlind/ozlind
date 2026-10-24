@@ -204,7 +204,7 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           </div>
         ) : filteredConversations.length === 0 ? (
           <p className="sidebar-state">
-            {normalizedQuery ? "No conversations match your search." : "Your conversations will appear here."}
+            {normalizedQuery ? "No conversations match your search." : showArchived ? "No archived conversations yet." : "Your conversations will appear here."}
           </p>
         ) : (
           filteredConversations.map((conversation) => (
