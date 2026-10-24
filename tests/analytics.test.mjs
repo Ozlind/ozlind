@@ -12,6 +12,8 @@ test("PostHog events use the same-origin capture route and a property allowlist"
   assert.match(analytics, /const INGEST_PATH = "\/ingest\/i\/v0\/e"/);
   assert.match(analytics, /if \(!ALLOWED_PROPERTIES\.has\(key\)\) continue;/);
   assert.match(analytics, /fetch\(INGEST_PATH/);
+  assert.match(analytics, /properties:\s*\{\s*\/\/ PostHog Capture API requires distinct_id inside properties\.\s*distinct_id: currentDistinctId\(\)/);
+  assert.doesNotMatch(analytics, /event,\s*distinct_id: currentDistinctId\(\),\s*properties:/);
   assert.match(config, /source: "\/ingest\/i\/v0\/e"/);
   assert.match(config, /process\.env\.NEXT_PUBLIC_POSTHOG_HOST/);
   assert.doesNotMatch(analytics, /https:\/\/us\.i\.posthog\.com/);
