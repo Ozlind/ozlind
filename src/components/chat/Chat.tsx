@@ -965,8 +965,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               } else {
                 const latest = [...messages].reverse().find(message => message.role === "assistant" && message.status === "complete");
                 lastSpokenMessageId.current = latest?.id ?? null;
+                // Start microphone recognition directly from the user's tap so
+                // mobile browsers retain the permission/user-activation gesture.
+                voiceSessionRef.current = true;
               }
               setVoiceMode(nextVoiceMode);
+              if (nextVoiceMode) startVoiceRecognition();
               if (voiceMode && "speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
                 speakingRef.current = false;
