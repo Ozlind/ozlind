@@ -41,6 +41,8 @@ export async function GET() {
   // Qwen 3.8 vision model when a Groq key is available.
   const researchConfigured = Boolean(process.env.TAVILY_API_KEY);
   const aiGatewayConfigured = Boolean(process.env.AI_GATEWAY_API_KEY);
+  const aiGatewayAvailable = Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL);
+  const gatewayFallbackModelsConfigured = Boolean(process.env.AI_GATEWAY_FALLBACK_MODELS?.split(",").some((model) => model.trim()));
   const gatewayFastModelConfigured = Boolean(process.env.AI_GATEWAY_FAST_MODEL?.trim());
   const gatewayProModelConfigured = Boolean(process.env.AI_GATEWAY_PRO_MODEL?.trim());
   const gatewayAutoModelConfigured = Boolean(process.env.AI_GATEWAY_AUTO_MODEL?.trim());
@@ -48,7 +50,7 @@ export async function GET() {
   const visionConfigured = Boolean(
     (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ||
       process.env.GROQ_API_KEY ||
-      (aiGatewayConfigured && gatewayVisionModelConfigured),
+      (aiGatewayAvailable && gatewayVisionModelConfigured),
   );
 
   const checks = {
@@ -60,15 +62,18 @@ export async function GET() {
     vision: visionConfigured,
     researchConfigured,
     aiGatewayConfigured,
+    aiGatewayAvailable,
+    gatewayFallbackModelsConfigured,
     gatewayFastModelConfigured,
     gatewayProModelConfigured,
     gatewayAutoModelConfigured,
     gatewayVisionModelConfigured,
   };
-  const gatewayReady = checks.aiGatewayConfigured && (
+  const gatewayReady = checks.aiGatewayAvailable && (
     checks.gatewayFastModelConfigured ||
     checks.gatewayProModelConfigured ||
-    checks.gatewayAutoModelConfigured
+    checks.gatewayAutoModelConfigured ||
+    checks.gatewayFallbackModelsConfigured
   );
   const ready = checks.supabase && (checks.groq || checks.google || gatewayReady);
 
