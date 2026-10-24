@@ -30,5 +30,8 @@ test("chat route supports optional AI Gateway fallback models without replacing 
   assert.match(chat, /AI_GATEWAY_PRO_MODEL/);
   assert.match(chat, /AI_GATEWAY_AUTO_MODEL/);
   assert.match(chat, /AI_GATEWAY_VISION_MODEL/);
+  assert.match(chat, /maxRetries: 0/);
+  assert.match(chat, /AbortSignal\.timeout\(input\.images\.length \? 18000 : 12000\)/);
+  assert.match(chat, /nativeGroqModelIds\.has\(candidate\.modelId\)/);
   assert.match(chat, /\.\.\.fallbackOrder\(input\.model\)\.flatMap/);
 });
