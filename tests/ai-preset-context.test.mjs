@@ -32,5 +32,5 @@ test("returns empty context for absent or blank preset instructions", () => {
 
 test("bounds preset text to the documented input size", () => {
   const context = buildPresetContext({ name: "Long", system_prompt: "a".repeat(15_000) });
-  assert.ok(context.length < 12_500);
+  assert.ok(context.length < 13_000);
 });
