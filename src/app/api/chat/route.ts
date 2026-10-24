@@ -1,6 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
-import { streamText, type ModelMessage, type LanguageModel } from "ai";
+import { createGateway, streamText, type ModelMessage, type LanguageModel } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
@@ -90,7 +90,17 @@ function configuredVisionModels(): Array<{ modelId: string; model: LanguageModel
     });
   }
 
-  // Try the independent provider before secondary Google models, since
+  // Optional Vercel AI Gateway can route to supported OpenAI, Anthropic,
+  // Google and other model providers. It is only used when both a server-side
+  // gateway key and an explicit model ID are configured.
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+  const gatewayVisionModel = process.env.AI_GATEWAY_VISION_MODEL?.trim();
+  if (gatewayKey && gatewayVisionModel) {
+    const gateway = createGateway({ apiKey: gatewayKey });
+    candidates.push({ modelId: gatewayVisionModel, model: gateway(gatewayVisionModel) });
+  }
+
+  // Try the independent Groq provider before secondary Google models, since
   // Gemini capacity errors can affect multiple models at the same time.
   candidates.push(...googleCandidates.slice(1));
   return candidates;
@@ -118,6 +128,25 @@ function configuredModels(): Record<ModelKey, ConfiguredModel | null> {
         ? { model: googleProvider(geminiModel), modelId: geminiModel }
         : null,
   };
+}
+
+function configuredGatewayModels(): Partial<Record<ModelKey, ConfiguredModel>> {
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey) return {};
+
+  const gateway = createGateway({ apiKey });
+  const configured: Partial<Record<ModelKey, ConfiguredModel>> = {};
+  const modelEntries: Array<[ModelKey, string | undefined]> = [
+    ["groq:llama-3.3-70b-versatile", process.env.AI_GATEWAY_FAST_MODEL],
+    ["groq:deepseek-r1-distill-llama-70b", process.env.AI_GATEWAY_PRO_MODEL],
+    ["google:gemini-2.0-flash", process.env.AI_GATEWAY_AUTO_MODEL],
+  ];
+
+  for (const [key, value] of modelEntries) {
+    const modelId = value?.trim();
+    if (modelId) configured[key] = { model: gateway(modelId), modelId };
+  }
+  return configured;
 }
 
 function fallbackOrder(requested: ModelKey): ModelKey[] {
@@ -347,6 +376,7 @@ export async function POST(request: Request) {
     }
   }
   const models = configuredModels();
+  const gatewayModels = configuredGatewayModels();
   const visionModel: ModelKey = "google:gemini-2.0-flash";
   const visionModels = configuredVisionModels();
 
@@ -363,10 +393,16 @@ export async function POST(request: Request) {
 
   const candidates: Array<{ key: ModelKey; model: LanguageModel; modelId: string }> = input.images.length
     ? visionModels.map(({ modelId, model }) => ({ key: visionModel, model, modelId }))
-    : fallbackOrder(input.model).flatMap((key) => {
-        const configured = models[key];
-        return configured ? [{ key, ...configured }] : [];
-      });
+    : [
+        ...fallbackOrder(input.model).flatMap((key) => {
+          const configured = models[key];
+          return configured ? [{ key, ...configured }] : [];
+        }),
+        ...fallbackOrder(input.model).flatMap((key) => {
+          const configured = gatewayModels[key];
+          return configured ? [{ key, ...configured }] : [];
+        }),
+      ];
 
   if (!candidates.length) {
     return jsonError(
