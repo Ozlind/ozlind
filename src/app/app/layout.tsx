@@ -3,7 +3,6 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
-import PostHogIdentity from "@/components/analytics/PostHogIdentity";
 
 export const metadata: Metadata = {
   title: { default: "AI workspace", template: "%s | Ozlind" },
@@ -44,7 +43,6 @@ export default async function AppLayout({
         displayName: user.user_metadata?.display_name ?? "",
       }}
     >
-      <PostHogIdentity userId={user.id} />
       {children}
     </AppShell>
   );
