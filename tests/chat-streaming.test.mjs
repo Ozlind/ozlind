@@ -31,7 +31,7 @@ test("persists canceled chat streams and aborts provider generation", async () =
   assert.match(route, /const streamAbortController = new AbortController\(\)/);
   assert.match(
     route,
-    /AbortSignal\.any\(\[request\.signal, streamAbortController\.signal, AbortSignal\.timeout\(50000\)\]\)/,
+    /AbortSignal\.any\(\[request\.signal, streamAbortController\.signal, AbortSignal\.timeout\(input\.images\.length \? 18000 : 12000\)\]\)/,
   );
   assert.match(route, /async cancel\(\)[\s\S]*?streamAbortController\.abort/);
   assert.match(route, /status: buffer \? "interrupted" : "failed"/);
