@@ -18,6 +18,10 @@ export default function SettingsPage() {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [analyticsSettingsLoaded, setAnalyticsSettingsLoaded] = useState(false);
   const [browserDoNotTrack, setBrowserDoNotTrack] = useState(false);
+  const [healthRefresh, setHealthRefresh] = useState(0);
+  const [serviceStatus, setServiceStatus] = useState<null | { ready: boolean; checks: { supabase: boolean; supabaseConfigured: boolean; supabaseReachable: boolean; groq: boolean; google: boolean; vision: boolean; researchConfigured: boolean }; timestamp: string }>(null);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [healthError, setHealthError] = useState(false);
 
   useEffect(() => {
     const doNotTrack = navigator.doNotTrack === "1";
@@ -29,6 +33,26 @@ export default function SettingsPage() {
     }
     setAnalyticsSettingsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHealthLoading(true);
+    setHealthError(false);
+    fetch("/api/ready", { cache: "no-store", headers: { Accept: "application/json" } })
+      .then(async response => {
+        if (!response.ok && response.status !== 503) throw new Error("Health check unavailable");
+        return response.json();
+      })
+      .then((data: unknown) => {
+        if (cancelled || !data || typeof data !== "object") return;
+        const value = data as typeof serviceStatus;
+        if (!value || typeof value.ready !== "boolean" || !value.checks) throw new Error("Invalid health response");
+        setServiceStatus(value);
+      })
+      .catch(() => { if (!cancelled) { setServiceStatus(null); setHealthError(true); } })
+      .finally(() => { if (!cancelled) setHealthLoading(false); });
+    return () => { cancelled = true; };
+  }, [healthRefresh]);
 
   function updateAnalyticsConsent(enabled: boolean) {
     setAnalyticsEnabled(enabled);
@@ -162,6 +186,23 @@ export default function SettingsPage() {
             />
           </label>
         </div>
+      </section>
+
+      <section className="settings-section settings-section-polished" aria-labelledby="settings-health">
+        <div className="settings-section-intro">
+          <h2 id="settings-health">Service status</h2>
+          <p>Live configuration checks for the services that power your workspace. Provider credentials are never shown.</p>
+        </div>
+        <div className="settings-grid settings-grid-polished">
+          {healthLoading ? <p role="status">Checking service status…</p> : healthError || !serviceStatus ? <p role="status">Status is temporarily unavailable. Your chats are not changed by this check.</p> : <>
+            <div className="setting-row setting-row-polished"><span><strong>Supabase</strong><small>{serviceStatus.checks.supabaseReachable ? "Connected" : serviceStatus.checks.supabaseConfigured ? "Configured, connection unavailable" : "Needs configuration"}</small></span><span aria-label={serviceStatus.checks.supabaseReachable ? "Connected" : "Not connected"}>{serviceStatus.checks.supabaseReachable ? "●" : "○"}</span></div>
+            <div className="setting-row setting-row-polished"><span><strong>AI text generation</strong><small>{serviceStatus.checks.groq || serviceStatus.checks.google ? "Provider configured; live generation not tested here" : "No text provider configured"}</small></span><span>{serviceStatus.checks.groq || serviceStatus.checks.google ? "●" : "○"}</span></div>
+            <div className="setting-row setting-row-polished"><span><strong>Image understanding</strong><small>{serviceStatus.checks.vision ? "Vision provider configured; live inference not tested here" : "Needs provider configuration"}</small></span><span>{serviceStatus.checks.vision ? "●" : "○"}</span></div>
+            <div className="setting-row setting-row-polished"><span><strong>Live web research</strong><small>{serviceStatus.checks.researchConfigured ? "Search provider configured; live search not tested here" : "Search provider not configured"}</small></span><span>{serviceStatus.checks.researchConfigured ? "●" : "○"}</span></div>
+          </>}
+        </div>
+        <button type="button" className="ui-button ui-button-secondary settings-reset-button" onClick={() => setHealthRefresh(value => value + 1)} disabled={healthLoading}>Refresh status</button>
+        {serviceStatus && !healthLoading && <p className="settings-persisted">Last checked {new Date(serviceStatus.timestamp).toLocaleTimeString()}</p>}
       </section>
 
       <section className="settings-section settings-section-polished settings-reset-section">
