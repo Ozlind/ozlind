@@ -100,7 +100,7 @@ test("product interaction telemetry excludes the content being copied, saved, or
   }
   assert.match(save, /action: "save_response", result: "success"/);
   assert.match(sidebar, /action: "rename_conversation", result: "success"/);
-  assert.match(sidebar, /action: "archive_conversation"/);
+  assert.match(sidebar, /archive_conversation/);
   assert.match(settings, /recordPreferenceChange\("default_model"\)/);
   assert.doesNotMatch(chat, /trackAnalyticsEvent\([^;]*(?:message\.content|outgoingContent|dataUrl|image\.name)/s);
 });
