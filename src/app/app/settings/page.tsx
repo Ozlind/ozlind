@@ -15,6 +15,7 @@ const models: Array<[Preferences["default_model"], string, string]> = [
 
 export default function SettingsPage() {
   const { preferences, update, loading, saving, saveError, clearSaveError } = usePreferences();
+  const analyticsGloballyPaused = process.env.NEXT_PUBLIC_OZLIND_ANALYTICS_ENABLED !== "true";
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [analyticsSettingsLoaded, setAnalyticsSettingsLoaded] = useState(false);
   const [browserDoNotTrack, setBrowserDoNotTrack] = useState(false);
@@ -175,13 +176,14 @@ export default function SettingsPage() {
                 Prompts, replies, uploaded content, emails, and error stacks are not sent. Signed-in events
                 use your internal account ID rather than your email.
                 {browserDoNotTrack ? " Your browser's Do Not Track setting disables analytics." : ""}
+                {analyticsGloballyPaused ? " Analytics collection is temporarily paused globally; this preference will not enable collection until it is resumed." : ""}
               </small>
             </span>
             <input
               id="pref-analytics"
               type="checkbox"
-              checked={analyticsEnabled && !browserDoNotTrack}
-              disabled={!analyticsSettingsLoaded || browserDoNotTrack}
+              checked={analyticsEnabled && !browserDoNotTrack && !analyticsGloballyPaused}
+              disabled={!analyticsSettingsLoaded || browserDoNotTrack || analyticsGloballyPaused}
               onChange={e => updateAnalyticsConsent(e.target.checked)}
             />
           </label>
