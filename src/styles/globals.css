@@ -685,7 +685,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
 }
-.composer { align-items: end; }
+.composer { align-items: end; grid-template-columns: auto auto minmax(0, 1fr) auto; }
 .composer-attach {
   width: 38px;
   height: 38px;
@@ -742,9 +742,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .composer-mode, .composer-research { min-height: 32px; padding: 0 9px; font-size: 11px; }
   .composer-research { margin-left: 0; }
   .composer-attach { grid-column: 1; grid-row: 2; width: 34px; height: 34px; min-height: 34px; }
-  .composer textarea { grid-column: 2; grid-row: 2; min-width: 0; }
-  .composer .send-button { grid-column: 3; grid-row: 2; }
-  .composer { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .composer-mic { grid-column: 2; grid-row: 2; }
+  .composer textarea { grid-column: 3; grid-row: 2; min-width: 0; }
+  .composer .send-button { grid-column: 4; grid-row: 2; }
+  .composer { grid-template-columns: auto auto minmax(0, 1fr) auto; }
 }
 @media (max-width: 380px) {
   .composer-modebar { gap: 4px; }
