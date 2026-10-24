@@ -91,7 +91,9 @@ function getAnonymousId(): string {
 
 function getStoredUserId(): string | null {
   try {
-    return localStorage.getItem(USER_ID_KEY) || memoryUserId;
+    // When storage is available, its absence is authoritative (including
+    // sign-out in another tab); only fall back to memory if storage is blocked.
+    return localStorage.getItem(USER_ID_KEY) || null;
   } catch {
     return memoryUserId;
   }
