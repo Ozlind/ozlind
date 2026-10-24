@@ -366,6 +366,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     let analyticsStatusCode = 0;
     let analyticsResult: "success" | "failed" | "aborted" | "duplicate" = "failed";
     let requestErrorCode: string | null = null;
+    let analyticsResolvedModel: "fast" | "vision" | "pro" = mode === "vision" ? "vision" : mode === "pro" ? "pro" : "fast";
     let requestAccepted = false;
     let receivedAssistantText = false;
     // Keep buffered text outside try so a stream failure cannot discard it.
@@ -383,6 +384,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           : mode === "pro"
             ? proModel
             : ([fastModel, proModel, visionModel].includes(model) ? model : fastModel);
+      analyticsResolvedModel = requestedModel === visionModel ? "vision" : requestedModel === proModel ? "pro" : "fast";
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -514,6 +516,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       trackAnalyticsEvent("ozlind_ai_request_completed", {
         action,
         model_mode: mode,
+        resolved_model_mode: analyticsResolvedModel,
+        error_code: requestErrorCode ?? "",
         has_attachments: outgoingImages.length > 0,
         status_code: analyticsStatusCode,
         duration_ms: Math.max(0, Date.now() - analyticsStartedAt),
@@ -542,6 +546,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       }
       setActivePreset(null);
       setPresetSelectionDirty(true);
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "clear_preset" });
     } catch {
       setError("Could not remove this preset from the conversation. Please try again.");
     } finally {
@@ -569,6 +574,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         name: file.name.slice(0, 120),
       })));
       setImages(current => [...current, ...prepared].slice(0, 2));
+      trackAnalyticsEvent("ozlind_product_interaction", {
+        action: "attach_image",
+        attachment_count: Math.min(2, images.length + prepared.length),
+        has_attachments: true,
+      });
       // Preserve the user's selected response mode. The API safely routes
       // image-bearing requests through its multimodal model chain.
     } catch (caught) {
@@ -591,6 +601,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   async function copyMessage(message: Message) {
     try {
       await navigator.clipboard.writeText(message.content);
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "copy" });
       setCopiedMessageId(message.id);
       window.setTimeout(() => {
         setCopiedMessageId((current) => (current === message.id ? null : current));
@@ -640,7 +651,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           ) : messages.length === 0 && historyError ? (
             <div className="history-state" role="alert">
               <p>{historyError}</p>
-              <button className="text-button" onClick={() => setHistoryAttempt((attempt) => attempt + 1)}>
+              <button className="text-button" onClick={() => {
+                trackAnalyticsEvent("ozlind_product_interaction", { action: "retry_history" });
+                setHistoryAttempt((attempt) => attempt + 1);
+              }}>
                 Try again
               </button>
             </div>
@@ -662,7 +676,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                       {message.images && message.images.length > 0 && (
                         <div className="message-attachments" aria-label="Attached images">
                           {message.images.map((image, index) => (
-                            <button type="button" className="message-attachment-preview" onClick={() => setPreviewImage(image)} key={image.name + index} aria-label={"Enlarge attached image: " + image.name}>
+                            <button type="button" className="message-attachment-preview" onClick={() => {
+                                trackAnalyticsEvent("ozlind_product_interaction", { action: "open_image_preview" });
+                                setPreviewImage(image);
+                              }} key={image.name + index} aria-label={"Enlarge attached image: " + image.name}>
                               <Image src={image.dataUrl} alt={image.name || "Attached image"} width={360} height={260} unoptimized />
                               <span className="image-preview-hint">Tap to enlarge</span>
                             </button>
@@ -768,7 +785,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               <div className="composer-attachment" key={image.name + index}>
                 <Image src={image.dataUrl} alt={image.name} width={34} height={34} unoptimized />
                 <span>{image.name}</span>
-                <button type="button" onClick={() => setImages(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={"Remove " + image.name}><OzlindIcon name="i-clear" size={15} /></button>
+                <button type="button" onClick={() => {
+                  trackAnalyticsEvent("ozlind_product_interaction", {
+                    action: "remove_attachment",
+                    attachment_count: Math.max(0, images.length - 1),
+                    has_attachments: images.length > 1,
+                  });
+                  setImages(current => current.filter((_, itemIndex) => itemIndex !== index));
+                }} aria-label={"Remove " + image.name}><OzlindIcon name="i-clear" size={15} /></button>
               </div>
             ))}
           </div>
@@ -788,7 +812,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             <OzlindIcon name={showModeOptions ? "i-close" : "i-plus"} size={13} />
           </button>
           <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
-            aria-pressed={researchEnabled} disabled={streaming} onClick={() => setResearchEnabled(current => !current)}
+            aria-pressed={researchEnabled} disabled={streaming} onClick={() => {
+              trackAnalyticsEvent("ozlind_product_interaction", {
+                action: "toggle_web_search",
+                result: researchEnabled ? "disabled" : "enabled",
+                used_web_search: !researchEnabled,
+              });
+              setResearchEnabled(current => !current);
+            }}
             title="Search the web and include sources" aria-label={researchEnabled ? "Turn web search off" : "Turn web search on"}>
             <OzlindIcon name="i-web-research" size={15} />
             <span>Web search</span>
@@ -805,7 +836,11 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                   title={images.length > 0 && value !== "vision" ? description + " · image requests use a vision-capable model automatically" : description}
                   aria-label={label + ": " + (images.length > 0 && value !== "vision" ? description + ". Attached images use a vision-capable model automatically." : description)}
                   disabled={streaming}
-                  onClick={() => { setMode(value); setShowModeOptions(false); }}>
+                  onClick={() => {
+                    setMode(value);
+                    setShowModeOptions(false);
+                    trackAnalyticsEvent("ozlind_product_interaction", { action: "select_mode", model_mode: value });
+                  }}>
                   {value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
                    value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
                    <OzlindIcon name="sym-thinking" size={15} />}
@@ -836,7 +871,14 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           <Button
             className="send-button"
             disabled={streaming ? false : !online || (!draft.trim() && images.length === 0)}
-            onClick={() => (streaming ? abortRef.current?.abort() : void send())}
+            onClick={() => {
+              if (streaming) {
+                trackAnalyticsEvent("ozlind_product_interaction", { action: "stop" });
+                abortRef.current?.abort();
+              } else {
+                void send();
+              }
+            }}
             aria-label={streaming ? "Stop response" : "Send message"}
           >
             {streaming ? (

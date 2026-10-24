@@ -6,7 +6,7 @@ import { OzlindIcon } from "@/components/ui/OzlindIcon";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
-import { resetAnalyticsIdentity } from "@/lib/analytics";
+import { resetAnalyticsIdentity, trackAnalyticsEvent } from "@/lib/analytics";
 import { useEffect, useState } from "react";
 
 type SidebarProps = {
@@ -81,8 +81,10 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
       if (error || !data) throw error ?? new Error("Conversation was not found.");
       setRenamingId(null);
       setRenameTitle("");
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "rename_conversation", result: "success" });
       await refetch();
     } catch {
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "rename_conversation", result: "failed" });
       setConversationActionError("Could not rename this conversation. Please try again.");
     } finally {
       setActionBusyId(null);
@@ -103,8 +105,10 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         .select("id")
         .maybeSingle();
       if (error || !data) throw error ?? new Error("Conversation was not found.");
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "toggle_pin", result: pinned ? "enabled" : "disabled" });
       await refetch();
     } catch {
+      trackAnalyticsEvent("ozlind_product_interaction", { action: "toggle_pin", result: "failed" });
       setConversationActionError("Could not update this conversation's pin. Please try again.");
     } finally {
       setActionBusyId(null);
@@ -126,8 +130,16 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
         .maybeSingle();
       if (error || !data) throw error ?? new Error("Conversation was not found.");
       if (archived && path === "/app/" + conversationId) router.replace("/app");
+      trackAnalyticsEvent("ozlind_product_interaction", {
+        action: archived ? "archive_conversation" : "restore_conversation",
+        result: "success",
+      });
       await refetch();
     } catch {
+      trackAnalyticsEvent("ozlind_product_interaction", {
+        action: archived ? "archive_conversation" : "restore_conversation",
+        result: "failed",
+      });
       setConversationActionError(archived
         ? "Could not archive this conversation. Please try again."
         : "Could not restore this conversation. Please try again.");
@@ -184,7 +196,11 @@ export function Sidebar({ user, mobileOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <Button onClick={() => { router.push("/app"); onClose(); }}>
+        <Button onClick={() => {
+          trackAnalyticsEvent("ozlind_product_interaction", { action: "new_chat" });
+          router.push("/app");
+          onClose();
+        }}>
           <OzlindIcon name="i-new-conversation" size={18} />
           New chat
         </Button>
