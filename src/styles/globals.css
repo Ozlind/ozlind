@@ -1834,3 +1834,13 @@ a { color: inherit; }
 .conversation-link-title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .conversation-row:has(.conversation-menu) .conversation-link{min-width:0}
 @media(max-width:480px){.workspace-preview-actions{display:grid;grid-template-columns:1fr 1fr}.workspace-preview-actions .ui-button{padding:0 8px;font-size:11px}.workspace-use-preset{max-width:100%}}
+
+
+/* Saved working context */
+.chat-title-group{display:flex;align-items:center;gap:10px;min-width:0}
+.chat-title-group h2{flex:0 0 auto}
+.active-preset-chip{display:inline-flex;align-items:center;gap:6px;max-width:min(380px,46vw);min-height:28px;padding:3px 6px 3px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text-muted);font-size:11px}
+.active-preset-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.active-preset-chip button{display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--text-muted)}
+.active-preset-chip button:hover:not(:disabled){background:var(--bg);color:var(--text)}
+@media(max-width:768px){.chat-title-group{gap:6px}.active-preset-chip{max-width:38vw;font-size:10px;padding-left:6px}.chat-header-tools{flex-shrink:0}}
