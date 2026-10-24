@@ -56,22 +56,25 @@ function capture(event: string, properties: Record<string, string | number | boo
       $current_url: `${window.location.origin}${safePath(window.location.pathname)}`,
       $pathname: safePath(window.location.pathname),
       $lib: "ozlind-native",
-      $lib_version: "1.0.0",
+      $lib_version: "1.0.1",
       ...properties,
     },
   });
 
+  // Use a CORS-safelisted content type for cross-origin beacon delivery.
+  // Some browsers can report sendBeacon() as queued even when a non-safelisted
+  // JSON content type would trigger a failed preflight at the ingestion host.
   try {
     if (navigator.sendBeacon) {
       const sent = navigator.sendBeacon(
         `${HOST}/i/v0/e/`,
-        new Blob([body], { type: "application/json" }),
+        new Blob([body], { type: "text/plain;charset=UTF-8" }),
       );
       if (sent) return;
     }
     void fetch(`${HOST}/i/v0/e/`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body,
       keepalive: true,
       mode: "cors",
