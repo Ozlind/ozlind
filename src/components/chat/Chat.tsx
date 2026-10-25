@@ -840,9 +840,21 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <MarkdownRenderer content=" " />
                   )}
                 </div>
-                {message.role === "assistant" && message.content && message.status !== "streaming" && message.research && (
+                {message.role === "assistant" && message.content && message.status !== "streaming" && (
                   <div className="message-meta" aria-label="Response details">
-                    <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
+                    {message.model && (
+                      <span
+                        className="sr-only"
+                        role="note"
+                        title={message.providerModel ? "Provider model: " + message.providerModel : "Logical model: " + message.model}
+                        aria-label={"Logical model: " + message.model + ". Provider model: " + (message.providerModel ?? message.model) + ". Research sources: " + (message.researchSources ?? 0)}
+                      >
+                        Response model details.
+                      </span>
+                    )}
+                    {message.research && (
+                      <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
+                    )}
                   </div>
                 )}
                 {message.status === "interrupted" && (
