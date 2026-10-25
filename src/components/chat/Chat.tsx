@@ -447,7 +447,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
         }
         if (event.error === "aborted") return;
         const message = event.error === "not-allowed" || event.error === "service-not-allowed"
-          ? "Microphone access was blocked. Allow microphone permission for ozlind.vercel.app in Chrome site settings."
+          ? "Microphone permission was denied. Allow microphone access for ozlind.vercel.app in Chrome site settings."
           : event.error === "network"
             ? "Browser speech recognition could not reach its speech service. Check your internet connection and try again."
             : "Voice input stopped (" + event.error + "). Try again or use text input.";
