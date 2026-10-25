@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  title: { default: "AI workspace", template: "%s | Ozlind" },
-  description: "Your private Ozlind workspace for AI conversations, saved work, and documents.",
+  title: { default: "Ozlind AI workspace", template: "%s | Ozlind AI" },
+  description: "Your private Ozlind AI workspace by Ozlind Enterprises for conversations, saved work, and documents.",
 };
 
 export default async function AppLayout({
