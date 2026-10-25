@@ -265,3 +265,16 @@ test("document quota is enforced atomically by the database", async () => {
   assert.match(migration, /before insert on public\.documents/i);
   assert.match(route, /error\.message === "DOCUMENT_LIMIT_REACHED"[\s\S]*?errorResponse\("DOCUMENT_LIMIT_REACHED", requestId, 409\)/);
 });
+
+
+test("OAuth callback redirects are restricted to the same origin", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const callback = await readFile(
+    new URL("../src/app/auth/callback/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(callback, /const destination = new URL\(next, origin\)/);
+  assert.match(callback, /if \(destination\.origin !== origin\) return "\/app"/);
+  assert.match(callback, /return `\$\{destination\.pathname\}\$\{destination\.search\}\$\{destination\.hash\}`/);
+  assert.match(callback, /NextResponse\.redirect\(\s*new URL\(getSafeNextPath\(next, url\.origin\), url\.origin\)/);
+});
