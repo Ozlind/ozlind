@@ -128,6 +128,8 @@ test("mode chooser uses a static icon and reflects the selected mode", async () 
   assert.ok(chat.includes('name="i-ai-chat"'));
   assert.ok(!chat.includes('name="sym-processing"'));
   assert.ok(chat.includes('mode === "auto" ? "Auto" : mode === "fast" ? "Fast" : mode === "vision" ? "Vision" : "Pro"'));
+  assert.ok(chat.includes('["auto", "Auto", "Use the saved default model with automatic provider fallback"]'));
+  assert.match(chat, /preferences\.default_model === "groq:deepseek-r1-distill-llama-70b" \? "pro"/);
 });
 
 test("web-search loading copy is based on the response's confirmed research status", async () => {
