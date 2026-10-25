@@ -840,11 +840,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                     <MarkdownRenderer content=" " />
                   )}
                 </div>
-                {message.role === "assistant" && message.content && message.status !== "streaming" && (
+                {message.role === "assistant" && message.content && message.status !== "streaming" && message.research && (
                   <div className="message-meta" aria-label="Response details">
-                    {message.research && (
-                      <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
-                    )}
+                    <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
                   </div>
                 )}
                 {message.status === "interrupted" && (
