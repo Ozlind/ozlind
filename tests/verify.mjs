@@ -16,6 +16,7 @@ const required=[
 "docs/testing/verification-matrix.md",
 "docs/adr/0001-incremental-architecture-and-release-gates.md",
 "docs/product/product-charter.md",
+"docs/roadmap/implementation-roadmap.md",
 "docs/architecture/ai-runtime-contract.md",
 "docs/operations/environment-and-secrets.md",
 "src/app/layout.tsx","src/app/page.tsx","src/app/login/page.tsx","src/app/app/layout.tsx",
