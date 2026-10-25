@@ -4,6 +4,17 @@ const root=process.cwd();
 const problems=[];
 const required=[
 ".github/workflows/dependency-security.yml",
+".github/dependabot.yml",
+".github/pull_request_template.md",
+".github/ISSUE_TEMPLATE/bug_report.yml",
+".github/ISSUE_TEMPLATE/feature_request.yml",
+"docs/engineering/README.md",
+"docs/architecture/target-architecture.md",
+"docs/workflows/feature-delivery.md",
+"docs/workflows/release-and-rollback.md",
+"docs/workflows/incident-response.md",
+"docs/testing/verification-matrix.md",
+"docs/adr/0001-incremental-architecture-and-release-gates.md",
 "src/app/layout.tsx","src/app/page.tsx","src/app/login/page.tsx","src/app/app/layout.tsx",
 "src/components/chat/Chat.tsx","src/components/chat/ChatUtilities.tsx","src/components/chat/SaveResponseButton.tsx","src/lib/ai/preset-context.mjs","src/lib/ai/preset-context.d.mts","tests/ai-preset-context.test.mjs","src/components/layout/Sidebar.tsx","src/components/layout/AppShell.tsx","src/components/layout/CommandPalette.tsx","src/lib/chat/export.mjs","src/lib/chat/export.d.mts","tests/chat-export.test.mjs",
 "src/app/api/chat/route.ts","src/app/api/preferences/route.ts","src/app/api/documents/route.ts",
