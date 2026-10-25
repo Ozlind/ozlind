@@ -249,3 +249,19 @@ test("untrusted preset and research context stay out of the privileged system pr
   assert.match(source, /contextualMessages\.splice\(Math\.max\(0, lastUserIndex\), 0/);
   assert.match(source, /a product of Ozlind Enterprises/);
 });
+
+
+test("document quota is enforced atomically by the database", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const migration = await readFile(
+    new URL("../supabase/migrations/20261025_document_quota_guard.sql", import.meta.url),
+    "utf8",
+  );
+  const route = await readFile(new URL("../src/app/api/documents/route.ts", import.meta.url), "utf8");
+  assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\(new\.user_id::text, 0\)\)/i);
+  assert.match(migration, /select count\(\*\)::integer[\s\S]*from public\.documents[\s\S]*where user_id = new\.user_id/i);
+  assert.match(migration, /existing_count >= 20/i);
+  assert.match(migration, /message = 'DOCUMENT_LIMIT_REACHED'/i);
+  assert.match(migration, /before insert on public\.documents/i);
+  assert.match(route, /error\.message === "DOCUMENT_LIMIT_REACHED"[\s\S]*?errorResponse\("DOCUMENT_LIMIT_REACHED", requestId, 409\)/);
+});
