@@ -80,6 +80,8 @@ export function ChatUtilities({
     }
   }
 
+  if (!hasMessages) return null;
+
   return (
     <div className="chat-header-tools">
       <button type="button" className="chat-header-tool" onClick={exportTranscript} disabled={!hasMessages || streaming} title="Download this conversation as Markdown" aria-label="Export conversation as Markdown">
