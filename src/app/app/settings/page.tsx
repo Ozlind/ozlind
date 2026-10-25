@@ -127,10 +127,6 @@ export default function SettingsPage() {
             <span><strong>{tr("autoScroll")}</strong><small>Keep the latest response in view as it streams.</small></span>
             <input id="pref-scroll" type="checkbox" checked={preferences.auto_scroll} onChange={e => void update({ auto_scroll: e.target.checked })} />
           </label>
-          <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-reasoning">
-            <span><strong>{tr("showReasoning")}</strong><small>Show reasoning details when the selected model provides them.</small></span>
-            <input id="pref-reasoning" type="checkbox" checked={preferences.show_reasoning} onChange={e => void update({ show_reasoning: e.target.checked })} />
-          </label>
           <label className="setting-row setting-row-polished setting-toggle-row" htmlFor="pref-research">
             <span><strong>Live web research</strong><small>Allow supported chat flows to use live web research.</small></span>
             <input id="pref-research" type="checkbox" checked={preferences.research_enabled} onChange={e => void update({ research_enabled: e.target.checked })} />

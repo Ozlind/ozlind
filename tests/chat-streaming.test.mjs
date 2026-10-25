@@ -118,3 +118,63 @@ test("chat component uses in-place assistant replacement for regeneration", asyn
   assert.match(chat, /appendOrReplaceLatestAssistant/);
   assert.match(chat, /action === "regenerate"/);
 });
+
+
+test("mode chooser uses a static icon and reflects the selected mode", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(chat.includes('name="i-ai-chat"'));
+  assert.ok(!chat.includes('name="sym-processing"'));
+  assert.ok(chat.includes('mode === "auto" ? "Auto" : mode === "fast" ? "Fast" : mode === "vision" ? "Vision" : "Pro"'));
+  assert.ok(chat.includes('["auto", "Auto", "Use the saved default model with automatic provider fallback"]'));
+  assert.match(chat, /preferences\.default_model === "groq:deepseek-r1-distill-llama-70b" \? "pro"/);
+});
+
+test("web-search loading copy is based on the response's confirmed research status", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(chat.includes('message.research ? "Searching the web…" : "Thinking…"'));
+  assert.ok(!chat.includes('message.research ? "Searching the web…" : researchEnabled ? "Searching the web…"'));
+});
+
+test("chat transcript does not expose provider implementation model labels", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(!chat.includes("function modelLabel("));
+  assert.ok(!chat.includes('"Fast model"'));
+  assert.ok(!chat.includes('"Pro model"'));
+  assert.ok(!chat.includes('"Vision model"'));
+});
+
+test("unified design system owns the final mobile composer geometry", async () => {
+  const css = await readFile(
+    new URL("../src/styles/unified-design-system.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(css, /Final mobile chat pass/);
+  assert.match(css, /\.composer-modebar \{[\s\S]*?align-items: center/);
+  assert.match(css, /grid-template-columns: 36px 36px minmax\(0, 1fr\) 40px/);
+  assert.match(css, /\.composer \.send-button \{[\s\S]*?border-radius: 50%/);
+});
+
+
+test("mobile chat utility buttons keep accessible names when text labels are hidden", async () => {
+  const utilities = await readFile(
+    new URL("../src/components/chat/ChatUtilities.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../src/styles/unified-design-system.css", import.meta.url),
+    "utf8",
+  );
+  assert.ok(utilities.includes('aria-label="Export conversation as Markdown"'));
+  assert.ok(utilities.includes('aria-label="Save conversation to Workspace"'));
+  assert.match(utilities, /if \(!hasMessages\) return null/);
+  assert.match(css, /max-width: 480px[\s\S]*?\.chat-header-tool span\s*\{\s*display: none/);
+});

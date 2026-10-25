@@ -291,3 +291,286 @@
 @media (prefers-reduced-motion: reduce) {
   .app-shell *, .auth-shell * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
 }
+
+
+/*
+ * Final mobile chat pass.
+ * Keep these high-level chat primitives authoritative: older feature styles
+ * are retained for compatibility, but must not redefine composer geometry.
+ */
+.app-shell:has(.chat-page) .composer-modebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(720px, 100%);
+  margin: 0 auto 8px;
+}
+
+.app-shell:has(.chat-page) .composer-mode,
+.app-shell:has(.chat-page) .composer-research {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.app-shell:has(.chat-page) .composer-mode svg,
+.app-shell:has(.chat-page) .composer-research svg {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.app-shell:has(.chat-page) .composer {
+  display: grid;
+  grid-template-columns: 36px 36px minmax(0, 1fr) 40px;
+  grid-template-rows: minmax(40px, auto);
+  align-items: center;
+  gap: 6px;
+  width: min(720px, 100%);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 8px 10px;
+  border-radius: 16px;
+}
+
+.app-shell:has(.chat-page) .composer .composer-attach {
+  display: grid;
+  place-items: center;
+  grid-row: 1;
+  width: 36px;
+  min-width: 36px;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ozlind-muted);
+}
+
+.app-shell:has(.chat-page) .composer .composer-mic { grid-column: 1; }
+.app-shell:has(.chat-page) .composer > .composer-attach:not(.composer-mic) { grid-column: 2; }
+
+.app-shell:has(.chat-page) .composer .composer-attach:hover:not(:disabled) {
+  background: var(--ozlind-elevated);
+  color: var(--ozlind-text);
+}
+
+.app-shell:has(.chat-page) .composer textarea {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  max-height: 144px;
+  height: auto;
+  margin: 0;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ozlind-text);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.app-shell:has(.chat-page) .composer textarea:focus,
+.app-shell:has(.chat-page) .composer textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.app-shell:has(.chat-page) .composer .send-button {
+  grid-column: 4;
+  grid-row: 1;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.app-shell:has(.chat-page) .composer .send-button svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  margin: 0;
+}
+
+.app-shell:has(.chat-page) .composer .send-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.app-shell:has(.chat-page) .composer .send-button:disabled {
+  opacity: 1;
+}
+
+.app-shell:has(.chat-page) .composer-meta,
+.app-shell:has(.chat-page) .composer-note {
+  width: min(720px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-shell:has(.chat-page) .composer-keyboard-hint {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.app-shell .sidebar .ui-button-primary,
+.app-shell .sidebar .search-box {
+  border-radius: 12px;
+}
+
+.app-shell .sidebar .ui-button-primary {
+  min-height: 44px;
+}
+
+.app-shell .sidebar .search-box {
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  .app-shell:has(.chat-page) .composer-wrap {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--ozlind-keyboard-offset, 0px);
+    width: 100%;
+    padding: 8px max(10px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right));
+  }
+
+  .app-shell:has(.chat-page) .composer-modebar {
+    gap: 7px;
+    margin-bottom: 8px;
+  }
+
+  .app-shell:has(.chat-page) .composer-mode,
+  .app-shell:has(.chat-page) .composer-research {
+    min-height: 38px;
+    padding-inline: 10px;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .app-shell:has(.chat-page) .composer {
+    grid-template-columns: 36px 36px minmax(0, 1fr) 40px;
+    gap: 4px;
+    padding: 7px 8px;
+    border-radius: 16px;
+  }
+
+  .app-shell:has(.chat-page) .composer .composer-attach {
+    width: 36px;
+    min-width: 36px;
+    min-height: 40px;
+  }
+
+  .app-shell:has(.chat-page) .composer .send-button {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .app-shell:has(.chat-page) .composer-note {
+    margin-top: 7px;
+    line-height: 1.4;
+    font-size: 10px;
+  }
+
+  .app-shell:has(.chat-page) .message-column {
+    padding-bottom: 190px;
+  }
+
+  .app-shell:has(.chat-page) .chat-header {
+    padding-inline: 60px 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-shell:has(.chat-page) .composer-modebar { gap: 5px; }
+  .app-shell:has(.chat-page) .composer-mode,
+  .app-shell:has(.chat-page) .composer-research {
+    min-height: 36px;
+    padding-inline: 8px;
+    gap: 5px;
+    font-size: 11px;
+  }
+  .app-shell:has(.chat-page) .composer-mode svg,
+  .app-shell:has(.chat-page) .composer-research svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell:has(.chat-page) .composer .send-button:not(:disabled):hover {
+    transform: none;
+  }
+}
+
+.app-shell:has(.chat-page) .composer textarea {
+  scrollbar-width: none;
+}
+.app-shell:has(.chat-page) .composer textarea::-webkit-scrollbar {
+  display: none;
+}
+
+
+/* Keep the compact mobile header useful without letting utility labels crowd the title. */
+@media (max-width: 480px) {
+  .app-shell:has(.chat-page) .chat-header {
+    gap: 8px;
+  }
+  .app-shell:has(.chat-page) .chat-header-tools {
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+  .app-shell:has(.chat-page) .chat-header-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 10px;
+  }
+  .app-shell:has(.chat-page) .chat-header-tool span {
+    display: none;
+  }
+  .app-shell:has(.chat-page) .chat-header-tool svg {
+    display: block;
+    flex: 0 0 auto;
+  }
+  .app-shell:has(.chat-page) .chat-title-group {
+    min-width: 0;
+  }
+  .app-shell:has(.chat-page) .chat-title-group h2 {
+    font-size: 15px;
+  }
+}

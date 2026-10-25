@@ -12,7 +12,15 @@ ozlind/
 ├── .github/workflows/ci.yml
 ├── docs/
 │   ├── adr/                      # Accepted design decisions
+│   ├── engineering/               # Engineering standards and navigation
+│   ├── product/product-charter.md
+│   ├── roadmap/implementation-roadmap.md
+│   ├── architecture/target-architecture.md
+│   ├── architecture/ai-runtime-contract.md
 │   ├── architecture/project-structure.md
+│   ├── operations/environment-and-secrets.md
+│   ├── testing/verification-matrix.md
+│   ├── workflows/                # Delivery, release, incident runbooks
 │   ├── audits/                   # Dated repository/security reviews
 │   ├── internal/                 # Internal operations/security runbooks
 │   └── legal/                    # Draft policies; not published routes

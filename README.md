@@ -1,6 +1,8 @@
-# Ozlind
+# Ozlind Enterprises — Ozlind AI
 
-Ozlind is a mobile-first AI chat application built with Next.js App Router, React, TypeScript, the Vercel AI SDK, and Supabase. This repository contains the application UI, server route handlers, authentication integration, database migrations, and repository verification checks.
+**Ozlind Enterprises** is the organization behind **Ozlind AI**, its mobile-first AI assistant and workspace. Owner: Athul. Keep public product branding centered on Ozlind AI and use the owner's name only where it is relevant.
+
+Ozlind AI is a mobile-first AI chat application built with Next.js App Router, React, TypeScript, the Vercel AI SDK, and Supabase. This repository contains the application UI, server route handlers, authentication integration, database migrations, and repository verification checks.
 
 ## Requirements
 
@@ -33,7 +35,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## AI provider routing
 
-Ozlind supports Groq and Google Generative AI directly. An optional Vercel AI Gateway integration can add models from OpenAI, Anthropic, Google, and other supported providers without adding a separate SDK for every vendor. Configure these server-only Vercel environment variables to enable it:
+Ozlind AI supports Groq and Google Generative AI directly. An optional Vercel AI Gateway integration can add models from OpenAI, Anthropic, Google, and other supported providers without adding a separate SDK for every vendor. Configure these server-only Vercel environment variables to enable it:
 
 - `AI_GATEWAY_API_KEY`: Vercel AI Gateway API key.
 - `AI_GATEWAY_FAST_MODEL`: gateway model ID for the Fast fallback.
@@ -58,6 +60,12 @@ PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_AN
 - Assistant messages also have an on-demand **Read aloud** control. Speech playback uses the browser's native speech synthesis; speech recognition depends on browser support and microphone permission, and uses the browser's configured language/locale.
 - No speech provider SDK or API key is required. Speech audio is not uploaded to an Ozlind speech endpoint; however, the browser's speech-recognition implementation may process audio through its own service. Use regular text input if voice recognition is unavailable or not appropriate for your privacy needs.
 - Voice recognition is turn-based: tap the microphone for each utterance. It does not continuously record in the background.
+
+## Engineering framework
+
+The repository's working engineering standards are documented in [docs/engineering/README.md](docs/engineering/README.md). Start there for the product charter, architecture boundaries, AI runtime contract, environment/secrets rules, feature delivery, release/rollback, incident response, and verification. GitHub issue forms and the pull-request template make requirements, evidence, and rollout plans explicit. Dependabot proposes weekly dependency updates; its pull requests still require CI and review.
+
+Before a production release, use [the release runbook](docs/workflows/release-and-rollback.md). A green CI build alone does not verify production OAuth, Supabase migration state, provider availability, or authenticated browser behavior.
 
 ## Verification commands
 
