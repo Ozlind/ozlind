@@ -574,3 +574,37 @@
     font-size: 15px;
   }
 }
+
+
+/* Restore the intended capsule composer shape on mobile and desktop. */
+.app-shell:has(.chat-page) .composer {
+  min-height: 58px;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+.app-shell:has(.chat-page) .composer textarea {
+  scrollbar-width: none;
+}
+.app-shell:has(.chat-page) .composer textarea::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 480px) {
+  .app-shell:has(.chat-page) .composer {
+    min-height: 56px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    gap: 4px;
+    grid-template-columns: 32px 32px minmax(0, 1fr) 40px;
+  }
+  .app-shell:has(.chat-page) .composer .composer-attach {
+    width: 32px;
+    min-width: 32px;
+  }
+}
+
+/* Voice controls must expose their real state and remain usable on touch devices. */
+.app-shell:has(.chat-page) .composer .composer-mic[aria-pressed="true"] {
+  color: var(--ozlind-accent);
+  background: color-mix(in srgb, var(--ozlind-accent) 12%, transparent);
+  border-radius: 50%;
+}
