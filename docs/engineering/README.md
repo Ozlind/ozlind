@@ -10,14 +10,15 @@ This folder links the minimum operational system required to build and release O
 ## Start here
 
 1. [Product charter](../product/product-charter.md) — mission, principles, and completion criteria.
-2. [Architecture boundaries](../architecture/target-architecture.md) — runtime ownership, data flow, and dependency rules.
-3. [AI runtime contract](../architecture/ai-runtime-contract.md) — trust boundaries, streaming, and failure semantics.
-4. [Environment and secrets](../operations/environment-and-secrets.md) — Vercel configuration and credential handling.
-5. [Feature delivery workflow](../workflows/feature-delivery.md) — requirements through review and verification.
-6. [Release and rollback](../workflows/release-and-rollback.md) — preview gates, migrations, production rollout, and rollback.
-7. [Incident response](../workflows/incident-response.md) — security, availability, and data-integrity events.
-8. [Verification matrix](../testing/verification-matrix.md) — test commands and what they do not prove.
-9. [Repository structure](../architecture/project-structure.md) — current code map.
+2. [Implementation roadmap](../roadmap/implementation-roadmap.md) — evidence-based work tracks and release blockers.
+3. [Architecture boundaries](../architecture/target-architecture.md) — runtime ownership, data flow, and dependency rules.
+4. [AI runtime contract](../architecture/ai-runtime-contract.md) — trust boundaries, streaming, and failure semantics.
+5. [Environment and secrets](../operations/environment-and-secrets.md) — Vercel configuration and credential handling.
+6. [Feature delivery workflow](../workflows/feature-delivery.md) — requirements through review and verification.
+7. [Release and rollback](../workflows/release-and-rollback.md) — preview gates, migrations, production rollout, and rollback.
+8. [Incident response](../workflows/incident-response.md) — security, availability, and data-integrity events.
+9. [Verification matrix](../testing/verification-matrix.md) — test commands and what they do not prove.
+10. [Repository structure](../architecture/project-structure.md) — current code map.
 
 ## Non-negotiable engineering rules
 
