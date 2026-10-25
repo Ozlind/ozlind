@@ -365,20 +365,35 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       .replace(/\s+/g, " ")
       .trim();
     if (!spokenText) return;
+    const synthesis = window.speechSynthesis;
     const utterance = new SpeechSynthesisUtterance(spokenText);
-    utterance.lang = navigator.language || "en-US";
+    const voices = synthesis.getVoices();
+    const hasMalayalamText = /[\u0D00-\u0D7F]/.test(spokenText);
+    const requestedLanguage = hasMalayalamText ? "ml-IN" : (navigator.language || "en-US");
+    const voice = voices.find(candidate => candidate.lang.toLowerCase() === requestedLanguage.toLowerCase())
+      ?? voices.find(candidate => candidate.lang.toLowerCase().startsWith(requestedLanguage.split("-")[0].toLowerCase() + "-"))
+      ?? (!hasMalayalamText ? voices.find(candidate => candidate.lang.toLowerCase().startsWith("en-")) : undefined)
+      ?? voices[0];
+    // Do not force the phone's UI locale onto unrelated text (e.g. English
+    // answers on a Malayalam-configured phone); some Android TTS engines then stay silent.
+    utterance.lang = voice?.lang || requestedLanguage;
+    if (voice) utterance.voice = voice;
     utterance.onstart = () => { speakingRef.current = true; setSpeakingMessageId(message.id); };
     utterance.onend = () => {
       speakingRef.current = false;
       setSpeakingMessageId(current => current === message.id ? null : current);
       if (voiceModeRef.current && voiceSessionRef.current) window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
     };
-    utterance.onerror = () => {
+    utterance.onerror = event => {
       speakingRef.current = false;
       setSpeakingMessageId(current => current === message.id ? null : current);
+      if (event.error !== "interrupted" && event.error !== "canceled") {
+        setError("Speech playback failed. Check your phone's text-to-speech settings or try Read aloud again.");
+      }
       if (voiceModeRef.current && voiceSessionRef.current) window.setTimeout(() => startVoiceRecognitionRef.current?.(), 350);
     };
-    window.speechSynthesis.speak(utterance);
+    synthesis.resume();
+    synthesis.speak(utterance);
   }, []);
 
   useEffect(() => {
