@@ -80,15 +80,6 @@ function modeForModel(model: string): ChatMode {
   return "auto";
 }
 
-function modelLabel(model?: string | null): string {
-  switch (model) {
-    case "groq:llama-3.3-70b-versatile": return "Fast model";
-    case "groq:deepseek-r1-distill-llama-70b": return "Pro model";
-    case "google:gemini-2.0-flash": return "Vision model";
-    default: return "Ozlind model";
-  }
-}
-
 async function compressImage(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
   try {
@@ -128,10 +119,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [activePreset, setActivePreset] = useState<ChatPreset | null>(null);
   const [presetSelectionDirty, setPresetSelectionDirty] = useState(false);
   const [clearingPreset, setClearingPreset] = useState(false);
-  const [mode, setMode] = useState<ChatMode>(() =>
-    preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
-    preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto"
-  );
+  const [mode, setMode] = useState<ChatMode>(() => modeForModel(preferences.default_model));
   const [researchEnabled, setResearchEnabled] = useState(preferences.research_enabled);
   const [showModeOptions, setShowModeOptions] = useState(false);
   const [images, setImages] = useState<ChatImage[]>([]);
@@ -173,8 +161,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   useEffect(() => {
     if (activePreset || presetSelectionDirty) return;
     setModel(preferences.default_model);
-    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
-      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
+    setMode(modeForModel(preferences.default_model));
   }, [preferences.default_model, activePreset, presetSelectionDirty]);
 
   useEffect(() => {
@@ -830,7 +817,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                   ) : message.status === "streaming" ? (
                     <div className="thinking-state" role="status">
                       <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
-                      {message.research ? "Searching the web…" : researchEnabled ? "Searching the web…" : "Thinking…"}
+                      {message.research ? "Searching the web…" : "Thinking…"}
                     </div>
                   ) : message.status === "failed" ? (
                     <div className="interrupted" role="status">
@@ -855,11 +842,6 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                 </div>
                 {message.role === "assistant" && message.content && message.status !== "streaming" && (
                   <div className="message-meta" aria-label="Response details">
-                    {message.model && (
-                      <span title={message.providerModel ? "Provider model: " + message.providerModel : undefined}>
-                        {modelLabel(message.model)}{message.providerModel ? " · " + message.providerModel : ""}
-                      </span>
-                    )}
                     {message.research && (
                       <span>Web search · {message.researchSources ? `${message.researchSources} sources` : "used"}</span>
                     )}
@@ -998,15 +980,15 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           </button>
           <button
             type="button"
-            className={"composer-mode" + (mode === "auto" ? " active" : "")}
-            aria-pressed={mode === "auto"}
+            className={"composer-mode" + (mode !== "auto" ? " active" : "")}
             aria-expanded={showModeOptions}
             aria-controls="composer-mode-options"
+            aria-label={"Response mode: " + (mode === "auto" ? "Auto" : mode === "fast" ? "Fast" : mode === "vision" ? "Vision" : "Pro")}
             title="Choose a response mode"
             onClick={() => setShowModeOptions(current => !current)}
           >
-            <OzlindIcon name="sym-processing" size={15} />
-            <span>Auto</span>
+            <OzlindIcon name="i-ai-chat" size={15} />
+            <span>{mode === "auto" ? "Auto" : mode === "fast" ? "Fast" : mode === "vision" ? "Vision" : "Pro"}</span>
             <OzlindIcon name={showModeOptions ? "i-close" : "i-plus"} size={13} />
           </button>
           <button type="button" className={"composer-research" + (researchEnabled ? " active" : "")}
