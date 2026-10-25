@@ -82,11 +82,11 @@ export function ChatUtilities({
 
   return (
     <div className="chat-header-tools">
-      <button type="button" className="chat-header-tool" onClick={exportTranscript} disabled={!hasMessages || streaming} title="Download this conversation as Markdown">
+      <button type="button" className="chat-header-tool" onClick={exportTranscript} disabled={!hasMessages || streaming} title="Download this conversation as Markdown" aria-label="Export conversation as Markdown">
         <OzlindIcon name="i-download" size={15} />
         <span>Export</span>
       </button>
-      <button type="button" className="chat-header-tool" onClick={() => void saveTranscript()} disabled={!hasMessages || streaming || saving} title="Save this conversation to your Workspace">
+      <button type="button" className="chat-header-tool" onClick={() => void saveTranscript()} disabled={!hasMessages || streaming || saving} title="Save this conversation to your Workspace" aria-label="Save conversation to Workspace">
         <OzlindIcon name={saving ? "sym-processing" : "i-documents"} size={15} className={saving ? "workspace-spin" : undefined} />
         <span>{saving ? "Saving…" : "Save chat"}</span>
       </button>
