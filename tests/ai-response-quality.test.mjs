@@ -40,6 +40,9 @@ test("chat provides discreet voice input, read-aloud, and opt-in hands-free voic
   assert.match(chatComponent, /webkitSpeechRecognition/);
   assert.match(chatComponent, /function toggleVoiceInput\(\)/);
   assert.match(chatComponent, /SpeechSynthesisUtterance/);
+  assert.match(chatComponent, /hasMalayalamText/);
+  assert.match(chatComponent, /Speech playback failed/);
+  assert.match(chatComponent, /synthesis\.resume\(\)/);
   assert.match(chatComponent, /Automatically read new replies aloud/);
   assert.match(chatComponent, /recognition\.continuous = false/);
   assert.match(chatComponent, /No speech detected\. Tap the microphone and speak clearly/);
