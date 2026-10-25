@@ -8,23 +8,23 @@ import { QueryProvider } from "@/providers/QueryProvider";
 export const metadata: Metadata = {
   metadataBase: new URL("https://ozlind.vercel.app"),
   title: {
-    default: "Ozlind — A calmer AI workspace",
+    default: "Ozlind AI — by Ozlind Enterprises",
     template: "%s | Ozlind",
   },
   description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
-  applicationName: "Ozlind",
+  applicationName: "Ozlind AI",
   icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
   robots: { index: false, follow: false },
   openGraph: {
     type: "website",
-    siteName: "Ozlind",
-    title: "Ozlind — A calmer AI workspace",
+    siteName: "Ozlind AI · Ozlind Enterprises",
+    title: "Ozlind AI — by Ozlind Enterprises",
     description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
     url: "https://ozlind.vercel.app",
   },
   twitter: {
     card: "summary",
-    title: "Ozlind — A calmer AI workspace",
+    title: "Ozlind AI — by Ozlind Enterprises",
     description: "A focused AI workspace for thoughtful conversations, useful documents, and work worth keeping.",
   },
 };
