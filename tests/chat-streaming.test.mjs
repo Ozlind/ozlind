@@ -173,5 +173,6 @@ test("mobile chat utility buttons keep accessible names when text labels are hid
   );
   assert.ok(utilities.includes('aria-label="Export conversation as Markdown"'));
   assert.ok(utilities.includes('aria-label="Save conversation to Workspace"'));
+  assert.match(utilities, /if \(!hasMessages\) return null/);
   assert.match(css, /max-width: 480px[\s\S]*?\.chat-header-tool span\s*\{\s*display: none/);
 });
