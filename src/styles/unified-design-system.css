@@ -539,3 +539,38 @@
 .app-shell:has(.chat-page) .composer textarea::-webkit-scrollbar {
   display: none;
 }
+
+
+/* Keep the compact mobile header useful without letting utility labels crowd the title. */
+@media (max-width: 480px) {
+  .app-shell:has(.chat-page) .chat-header {
+    gap: 8px;
+  }
+  .app-shell:has(.chat-page) .chat-header-tools {
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+  .app-shell:has(.chat-page) .chat-header-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 10px;
+  }
+  .app-shell:has(.chat-page) .chat-header-tool span {
+    display: none;
+  }
+  .app-shell:has(.chat-page) .chat-header-tool svg {
+    display: block;
+    flex: 0 0 auto;
+  }
+  .app-shell:has(.chat-page) .chat-title-group {
+    min-width: 0;
+  }
+  .app-shell:has(.chat-page) .chat-title-group h2 {
+    font-size: 15px;
+  }
+}
