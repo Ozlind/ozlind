@@ -237,3 +237,15 @@ test("chat interruption logs omit user and conversation identifiers", async () =
     assert.ok(!fields.includes("conversationId"), event);
   }
 });
+
+
+test("untrusted preset and research context stay out of the privileged system prompt", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
+  assert.match(source, /system: SYSTEM_PROMPT,/);
+  assert.doesNotMatch(source, /system: SYSTEM_PROMPT \+ presetContext \+ research\.context/);
+  assert.match(source, /OZLIND_REFERENCE_CONTEXT/);
+  assert.match(source, /JSON\.stringify\(\{ userPreset: presetContext \|\| null, webResearch: research\.context \|\| null \}\)/);
+  assert.match(source, /contextualMessages\.splice\(Math\.max\(0, lastUserIndex\), 0/);
+  assert.match(source, /a product of Ozlind Enterprises/);
+});
