@@ -73,6 +73,13 @@ function isChatPreset(value: unknown): value is ChatPreset {
     && typeof preset.model === "string" && (PRESET_MODELS as readonly string[]).includes(preset.model);
 }
 
+function maleVoiceByPrefix(voices: SpeechSynthesisVoice[], languagePrefix: string): SpeechSynthesisVoice | undefined {
+  return voices.find(candidate =>
+    candidate.lang.toLowerCase().startsWith(languagePrefix)
+    && /\\bmale\\b|\\bman\\b|masculine/i.test(candidate.name),
+  );
+}
+
 function modeForModel(model: string): ChatMode {
   if (model === "groq:deepseek-r1-distill-llama-70b") return "pro";
   if (model === "google:gemini-2.0-flash") return "vision";
@@ -370,8 +377,18 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     const voices = synthesis.getVoices();
     const hasMalayalamText = /[\u0D00-\u0D7F]/.test(spokenText);
     const requestedLanguage = hasMalayalamText ? "ml-IN" : (navigator.language || "en-US");
-    const voice = voices.find(candidate => candidate.lang.toLowerCase() === requestedLanguage.toLowerCase())
-      ?? voices.find(candidate => candidate.lang.toLowerCase().startsWith(requestedLanguage.split("-")[0].toLowerCase() + "-"))
+    // Prefer a voice whose provider-supplied name explicitly identifies it as male.
+    // SpeechSynthesisVoice has no standard gender field, so this is best-effort only.
+    const maleVoice = (language: string) => voices.find(candidate =>
+      candidate.lang.toLowerCase() === language.toLowerCase()
+      && /\\bmale\\b|\\bman\\b|masculine/i.test(candidate.name),
+    );
+    const languagePrefix = requestedLanguage.split("-")[0].toLowerCase() + "-";
+    const voice = maleVoice(requestedLanguage)
+      ?? voices.find(candidate => candidate.lang.toLowerCase() === requestedLanguage.toLowerCase())
+      ?? maleVoiceByPrefix(voices, languagePrefix)
+      ?? voices.find(candidate => candidate.lang.toLowerCase().startsWith(languagePrefix))
+      ?? (!hasMalayalamText ? maleVoiceByPrefix(voices, "en-") : undefined)
       ?? (!hasMalayalamText ? voices.find(candidate => candidate.lang.toLowerCase().startsWith("en-")) : undefined)
       ?? voices[0];
     // Do not force the phone's UI locale onto unrelated text (e.g. English
