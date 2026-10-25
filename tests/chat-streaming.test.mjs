@@ -160,3 +160,18 @@ test("unified design system owns the final mobile composer geometry", async () =
   assert.match(css, /grid-template-columns: 36px 36px minmax\(0, 1fr\) 40px/);
   assert.match(css, /\.composer \.send-button \{[\s\S]*?border-radius: 50%/);
 });
+
+
+test("mobile chat utility buttons keep accessible names when text labels are hidden", async () => {
+  const utilities = await readFile(
+    new URL("../src/components/chat/ChatUtilities.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../src/styles/unified-design-system.css", import.meta.url),
+    "utf8",
+  );
+  assert.ok(utilities.includes('aria-label="Export conversation as Markdown"'));
+  assert.ok(utilities.includes('aria-label="Save conversation to Workspace"'));
+  assert.match(css, /max-width: 480px[\s\S]*?\.chat-header-tool span\s*\{\s*display: none/);
+});
