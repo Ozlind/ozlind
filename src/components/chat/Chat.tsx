@@ -404,7 +404,9 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     try {
       const recognition = new Recognition();
       recognition.lang = navigator.language || "en-US";
-      recognition.continuous = true;
+      // Android Chrome is more reliable with one utterance per recognition session.
+      // Voice chat explicitly restarts after each completed turn in onend.
+      recognition.continuous = false;
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.onresult = event => {
@@ -424,11 +426,21 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       };
       recognition.onerror = event => {
         setVoiceListening(false);
-        if (event.error !== "no-speech" && event.error !== "aborted") {
-          setError(event.error === "not-allowed"
-            ? "Microphone permission was denied. Allow microphone access in your browser settings."
-            : "Voice input stopped. Please try again.");
-          if (event.error === "not-allowed") voiceSessionRef.current = false;
+        if (event.error === "no-speech") {
+          if (!voiceModeRef.current) setError("No speech detected. Tap the microphone and speak clearly.");
+          return;
+        }
+        if (event.error === "aborted") return;
+        const message = event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? "Microphone access was blocked. Allow microphone permission for ozlind.vercel.app in Chrome site settings."
+          : event.error === "network"
+            ? "Browser speech recognition could not reach its speech service. Check your internet connection and try again."
+            : "Voice input stopped (" + event.error + "). Try again or use text input.";
+        setError(message);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          voiceSessionRef.current = false;
+          setVoiceMode(false);
+          voiceModeRef.current = false;
         }
       };
       recognition.onend = () => {
@@ -459,6 +471,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
       setVoiceListening(false);
       return;
     }
+    // Keep the control actionable even in browsers without Web Speech support:
+    // startVoiceRecognition reports the precise limitation instead of a dead button.
     voiceSessionRef.current = true;
     startVoiceRecognition();
   }
@@ -1042,10 +1056,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
             type="button"
             className="composer-attach composer-mic"
             onClick={toggleVoiceInput}
-            disabled={streaming || !online || !voiceInputSupported}
+            disabled={streaming || !online}
             aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
             aria-pressed={voiceListening}
-            title={!voiceInputSupported ? "Voice input is not supported in this browser" : voiceListening ? "Listening… tap to stop" : "Dictate a message"}
+            title={!voiceInputSupported ? "Voice input may be unavailable in this browser; tap for details" : voiceListening ? "Listening… tap to stop" : "Dictate a message"}
           >
             <Mic size={18} aria-hidden="true" />
           </button>
