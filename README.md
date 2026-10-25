@@ -61,6 +61,12 @@ PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_AN
 - No speech provider SDK or API key is required. Speech audio is not uploaded to an Ozlind speech endpoint; however, the browser's speech-recognition implementation may process audio through its own service. Use regular text input if voice recognition is unavailable or not appropriate for your privacy needs.
 - Voice recognition is turn-based: tap the microphone for each utterance. It does not continuously record in the background.
 
+## Engineering framework
+
+The repository's working engineering standards are documented in [docs/engineering/README.md](docs/engineering/README.md). Start there for architecture boundaries, feature delivery, release/rollback, incident response, and verification. GitHub issue forms and the pull-request template make requirements, evidence, and rollout plans explicit. Dependabot proposes weekly dependency updates; its pull requests still require CI and review.
+
+Before a production release, use [the release runbook](docs/workflows/release-and-rollback.md). A green CI build alone does not verify production OAuth, Supabase migration state, provider availability, or authenticated browser behavior.
+
 ## Verification commands
 
 | Command | Purpose |
