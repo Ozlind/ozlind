@@ -63,7 +63,7 @@ PostHog collection is temporarily paused by default. Keep `NEXT_PUBLIC_OZLIND_AN
 
 ## Engineering framework
 
-The repository's working engineering standards are documented in [docs/engineering/README.md](docs/engineering/README.md). Start there for architecture boundaries, feature delivery, release/rollback, incident response, and verification. GitHub issue forms and the pull-request template make requirements, evidence, and rollout plans explicit. Dependabot proposes weekly dependency updates; its pull requests still require CI and review.
+The repository's working engineering standards are documented in [docs/engineering/README.md](docs/engineering/README.md). Start there for the product charter, architecture boundaries, AI runtime contract, environment/secrets rules, feature delivery, release/rollback, incident response, and verification. GitHub issue forms and the pull-request template make requirements, evidence, and rollout plans explicit. Dependabot proposes weekly dependency updates; its pull requests still require CI and review.
 
 Before a production release, use [the release runbook](docs/workflows/release-and-rollback.md). A green CI build alone does not verify production OAuth, Supabase migration state, provider availability, or authenticated browser behavior.
 
