@@ -1,6 +1,8 @@
-# Ozlind
+# Ozlind Enterprises — Ozlind AI
 
-Ozlind is a mobile-first AI chat application built with Next.js App Router, React, TypeScript, the Vercel AI SDK, and Supabase. This repository contains the application UI, server route handlers, authentication integration, database migrations, and repository verification checks.
+**Ozlind Enterprises** is the organization behind **Ozlind AI**, its mobile-first AI assistant and workspace. Owner: Athul. Keep public product branding centered on Ozlind AI and use the owner's name only where it is relevant.
+
+Ozlind AI is a mobile-first AI chat application built with Next.js App Router, React, TypeScript, the Vercel AI SDK, and Supabase. This repository contains the application UI, server route handlers, authentication integration, database migrations, and repository verification checks.
 
 ## Requirements
 
@@ -33,7 +35,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## AI provider routing
 
-Ozlind supports Groq and Google Generative AI directly. An optional Vercel AI Gateway integration can add models from OpenAI, Anthropic, Google, and other supported providers without adding a separate SDK for every vendor. Configure these server-only Vercel environment variables to enable it:
+Ozlind AI supports Groq and Google Generative AI directly. An optional Vercel AI Gateway integration can add models from OpenAI, Anthropic, Google, and other supported providers without adding a separate SDK for every vendor. Configure these server-only Vercel environment variables to enable it:
 
 - `AI_GATEWAY_API_KEY`: Vercel AI Gateway API key.
 - `AI_GATEWAY_FAST_MODEL`: gateway model ID for the Fast fallback.
