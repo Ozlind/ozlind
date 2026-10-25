@@ -17,7 +17,7 @@ const required=[
 "supabase/migrations/20261009_stage3_rls_relationship_ownership.sql",
 "supabase/migrations/20261009_stage3_artifact_parent_ownership.sql",
 "supabase/migrations/20261009_stage3_message_parent_ownership.sql",
-"supabase/migrations/20261023_provider_model_metadata.sql","supabase/migrations/20261024_conversation_preset_binding.sql"
+"supabase/migrations/20261023_provider_model_metadata.sql","supabase/migrations/20261024_conversation_preset_binding.sql","supabase/migrations/20261025_document_quota_guard.sql"
 ];
 for(const file of required)if(!fs.existsSync(path.join(root,file)))problems.push("Missing required file: "+file);
 const files=[];
@@ -33,7 +33,7 @@ if(!chat.includes("getReasoningEffort(candidate.modelId, input.content)"))proble
 const canonicalSchema=fs.readFileSync(path.join(root,"supabase/schema.sql"),"utf8");
 const rateLimitTables=canonicalSchema.match(/create table if not exists public\.rate_limits/g)||[];
 if(rateLimitTables.length!==1)problems.push("Canonical schema must define rate_limits exactly once");
-for(const token of ["create table if not exists public.user_preferences","accent text not null default '#E26F4A'","create table if not exists public.presets","create table if not exists public.artifacts","conversations_preset_id_idx","preset_id uuid references public.presets(id) on delete set null","provider_model text","grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role"])if(!canonicalSchema.includes(token))problems.push("Canonical schema missing "+token);
+for(const token of ["create table if not exists public.user_preferences","accent text not null default '#E26F4A'","create table if not exists public.presets","create table if not exists public.artifacts","conversations_preset_id_idx","preset_id uuid references public.presets(id) on delete set null","provider_model text","grant execute on function public.check_rate_limit(uuid, integer, integer) to service_role","create or replace function public.enforce_document_quota()","pg_advisory_xact_lock(hashtextextended(new.user_id::text, 0))","documents_enforce_quota"])if(!canonicalSchema.includes(token))problems.push("Canonical schema missing "+token);
 const runtimeMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261009_stage3_chat_runtime_columns.sql"),"utf8");
 for(const token of ["add column if not exists status","add column if not exists idempotency_key","add column if not exists model","messages_user_idempotency_key_uidx"])if(!runtimeMigration.includes(token))problems.push("Runtime schema migration missing "+token);
 const providerMetadataMigration=fs.readFileSync(path.join(root,"supabase/migrations/20261023_provider_model_metadata.sql"),"utf8");
