@@ -532,3 +532,10 @@
     transform: none;
   }
 }
+
+.app-shell:has(.chat-page) .composer textarea {
+  scrollbar-width: none;
+}
+.app-shell:has(.chat-page) .composer textarea::-webkit-scrollbar {
+  display: none;
+}
