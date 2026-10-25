@@ -171,8 +171,8 @@ test("response length avoids padding and fabricated specifics", () => {
 
 test("Ozlind identity stays distinct from the configured model provider", () => {
   assert.ok(route.includes("Identify yourself as Ozlind AI, a product of Ozlind Enterprises"));
-  assert.ok(route.includes("Keep the product's creator/owner distinct from the provider"));
-  assert.ok(route.includes("do not invent a founder"));
+  assert.ok(route.includes("Keep the product owner distinct from the provider"));
+  assert.ok(route.includes("do not invent ownership claims"));
 });
 
 test("cultural and historical answers must not invent unsupported details", () => {
