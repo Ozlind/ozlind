@@ -41,6 +41,9 @@ test("chat provides discreet voice input, read-aloud, and opt-in hands-free voic
   assert.match(chatComponent, /function toggleVoiceInput\(\)/);
   assert.match(chatComponent, /SpeechSynthesisUtterance/);
   assert.match(chatComponent, /hasMalayalamText/);
+  assert.match(chatComponent, /maleVoiceByPrefix/);
+  assert.match(chatComponent, /masculine/i);
+  assert.match(chatComponent, /SpeechSynthesisVoice has no standard gender field/);
   assert.match(chatComponent, /Speech playback failed/);
   assert.match(chatComponent, /synthesis\.resume\(\)/);
   assert.match(chatComponent, /Automatically read new replies aloud/);
