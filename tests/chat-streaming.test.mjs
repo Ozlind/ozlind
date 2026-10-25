@@ -118,3 +118,45 @@ test("chat component uses in-place assistant replacement for regeneration", asyn
   assert.match(chat, /appendOrReplaceLatestAssistant/);
   assert.match(chat, /action === "regenerate"/);
 });
+
+
+test("mode chooser uses a static icon and reflects the selected mode", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(chat.includes('name="i-ai-chat"'));
+  assert.ok(!chat.includes('name="sym-processing"'));
+  assert.match(chat, /mode === "auto" ? "Auto" : mode === "fast" ? "Fast" : mode === "vision" ? "Vision" : "Pro"/);
+});
+
+test("web-search loading copy is based on the response's confirmed research status", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(chat.includes('message.research ? "Searching the web…" : "Thinking…"'));
+  assert.ok(!chat.includes('message.research ? "Searching the web…" : researchEnabled ? "Searching the web…"'));
+});
+
+test("chat transcript does not expose provider implementation model labels", async () => {
+  const chat = await readFile(
+    new URL("../src/components/chat/Chat.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(!chat.includes("function modelLabel("));
+  assert.ok(!chat.includes('"Fast model"'));
+  assert.ok(!chat.includes('"Pro model"'));
+  assert.ok(!chat.includes('"Vision model"'));
+});
+
+test("unified design system owns the final mobile composer geometry", async () => {
+  const css = await readFile(
+    new URL("../src/styles/unified-design-system.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(css, /Final mobile chat pass/);
+  assert.match(css, /\.composer-modebar \{[\s\S]*?align-items: center/);
+  assert.match(css, /grid-template-columns: 36px 36px minmax\(0, 1fr\) 40px/);
+  assert.match(css, /\.composer \.send-button \{[\s\S]*?border-radius: 50%/);
+});
