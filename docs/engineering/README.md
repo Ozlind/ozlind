@@ -9,12 +9,15 @@ This folder links the minimum operational system required to build and release O
 
 ## Start here
 
-1. [Architecture boundaries](../architecture/target-architecture.md) — runtime ownership, data flow, and dependency rules.
-2. [Feature delivery workflow](../workflows/feature-delivery.md) — requirements through review and verification.
-3. [Release and rollback](../workflows/release-and-rollback.md) — preview gates, migrations, production rollout, and rollback.
-4. [Incident response](../workflows/incident-response.md) — security, availability, and data-integrity events.
-5. [Verification matrix](../testing/verification-matrix.md) — test commands and what they do not prove.
-6. [Repository structure](../architecture/project-structure.md) — current code map.
+1. [Product charter](../product/product-charter.md) — mission, principles, and completion criteria.
+2. [Architecture boundaries](../architecture/target-architecture.md) — runtime ownership, data flow, and dependency rules.
+3. [AI runtime contract](../architecture/ai-runtime-contract.md) — trust boundaries, streaming, and failure semantics.
+4. [Environment and secrets](../operations/environment-and-secrets.md) — Vercel configuration and credential handling.
+5. [Feature delivery workflow](../workflows/feature-delivery.md) — requirements through review and verification.
+6. [Release and rollback](../workflows/release-and-rollback.md) — preview gates, migrations, production rollout, and rollback.
+7. [Incident response](../workflows/incident-response.md) — security, availability, and data-integrity events.
+8. [Verification matrix](../testing/verification-matrix.md) — test commands and what they do not prove.
+9. [Repository structure](../architecture/project-structure.md) — current code map.
 
 ## Non-negotiable engineering rules
 
