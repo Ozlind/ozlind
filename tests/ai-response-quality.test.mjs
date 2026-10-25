@@ -41,7 +41,9 @@ test("chat provides discreet voice input, read-aloud, and opt-in hands-free voic
   assert.match(chatComponent, /function toggleVoiceInput\(\)/);
   assert.match(chatComponent, /SpeechSynthesisUtterance/);
   assert.match(chatComponent, /Automatically read new replies aloud/);
-  assert.match(chatComponent, /recognition\.continuous = true/);
+  assert.match(chatComponent, /recognition\.continuous = false/);
+  assert.match(chatComponent, /No speech detected\. Tap the microphone and speak clearly/);
+  assert.match(chatComponent, /Browser speech recognition could not reach its speech service/);
   assert.match(chatComponent, /voiceSessionRef/);
   assert.match(chatComponent, /voice-orb-panel/);
   assert.match(chatComponent, /if \(voiceModeRef\.current\)/);
