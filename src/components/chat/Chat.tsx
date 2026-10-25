@@ -119,7 +119,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   const [activePreset, setActivePreset] = useState<ChatPreset | null>(null);
   const [presetSelectionDirty, setPresetSelectionDirty] = useState(false);
   const [clearingPreset, setClearingPreset] = useState(false);
-  const [mode, setMode] = useState<ChatMode>(() => modeForModel(preferences.default_model));
+  const [mode, setMode] = useState<ChatMode>(() =>
+    preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
+    preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto"
+  );
   const [researchEnabled, setResearchEnabled] = useState(preferences.research_enabled);
   const [showModeOptions, setShowModeOptions] = useState(false);
   const [images, setImages] = useState<ChatImage[]>([]);
@@ -161,7 +164,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   useEffect(() => {
     if (activePreset || presetSelectionDirty) return;
     setModel(preferences.default_model);
-    setMode(modeForModel(preferences.default_model));
+    setMode(preferences.default_model === "groq:deepseek-r1-distill-llama-70b" ? "pro" :
+      preferences.default_model === "google:gemini-2.0-flash" ? "vision" : "auto");
   }, [preferences.default_model, activePreset, presetSelectionDirty]);
 
   useEffect(() => {
@@ -1010,6 +1014,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           {showModeOptions && (
             <div id="composer-mode-options" className="composer-mode-options" role="group" aria-label="Choose AI mode">
               {([
+                ["auto", "Auto", "Use the saved default model with automatic provider fallback"],
                 ["fast", "Fast", "Fast responses"],
                 ["vision", "Vision", "Analyze images with Gemini"],
                 ["pro", "Pro", "Use the configured pro model"],
@@ -1020,7 +1025,8 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
                   aria-label={label + ": " + (images.length > 0 && value !== "vision" ? description + ". Attached images use a vision-capable model automatically." : description)}
                   disabled={streaming}
                   onClick={() => { setMode(value); setShowModeOptions(false); }}>
-                  {value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
+                  {value === "auto" ? <OzlindIcon name="i-ai-chat" size={15} /> :
+                   value === "fast" ? <OzlindIcon name="sym-active" size={15} /> :
                    value === "vision" ? <OzlindIcon name="i-image-generator" size={15} /> :
                    <OzlindIcon name="sym-thinking" size={15} />}
                   <span>{label}</span>
