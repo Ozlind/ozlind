@@ -161,6 +161,8 @@ test("unified design system owns the final mobile composer geometry", async () =
   assert.match(css, /\.composer-modebar \{[\s\S]*?align-items: center/);
   assert.match(css, /grid-template-columns: 36px 36px minmax\(0, 1fr\) 40px/);
   assert.match(css, /\.composer \.send-button \{[\s\S]*?border-radius: 50%/);
+  assert.match(css, /Restore the intended capsule composer shape[\s\S]*?border-radius: 999px/);
+  assert.match(css, /composer textarea::-webkit-scrollbar[\s\S]*?display: none/);
 });
 
 
