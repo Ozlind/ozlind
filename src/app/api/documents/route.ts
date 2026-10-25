@@ -109,6 +109,15 @@ export async function POST(request: Request) {
     const document = await ingestDocument(parsed.data);
     return Response.json({ document, requestId }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      error.message === "DOCUMENT_LIMIT_REACHED"
+    ) {
+      return errorResponse("DOCUMENT_LIMIT_REACHED", requestId, 409);
+    }
+
     console.error(JSON.stringify({
       event: "documents.ingest_failed",
       requestId,
