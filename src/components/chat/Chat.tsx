@@ -177,9 +177,12 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   useEffect(() => setId(initialId), [initialId]);
 
+  const skipDraftPersistRef = useRef(false);
+
   // Recover unfinished prompts only in this browser tab; never send drafts to analytics or a server.
   useEffect(() => {
     const key = "ozlind:draft:" + (id ?? "new");
+    skipDraftPersistRef.current = true;
     try {
       const saved = sessionStorage.getItem(key);
       if (saved && !draft) setDraft(saved.slice(0, 20000));
@@ -192,6 +195,10 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
 
   useEffect(() => {
     const key = "ozlind:draft:" + (id ?? "new");
+    if (skipDraftPersistRef.current) {
+      skipDraftPersistRef.current = false;
+      return;
+    }
     try {
       if (draft) sessionStorage.setItem(key, draft.slice(0, 20000));
       else sessionStorage.removeItem(key);
