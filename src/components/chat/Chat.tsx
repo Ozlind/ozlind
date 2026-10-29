@@ -56,6 +56,15 @@ type SpeechRecognitionWindow = Window & {
   webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
 };
 
+const STARTER_PROMPTS = [
+  { label: "Explain simply", prompt: "Explain this topic in simple language, step by step, with an example: " },
+  { label: "Write something", prompt: "Help me write a clear, polished draft for this purpose: " },
+  { label: "Brainstorm ideas", prompt: "Brainstorm several creative, practical ideas for: " },
+  { label: "Debug code", prompt: "Help me debug this code or error. Explain the root cause and safest fix: " },
+  { label: "Research a topic", prompt: "Research this topic, compare reliable sources, and cite the sources you use: " },
+  { label: "Make a plan", prompt: "Create a realistic step-by-step plan for achieving this goal: " },
+] as const;
+
 const PENDING_PRESET_KEY = "ozlind:pending-preset";
 const PRESET_MODELS = [
   "groq:llama-3.3-70b-versatile",
@@ -167,6 +176,56 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
   }, []);
 
   useEffect(() => setId(initialId), [initialId]);
+
+  // Recover unfinished prompts only in this browser tab; never send drafts to analytics or a server.
+  useEffect(() => {
+    const key = "ozlind:draft:" + (id ?? "new");
+    try {
+      const saved = sessionStorage.getItem(key);
+      if (saved && !draft) setDraft(saved.slice(0, 20000));
+    } catch {
+      // Draft recovery is optional when browser storage is unavailable.
+    }
+  // Read a draft only when the conversation changes, not on every keystroke.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    const key = "ozlind:draft:" + (id ?? "new");
+    try {
+      if (draft) sessionStorage.setItem(key, draft.slice(0, 20000));
+      else sessionStorage.removeItem(key);
+    } catch {
+      // The composer remains usable if session storage is disabled.
+    }
+  }, [draft, id]);
+
+  useEffect(() => {
+    const onShortcut = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (streamingRef.current) {
+          event.preventDefault();
+          abortRef.current?.abort();
+          return;
+        }
+        if (speakingRef.current && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          speakingRef.current = false;
+          setSpeakingMessageId(null);
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        if (event.isComposing || event.repeat) return;
+        event.preventDefault();
+        if (streamingRef.current) abortRef.current?.abort();
+        else void send();
+      }
+    };
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  });
 
   useEffect(() => {
     if (activePreset || presetSelectionDirty) return;
@@ -842,6 +901,23 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
               </span>
               <h1>Hi, I’m Ozlind.</h1>
               <p>What would you like to work through today? Ask a question, explore an idea, or get help with a task.</p>
+              <div className="starter-prompts" aria-label="Start with an example">
+                {STARTER_PROMPTS.map((starter) => (
+                  <button
+                    type="button"
+                    key={starter.label}
+                    className="starter-prompt"
+                    onClick={() => {
+                      setDraft(starter.prompt);
+                      textareaRef.current?.focus();
+                    }}
+                    disabled={streaming}
+                  >
+                    <span>{starter.label}</span>
+                    <span aria-hidden="true">↗</span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
@@ -1132,6 +1208,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
           <p id="composer-help" className="composer-keyboard-hint">
             {preferences.enter_to_send ? "Enter to send · Shift + Enter for a new line" : "Shift + Enter for a new line · Tap Send to submit"}
           </p>
+          <p className="composer-shortcut-hint">Ctrl/⌘ + Enter to send · Esc to stop</p>
           {draft.length >= 18000 && (
             <p className="composer-counter" aria-live="polite">{draft.length.toLocaleString()} / 20,000</p>
           )}
