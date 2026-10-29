@@ -76,7 +76,7 @@ function isChatPreset(value: unknown): value is ChatPreset {
 function maleVoiceByPrefix(voices: SpeechSynthesisVoice[], languagePrefix: string): SpeechSynthesisVoice | undefined {
   return voices.find(candidate =>
     candidate.lang.toLowerCase().startsWith(languagePrefix)
-    && /\\bmale\\b|\\bman\\b|masculine/i.test(candidate.name),
+    && /\bmale\b|\bman\b|masculine/i.test(candidate.name),
   );
 }
 
@@ -381,7 +381,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     // SpeechSynthesisVoice has no standard gender field, so this is best-effort only.
     const maleVoice = (language: string) => voices.find(candidate =>
       candidate.lang.toLowerCase() === language.toLowerCase()
-      && /\\bmale\\b|\\bman\\b|masculine/i.test(candidate.name),
+      && /\bmale\b|\bman\b|masculine/i.test(candidate.name),
     );
     const languagePrefix = requestedLanguage.split("-")[0].toLowerCase() + "-";
     const voice = maleVoice(requestedLanguage)
