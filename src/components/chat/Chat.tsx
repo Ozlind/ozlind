@@ -185,7 +185,7 @@ export function Chat({ conversationId: initialId }: { conversationId?: string })
     skipDraftPersistRef.current = true;
     try {
       const saved = sessionStorage.getItem(key);
-      if (saved && !draft) setDraft(saved.slice(0, 20000));
+      setDraft(saved ? saved.slice(0, 20000) : "");
     } catch {
       // Draft recovery is optional when browser storage is unavailable.
     }
