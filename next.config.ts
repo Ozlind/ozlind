@@ -19,7 +19,6 @@ const postHogOrigin = getPostHogOrigin();
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  eslint: { ignoreDuringBuilds: true },
   // Only public Supabase configuration is bundled for browser use.
   // Never add SUPABASE_SECRET_KEY or provider API keys to this object.
   env: {
